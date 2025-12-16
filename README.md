@@ -12,6 +12,9 @@ This project bootstraps a Twilio/OpenAI realtime bridge server. It acts as a mid
 - **Health Checks**: `/health` endpoint for monitoring.
 - **Linting & Formatting**: ESLint and Prettier setup.
 - **Testing**: Jest setup for unit and integration tests.
+- **Persistent Storage**: SQLite database via Prisma for call history, recordings, transcripts, and analytics.
+- **Audio Processing**: Utilities to normalize audio formats (Twilio PCM/mu-law to OpenAI-compatible format).
+- **Call Management**: Complete call lifecycle tracking with metadata, sentiment analysis, and recording storage.
 
 ## Prerequisites
 
@@ -38,8 +41,8 @@ This project bootstraps a Twilio/OpenAI realtime bridge server. It acts as a mid
     TWILIO_AUTH_TOKEN=your_twilio_auth_token
     TWILIO_PHONE_NUMBER=your_twilio_number
     OPENAI_API_KEY=your_openai_key
-    DATABASE_URL=postgres://user:pass@localhost:5432/dbname
-    RECORDING_STORAGE_PATH=/tmp/recordings
+    DATABASE_URL=file:./dev.db
+    RECORDING_STORAGE_PATH=./recordings
     TWILIO_WEBHOOK_SECRET=your_twilio_webhook_secret
     ```
 
@@ -80,9 +83,11 @@ npm start
 ## Project Structure
 
 - `src/config`: Configuration and environment validation.
+- `src/db`: Database client and repositories (Prisma).
 - `src/middleware`: Express middleware (logging, error handling, validation).
 - `src/routes`: API routes.
-- `src/services`: Core logic (Twilio Stream, OpenAI Realtime).
-- `src/utils`: Utility functions (Logger).
+- `src/services`: Core logic (Twilio Stream, OpenAI Realtime, Call Manager, Storage).
+- `src/utils`: Utility functions (Logger, Audio Normalizer).
 - `src/app.ts`: Express application setup.
 - `src/server.ts`: HTTP and WebSocket server entry point.
+- `prisma/`: Database schema and migrations.

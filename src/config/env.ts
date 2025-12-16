@@ -13,7 +13,7 @@ const envSchema = z.object({
   // OpenAI Key
   OPENAI_API_KEY: z.string().min(1, 'OpenAI API Key is required'),
   // DB URL
-  DATABASE_URL: z.string().url('Invalid Database URL'),
+  DATABASE_URL: z.string().min(1, 'Database URL is required'),
   // Recording Storage
   RECORDING_STORAGE_PATH: z.string().min(1, 'Recording storage path is required'),
   // Signing Secrets
