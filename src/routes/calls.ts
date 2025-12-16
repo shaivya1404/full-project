@@ -184,4 +184,39 @@ router.get('/:id/recording', async (req: Request, res: Response, next: NextFunct
   }
 });
 
+// POST /api/calls/:id/notes - Add notes to a call
+router.post('/:id/notes', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    if (!notes || typeof notes !== 'string') {
+      return res.status(400).json({
+        message: 'Notes are required and must be a string',
+        code: 'INVALID_NOTES',
+      } as ErrorResponse);
+    }
+
+    const { callRepository: repo } = getRepositories();
+
+    const existingCall = await repo.getCallById(id);
+    if (!existingCall) {
+      return res.status(404).json({
+        message: 'Call not found',
+        code: 'CALL_NOT_FOUND',
+      } as ErrorResponse);
+    }
+
+    const updatedCall = await repo.updateCall(id, { notes });
+
+    res.status(200).json({
+      message: 'Notes added successfully',
+      data: updatedCall,
+    });
+  } catch (error) {
+    logger.error('Error adding notes to call', error);
+    next(error);
+  }
+});
+
 export default router;

@@ -80,6 +80,54 @@ To start the server in production mode:
 npm start
 ```
 
+## Database Setup
+
+Initialize the database with migrations:
+
+```bash
+npm run db:migrate
+```
+
+Generate Prisma client:
+
+```bash
+npm run db:generate
+```
+
+View database in Prisma Studio:
+
+```bash
+npm run db:studio
+```
+
+## API Endpoints
+
+### Health Check
+- **GET** `/health` - Server health and uptime
+
+### Call Management
+- **GET** `/api/calls` - List all calls with pagination, filtering, and search
+  - Query params: `limit`, `offset`, `caller`, `agent`, `sentiment`, `startDate`, `endDate`
+- **GET** `/api/calls/:id` - Get call details with transcripts, recordings, analytics, and metadata
+- **GET** `/api/calls/:id/recording` - Stream or download call recording
+  - Query param: `download=true` to download as attachment
+- **POST** `/api/calls/:id/notes` - Add notes to a call
+  - Body: `{ "notes": "string" }`
+
+### Analytics
+- **GET** `/api/analytics` - Get call analytics aggregates and time series
+  - Query params: `startDate`, `endDate`, `interval` (hour|day|week)
+
+### Real-time Status
+- **GET** `/api/status` - Server-Sent Events (SSE) for real-time status updates
+
+### Twilio Webhooks
+- **POST** `/twilio/incoming-call` - TwiML response for incoming calls
+- **POST** `/twilio/call-status` - Call status webhook handler
+
+### WebSocket
+- **WS** `/streams` - Media stream endpoint for Twilio audio
+
 ## Project Structure
 
 - `src/config`: Configuration and environment validation.
@@ -91,3 +139,45 @@ npm start
 - `src/app.ts`: Express application setup.
 - `src/server.ts`: HTTP and WebSocket server entry point.
 - `prisma/`: Database schema and migrations.
+
+## Features Implemented
+
+### Database Models
+- **Call**: Main call record with metadata (streamSid, callSid, caller, agent, duration, status, notes)
+- **Recording**: Audio recording files with format/codec information
+- **Transcript**: Call transcripts with speaker, text, confidence, timestamps
+- **Analytics**: Call analytics snapshots (sentiment, talk time, interruptions, latency)
+- **CallMetadata**: Additional metadata (language, region, device, network quality, custom data)
+
+### Audio Processing
+- Twilio uses mu-law encoded PCM at 8kHz
+- OpenAI expects PCM16 at 24kHz
+- Storage format is PCM16 at 16kHz in WAV containers
+- `AudioNormalizer` utility handles all format conversions
+- Base64 encoding/decoding for transmission
+
+### Call Lifecycle
+1. Incoming call receives TwiML response with WebSocket stream URL
+2. WebSocket connection established at `/streams`
+3. Audio streams between Twilio and OpenAI Realtime API
+4. Call data, transcripts, and audio chunks saved to database
+5. Recording generated and stored on call end
+6. Analytics and metadata captured throughout call
+
+### Error Handling
+- Comprehensive error handling with Winston logging
+- Automatic reconnection for OpenAI WebSocket failures (up to 5 retries)
+- Graceful degradation on storage/database failures
+- Consistent error response format across all API endpoints
+
+## Testing
+
+All 109 tests pass with comprehensive coverage:
+- Unit tests for services and utilities
+- Integration tests for API endpoints
+- Mock-based testing for database and external services
+
+Run tests with:
+```bash
+npm test
+```

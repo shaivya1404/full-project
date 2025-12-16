@@ -30,6 +30,7 @@ describe('Calls API', () => {
           endTime: new Date(),
           duration: 300,
           status: 'completed',
+          notes: null,
           createdAt: new Date(),
           updatedAt: new Date(),
           recordings: [],
@@ -187,6 +188,7 @@ describe('Calls API', () => {
         endTime: new Date(),
         duration: 300,
         status: 'completed',
+          notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         recordings: [
@@ -302,6 +304,7 @@ describe('Calls API', () => {
         endTime: new Date(),
         duration: 300,
         status: 'completed',
+          notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         recordings: [

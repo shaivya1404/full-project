@@ -14,6 +14,7 @@ export interface UpdateCallInput {
   endTime?: Date;
   duration?: number;
   status?: string;
+  notes?: string;
 }
 
 export interface CreateRecordingInput {

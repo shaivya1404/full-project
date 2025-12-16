@@ -58,6 +58,7 @@ describe('CallManager', () => {
         endTime: null,
         duration: null,
         status: 'active',
+        notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -86,6 +87,7 @@ describe('CallManager', () => {
         endTime: null,
         duration: null,
         status: 'active',
+        notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -113,6 +115,7 @@ describe('CallManager', () => {
         endTime: null,
         duration: null,
         status: 'active',
+        notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -143,6 +146,7 @@ describe('CallManager', () => {
         endTime: null,
         duration: null,
         status: 'active',
+        notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -168,6 +172,7 @@ describe('CallManager', () => {
         endTime: null,
         duration: null,
         status: 'active',
+        notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -201,6 +206,7 @@ describe('CallManager', () => {
         endTime: null,
         duration: null,
         status: 'active',
+        notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -226,6 +232,7 @@ describe('CallManager', () => {
         endTime: null,
         duration: null,
         status: 'active',
+        notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -262,6 +269,7 @@ describe('CallManager', () => {
         endTime: null,
         duration: null,
         status: 'active',
+        notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -304,6 +312,7 @@ describe('CallManager', () => {
         endTime: null,
         duration: null,
         status: 'active',
+        notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -343,6 +352,7 @@ describe('CallManager', () => {
         endTime: null,
         duration: null,
         status: 'active',
+        notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -366,6 +376,7 @@ describe('CallManager', () => {
         endTime: null,
         duration: null,
         status: 'active',
+        notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -390,6 +401,7 @@ describe('CallManager', () => {
           endTime: null,
           duration: null,
           status: 'active',
+        notes: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -403,6 +415,7 @@ describe('CallManager', () => {
           endTime: null,
           duration: null,
           status: 'active',
+        notes: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
