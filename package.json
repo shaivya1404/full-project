@@ -9,7 +9,12 @@
     "build": "tsc",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write .",
-    "test": "jest"
+    "test": "jest",
+    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio",
+    "db:push": "prisma db push",
+    "db:reset": "prisma migrate reset"
   },
   "repository": {
     "type": "git",
@@ -24,11 +29,13 @@
   },
   "homepage": "https://github.com/shaivya1404/backend#readme",
   "dependencies": {
+    "@prisma/client": "^7.1.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
     "morgan": "^1.10.1",
+    "prisma": "^7.1.0",
     "twilio": "^5.10.7",
     "winston": "^3.19.0",
     "ws": "^8.18.3",

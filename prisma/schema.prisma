@@ -1,0 +1,92 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Call {
+  id               String            @id @default(uuid())
+  streamSid        String            @unique
+  callSid          String?           @unique
+  caller           String
+  agent            String?
+  startTime        DateTime          @default(now())
+  endTime          DateTime?
+  duration         Int?
+  status           String            @default("active")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  recordings       Recording[]
+  transcripts      Transcript[]
+  analytics        Analytics[]
+  metadata         CallMetadata?
+}
+
+model Recording {
+  id               String            @id @default(uuid())
+  callId           String
+  call             Call              @relation(fields: [callId], references: [id], onDelete: Cascade)
+  filePath         String
+  fileUrl          String?
+  format           String            @default("wav")
+  codec            String            @default("pcm")
+  sampleRate       Int               @default(8000)
+  channels         Int               @default(1)
+  duration         Float?
+  sizeBytes        Int?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([callId])
+}
+
+model Transcript {
+  id               String            @id @default(uuid())
+  callId           String
+  call             Call              @relation(fields: [callId], references: [id], onDelete: Cascade)
+  speaker          String
+  text             String
+  confidence       Float?
+  startTime        Float?
+  endTime          Float?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([callId])
+}
+
+model Analytics {
+  id               String            @id @default(uuid())
+  callId           String
+  call             Call              @relation(fields: [callId], references: [id], onDelete: Cascade)
+  sentiment        String?
+  sentimentScore   Float?
+  talkTime         Float?
+  silenceTime      Float?
+  interruptions    Int?
+  averageLatency   Float?
+  metrics          String?
+  snapshotTime     DateTime          @default(now())
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([callId])
+}
+
+model CallMetadata {
+  id               String            @id @default(uuid())
+  callId           String            @unique
+  call             Call              @relation(fields: [callId], references: [id], onDelete: Cascade)
+  language         String?
+  region           String?
+  deviceType       String?
+  networkQuality   String?
+  customData       String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
