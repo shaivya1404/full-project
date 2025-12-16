@@ -1,140 +1,146 @@
-import { DashboardLayout, Card } from '../components';
-import { BarChart3, Users, Settings, TrendingUp } from 'lucide-react';
-
-const StatCard = ({ icon: Icon, label, value, change }: any) => (
-  <Card className="flex items-start space-x-4">
-    <div className="flex-shrink-0">
-      <div className="flex items-center justify-center h-12 w-12 rounded-lg bg-primary/10">
-        <Icon className="text-primary" size={24} />
-      </div>
-    </div>
-    <div className="flex-1">
-      <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">{label}</p>
-      <div className="flex items-end space-x-2">
-        <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-        <p className="text-green-600 text-sm font-medium">{change}</p>
-      </div>
-    </div>
-  </Card>
-);
+import { useState } from 'react';
+import { DashboardLayout, Card, Input, Button } from '../components';
+import { 
+  CallHistoryTable, 
+  CallDetailsPanel, 
+  AnalyticsCards, 
+  AnalyticsChart, 
+  RealTimeWidget 
+} from '../components/dashboard';
+import { useCalls, useCallStats } from '../api/calls';
+import { Call, CallFilter, CallStatus, Sentiment } from '../types';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export const DashboardPage = () => {
+  const [filter, setFilter] = useState<CallFilter>({
+    page: 1,
+    limit: 10,
+    search: '',
+  });
+  
+  const [selectedCall, setSelectedCall] = useState<Call | null>(null);
+
+  const { data: callsData, isLoading: callsLoading } = useCalls(filter);
+  const { data: statsData, isLoading: statsLoading } = useCallStats();
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilter(prev => ({ ...prev, search: e.target.value, page: 1 }));
+  };
+
+  const handleStatusFilter = (status: string) => {
+     setFilter(prev => ({ 
+        ...prev, 
+        status: status === 'all' ? undefined : status as CallStatus, 
+        page: 1 
+     }));
+  };
+
+  const handleSentimentFilter = (sentiment: string) => {
+    setFilter(prev => ({ 
+        ...prev, 
+        sentiment: sentiment === 'all' ? undefined : sentiment as Sentiment, 
+        page: 1 
+     }));
+  };
+
   return (
     <DashboardLayout>
-      <div className="space-y-8">
+      <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Dashboard
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Overview of your application metrics and data
-          </p>
+           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Call Operations</h1>
+           <p className="text-gray-600 dark:text-gray-400">Monitor and manage call center performance</p>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard
-            icon={Users}
-            label="Total Users"
-            value="1,234"
-            change="+12%"
-          />
-          <StatCard
-            icon={BarChart3}
-            label="Revenue"
-            value="$45,231"
-            change="+8%"
-          />
-          <StatCard
-            icon={TrendingUp}
-            label="Growth"
-            value="23.5%"
-            change="+4.5%"
-          />
-          <StatCard
-            icon={Settings}
-            label="Active Sessions"
-            value="342"
-            change="+18%"
-          />
+        {/* Analytics Section */}
+        <AnalyticsCards stats={statsData} isLoading={statsLoading} />
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+           <div className="lg:col-span-2">
+              <AnalyticsChart data={statsData?.callVolumeHistory} isLoading={statsLoading} />
+           </div>
+           <div>
+              <RealTimeWidget />
+           </div>
         </div>
 
-        {/* Charts Placeholder */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Recent Activity
-            </h3>
-            <div className="h-64 flex items-center justify-center bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <p className="text-gray-500 dark:text-gray-400">
-                Chart placeholder - Connect real data via TanStack Query
-              </p>
-            </div>
-          </Card>
-
-          <Card>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Real-time Indicators
-            </h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <span className="text-gray-600 dark:text-gray-400">Call Status</span>
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400">
-                  <span className="w-2 h-2 bg-green-600 rounded-full mr-2 animate-pulse"></span>
-                  Active
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <span className="text-gray-600 dark:text-gray-400">Connection</span>
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400">
-                  <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
-                  Connected
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <span className="text-gray-600 dark:text-gray-400">Status</span>
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400">
-                  <span className="w-2 h-2 bg-yellow-600 rounded-full mr-2 animate-pulse"></span>
-                  Pending
-                </span>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Recent Transactions */}
+        {/* Filters and Table */}
         <Card>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Recent Transactions
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-gray-200 dark:border-gray-700">
-                <tr>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">ID</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Amount</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Status</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[1, 2, 3].map((i) => (
-                  <tr key={i} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td className="py-3 px-4 text-gray-900 dark:text-white">TXN00{i}</td>
-                    <td className="py-3 px-4 text-gray-900 dark:text-white">${(i * 1000).toLocaleString()}</td>
-                    <td className="py-3 px-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400">
-                        Completed
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-gray-600 dark:text-gray-400">Dec {15 + i}, 2024</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-4 justify-between items-center">
+             <div className="relative w-full sm:w-96">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </div>
+                <Input 
+                  placeholder="Search by caller, agent..." 
+                  value={filter.search || ''}
+                  onChange={handleSearch}
+                  className="pl-10"
+                />
+             </div>
+             <div className="flex gap-2 w-full sm:w-auto overflow-x-auto">
+                <select 
+                  className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white outline-none"
+                  onChange={(e) => handleStatusFilter(e.target.value)}
+                  value={filter.status || 'all'}
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                  <option value="missed">Missed</option>
+                </select>
+                
+                 <select 
+                  className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white outline-none"
+                  onChange={(e) => handleSentimentFilter(e.target.value)}
+                  value={filter.sentiment || 'all'}
+                >
+                  <option value="all">All Sentiment</option>
+                  <option value="positive">Positive</option>
+                  <option value="neutral">Neutral</option>
+                  <option value="negative">Negative</option>
+                </select>
+             </div>
           </div>
+          
+          <CallHistoryTable 
+            calls={callsData?.data || []} 
+            isLoading={callsLoading}
+            onSelectCall={setSelectedCall}
+          />
+          
+          {/* Pagination */}
+          {callsData && callsData.total > 0 && (
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+               <span className="text-sm text-gray-700 dark:text-gray-400">
+                  Page {callsData.page} of {Math.ceil(callsData.total / callsData.limit)}
+               </span>
+               <div className="flex gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    disabled={callsData.page === 1}
+                    onClick={() => setFilter(prev => ({ ...prev, page: prev.page - 1 }))}
+                  >
+                    <ChevronLeft size={16} /> Previous
+                  </Button>
+                   <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    disabled={callsData.page * callsData.limit >= callsData.total}
+                    onClick={() => setFilter(prev => ({ ...prev, page: prev.page + 1 }))}
+                  >
+                    Next <ChevronRight size={16} />
+                  </Button>
+               </div>
+            </div>
+          )}
         </Card>
       </div>
+
+      <CallDetailsPanel 
+        call={selectedCall} 
+        onClose={() => setSelectedCall(null)} 
+      />
     </DashboardLayout>
   );
 };
