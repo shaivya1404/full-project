@@ -1,7 +1,8 @@
 import React from 'react';
 import { Card } from '../Card';
-import { CallStats } from '../../types';
+import type { CallStats } from '../../types';
 import { Phone, Clock, Smile, Activity } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import clsx from 'clsx';
 
 interface AnalyticsCardsProps {
@@ -9,7 +10,14 @@ interface AnalyticsCardsProps {
   isLoading: boolean;
 }
 
-const StatCard = ({ icon: Icon, label, value, color }: any) => {
+interface StatCardProps {
+  icon: LucideIcon;
+  label: string;
+  value: string | number;
+  color: 'blue' | 'orange' | 'green' | 'purple';
+}
+
+const StatCard = ({ icon: Icon, label, value, color }: StatCardProps) => {
   const colorStyles = {
     blue: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
     orange: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400',

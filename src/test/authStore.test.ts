@@ -88,11 +88,11 @@ describe('AuthStore', () => {
     const mockUser = { id: '1', username: 'testuser' };
     const mockToken = 'test-jwt-token';
 
-    (Cookies.get as any).mockImplementation((key: string) => {
+    vi.mocked(Cookies.get).mockImplementation(((key: string) => {
       if (key === 'auth_token') return mockToken;
       if (key === 'auth_user') return JSON.stringify(mockUser);
       return undefined;
-    });
+    }) as unknown as () => { [key: string]: string });
 
     const state = useAuthStore.getState();
     state.restoreFromCookie();
@@ -104,11 +104,11 @@ describe('AuthStore', () => {
   });
 
   it('should handle invalid cookie data gracefully', () => {
-    (Cookies.get as any).mockImplementation((key: string) => {
+    vi.mocked(Cookies.get).mockImplementation(((key: string) => {
       if (key === 'auth_token') return 'test-token';
       if (key === 'auth_user') return 'invalid-json';
       return undefined;
-    });
+    }) as unknown as () => { [key: string]: string });
 
     const state = useAuthStore.getState();
     state.restoreFromCookie();

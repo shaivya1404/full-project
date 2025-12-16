@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
+import type { Call, CallFilter, PaginatedResponse, CallStats } from '../types';
 import client from './client';
-import { Call, CallFilter, PaginatedResponse, CallStats } from '../types';
 
 export const useCalls = (filter: CallFilter) => {
   return useQuery({

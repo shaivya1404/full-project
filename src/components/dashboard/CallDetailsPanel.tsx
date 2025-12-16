@@ -1,5 +1,5 @@
 import React from 'react';
-import { Call } from '../../types';
+import type { Call } from '../../types';
 import { Button } from '../Button';
 import { X, User, Phone, Clock, Activity, Calendar } from 'lucide-react';
 import { AudioPlayer } from './AudioPlayer';

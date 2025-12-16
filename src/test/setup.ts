@@ -23,12 +23,35 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 // Mock IntersectionObserver
-(globalThis as any).IntersectionObserver = class IntersectionObserver {
-  constructor() {}
+interface MockIntersectionObserverInit {
+  root?: Element | null;
+  rootMargin?: string;
+  threshold?: number | number[];
+}
+
+interface MockIntersectionObserverEntry {
+  readonly boundingClientRect: DOMRectReadOnly;
+  readonly intersectionRatio: number;
+  readonly intersectionRect: DOMRectReadOnly;
+  readonly isIntersecting: boolean;
+  readonly rootBounds: DOMRectReadOnly | null;
+  readonly target: Element;
+  readonly time: number;
+}
+
+class MockIntersectionObserver {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  constructor(_callback: IntersectionObserverCallback, _options?: MockIntersectionObserverInit) {}
   disconnect() {}
   observe() {}
-  takeRecords() {
+  takeRecords(): MockIntersectionObserverEntry[] {
     return [];
   }
   unobserve() {}
-};
+}
+
+Object.defineProperty(globalThis, 'IntersectionObserver', {
+  writable: true,
+  configurable: true,
+  value: MockIntersectionObserver,
+});
