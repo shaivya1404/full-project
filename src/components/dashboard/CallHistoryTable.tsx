@@ -1,5 +1,5 @@
 import React from 'react';
-import { Call, CallStatus, Sentiment } from '.././../types';
+import type { Call, CallStatus, Sentiment } from '../../types';
 import { Button } from '../Button';
 import clsx from 'clsx';
 

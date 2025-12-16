@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { CallHistoryTable } from '../components/dashboard/CallHistoryTable';
 import { CallDetailsPanel } from '../components/dashboard/CallDetailsPanel';
-import { Call } from '../types';
+import type { Call } from '../types';
 import { vi, describe, it, expect } from 'vitest';
 
 const mockCalls: Call[] = [

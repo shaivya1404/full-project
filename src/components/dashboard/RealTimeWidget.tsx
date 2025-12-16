@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card } from '../Card';
 import { Activity, Wifi, WifiOff } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -38,8 +38,7 @@ export const RealTimeWidget = () => {
       }
     };
 
-    eventSource.onerror = (err) => {
-      // console.warn('SSE Error', err); // Suppress log spam in dev if no server
+    eventSource.onerror = () => {
       setConnected(false);
     };
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { Call, CallFilter, CallStatus, Sentiment } from '../types';
 import { DashboardLayout, Card, Input, Button } from '../components';
 import { 
   CallHistoryTable, 
@@ -8,7 +9,6 @@ import {
   RealTimeWidget 
 } from '../components/dashboard';
 import { useCalls, useCallStats } from '../api/calls';
-import { Call, CallFilter, CallStatus, Sentiment } from '../types';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export const DashboardPage = () => {

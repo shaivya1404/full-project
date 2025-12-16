@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card } from '../Card';
-import { CallStats } from '../../types';
+import type { CallStats } from '../../types';
 
 interface AnalyticsChartProps {
   data?: CallStats['callVolumeHistory'];

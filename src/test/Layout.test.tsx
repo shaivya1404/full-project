@@ -20,9 +20,17 @@ describe('DashboardLayout', () => {
   const queryClient = new QueryClient();
 
   beforeEach(() => {
-    (useAuthStore as any).mockReturnValue({
+    vi.mocked(useAuthStore).mockReturnValue({
       user: { id: '1', username: 'testuser' },
       logout: vi.fn(),
+      isAuthenticated: true,
+      token: 'test-token',
+      isLoading: false,
+      error: null,
+      login: vi.fn(),
+      setError: vi.fn(),
+      setLoading: vi.fn(),
+      restoreFromCookie: vi.fn(),
     });
   });
 
