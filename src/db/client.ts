@@ -5,11 +5,13 @@ let prisma: PrismaClient;
 
 export const getPrismaClient = (): PrismaClient => {
   if (!prisma) {
-    prisma = new PrismaClient({
+    const clientConfig: ConstructorParameters<typeof PrismaClient>[0] = {
       log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-    });
+    };
 
-    prisma.$connect().catch((error) => {
+    prisma = new PrismaClient(clientConfig);
+
+    prisma.$connect().catch((error: Error) => {
       logger.error('Failed to connect to database', error);
       throw error;
     });

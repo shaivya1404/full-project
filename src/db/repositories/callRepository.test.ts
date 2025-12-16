@@ -8,10 +8,12 @@ const mockPrisma = {
     findUnique: jest.fn(),
     findMany: jest.fn(),
     delete: jest.fn(),
+    count: jest.fn(),
   },
   recording: {
     create: jest.fn(),
     findMany: jest.fn(),
+    findUnique: jest.fn(),
   },
   transcript: {
     create: jest.fn(),
@@ -299,6 +301,116 @@ describe('CallRepository', () => {
 
       expect(mockPrisma.call.delete).toHaveBeenCalledWith({
         where: { id: 'call_delete' },
+      });
+    });
+
+    it('should search calls with pagination', async () => {
+      const mockCalls = [
+        {
+          id: 'call_search_1',
+          streamSid: 'stream_search_1',
+          callSid: null,
+          caller: '+1111111111',
+          agent: null,
+          startTime: new Date(),
+          endTime: null,
+          duration: null,
+          status: 'active',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+
+      (mockPrisma.call.findMany as jest.Mock).mockResolvedValue(mockCalls);
+      (mockPrisma.call.count as jest.Mock).mockResolvedValue(1);
+
+      const result = await repository.searchCalls(10, 0, {});
+
+      expect(result.calls).toEqual(mockCalls);
+      expect(result.total).toBe(1);
+    });
+
+    it('should search calls by caller', async () => {
+      const mockCalls: any[] = [];
+
+      (mockPrisma.call.findMany as jest.Mock).mockResolvedValue(mockCalls);
+      (mockPrisma.call.count as jest.Mock).mockResolvedValue(0);
+
+      await repository.searchCalls(10, 0, { caller: '+1234567890' });
+
+      expect(mockPrisma.call.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            caller: { contains: '+1234567890', mode: 'insensitive' },
+          }),
+        }),
+      );
+    });
+
+    it('should search calls by agent', async () => {
+      const mockCalls: any[] = [];
+
+      (mockPrisma.call.findMany as jest.Mock).mockResolvedValue(mockCalls);
+      (mockPrisma.call.count as jest.Mock).mockResolvedValue(0);
+
+      await repository.searchCalls(10, 0, { agent: 'John' });
+
+      expect(mockPrisma.call.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            agent: { contains: 'John', mode: 'insensitive' },
+          }),
+        }),
+      );
+    });
+
+    it('should search calls by date range', async () => {
+      const mockCalls: any[] = [];
+      const startDate = new Date('2024-01-01');
+      const endDate = new Date('2024-01-31');
+
+      (mockPrisma.call.findMany as jest.Mock).mockResolvedValue(mockCalls);
+      (mockPrisma.call.count as jest.Mock).mockResolvedValue(0);
+
+      await repository.searchCalls(10, 0, { startDate, endDate });
+
+      expect(mockPrisma.call.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            createdAt: { gte: startDate, lte: endDate },
+          }),
+        }),
+      );
+    });
+
+    it('should get call with details', async () => {
+      const mockCall = {
+        id: 'call_details',
+        streamSid: 'stream_details',
+        callSid: null,
+        caller: '+1234567890',
+        agent: null,
+        startTime: new Date(),
+        endTime: null,
+        duration: null,
+        status: 'active',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      (mockPrisma.call.findUnique as jest.Mock).mockResolvedValue(mockCall);
+
+      const result = await repository.getCallWithDetails('call_details');
+
+      expect(result).toEqual(mockCall);
+      expect(mockPrisma.call.findUnique).toHaveBeenCalledWith({
+        where: { id: 'call_details' },
+        include: {
+          recordings: true,
+          transcripts: { orderBy: { createdAt: 'asc' } },
+          analytics: { orderBy: { snapshotTime: 'asc' } },
+          metadata: true,
+        },
       });
     });
   });
@@ -592,6 +704,122 @@ describe('CallRepository', () => {
 
       expect(metadata).toEqual(mockMetadata);
       expect(metadata?.language).toBe('en-US');
+    });
+  });
+
+  describe('Analytics aggregate operations', () => {
+    it('should get analytics aggregates', async () => {
+      const mockCalls = [
+        {
+          id: 'call_agg_1',
+          streamSid: 'stream_agg_1',
+          callSid: null,
+          caller: '+1234567890',
+          agent: null,
+          startTime: new Date(),
+          endTime: new Date(),
+          duration: 300,
+          status: 'completed',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          analytics: [
+            {
+              id: 'ana_1',
+              callId: 'call_agg_1',
+              sentiment: 'positive',
+              sentimentScore: 0.8,
+              talkTime: 200,
+              silenceTime: 100,
+              interruptions: 0,
+              averageLatency: 50,
+              metrics: null,
+              snapshotTime: new Date(),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ],
+        },
+      ];
+
+      (mockPrisma.call.findMany as jest.Mock).mockResolvedValue(mockCalls);
+
+      const result = await repository.getAnalyticsAggregate({});
+
+      expect(result.totalCalls).toBe(1);
+      expect(result.averageDuration).toBe(300);
+      expect(result.callsByStatus).toEqual({ completed: 1 });
+      expect(result.sentimentBreakdown).toEqual({ positive: 1 });
+    });
+
+    it('should handle date range in aggregates', async () => {
+      (mockPrisma.call.findMany as jest.Mock).mockResolvedValue([]);
+
+      const startDate = new Date('2024-01-01');
+      const endDate = new Date('2024-01-31');
+      await repository.getAnalyticsAggregate({ startDate, endDate });
+
+      expect(mockPrisma.call.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            createdAt: { gte: startDate, lte: endDate },
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('Analytics timeseries operations', () => {
+    it('should get analytics timeseries by day', async () => {
+      const mockCalls = [
+        {
+          id: 'call_ts_1',
+          streamSid: 'stream_ts_1',
+          callSid: null,
+          caller: '+1234567890',
+          agent: null,
+          startTime: new Date('2024-01-01T10:00:00Z'),
+          endTime: new Date('2024-01-01T10:05:00Z'),
+          duration: 300,
+          status: 'completed',
+          createdAt: new Date('2024-01-01T10:00:00Z'),
+          updatedAt: new Date('2024-01-01T10:05:00Z'),
+        },
+      ];
+
+      (mockPrisma.call.findMany as jest.Mock).mockResolvedValue(mockCalls);
+
+      const result = await repository.getAnalyticsTimeSeries('day', {});
+
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0]).toHaveProperty('timestamp');
+      expect(result[0]).toHaveProperty('callCount');
+      expect(result[0]).toHaveProperty('averageDuration');
+    });
+
+    it('should get recording by id', async () => {
+      const mockRecording = {
+        id: 'rec_by_id',
+        callId: 'call_rec_by_id',
+        filePath: '/recordings/test.wav',
+        fileUrl: null,
+        format: 'wav',
+        codec: 'pcm',
+        sampleRate: 16000,
+        channels: 1,
+        duration: 300,
+        sizeBytes: 9600000,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      (mockPrisma.recording.findUnique as jest.Mock).mockResolvedValue(mockRecording);
+
+      const result = await repository.getRecordingById('rec_by_id');
+
+      expect(result).toEqual(mockRecording);
+      expect(mockPrisma.recording.findUnique).toHaveBeenCalledWith({
+        where: { id: 'rec_by_id' },
+      });
     });
   });
 });

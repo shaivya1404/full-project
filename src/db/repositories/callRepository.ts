@@ -238,4 +238,213 @@ export class CallRepository {
       where: { id },
     });
   }
+
+  async searchCalls(
+    limit: number = 10,
+    offset: number = 0,
+    filters?: {
+      caller?: string;
+      agent?: string;
+      sentiment?: string;
+      startDate?: Date;
+      endDate?: Date;
+    },
+  ): Promise<{ calls: Call[]; total: number }> {
+    const where: Record<string, unknown> = {};
+
+    if (filters?.caller) {
+      where.caller = { contains: filters.caller, mode: 'insensitive' };
+    }
+    if (filters?.agent) {
+      where.agent = { contains: filters.agent, mode: 'insensitive' };
+    }
+    if (filters?.startDate || filters?.endDate) {
+      where.createdAt = {};
+      if (filters?.startDate) {
+        (where.createdAt as Record<string, Date>).gte = filters.startDate;
+      }
+      if (filters?.endDate) {
+        (where.createdAt as Record<string, Date>).lte = filters.endDate;
+      }
+    }
+
+    if (filters?.sentiment) {
+      where.analytics = {
+        some: {
+          sentiment: { equals: filters.sentiment, mode: 'insensitive' },
+        },
+      };
+    }
+
+    const [calls, total] = await Promise.all([
+      this.prisma.call.findMany({
+        where,
+        take: limit,
+        skip: offset,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          recordings: true,
+          transcripts: true,
+          analytics: true,
+          metadata: true,
+        },
+      }),
+      this.prisma.call.count({ where }),
+    ]);
+
+    return { calls, total };
+  }
+
+  async getCallWithDetails(
+    id: string,
+  ): Promise<(Call & {
+    recordings: Recording[];
+    transcripts: Transcript[];
+    analytics: Analytics[];
+    metadata: CallMetadata | null;
+  }) | null> {
+    return this.prisma.call.findUnique({
+      where: { id },
+      include: {
+        recordings: true,
+        transcripts: {
+          orderBy: { createdAt: 'asc' },
+        },
+        analytics: {
+          orderBy: { snapshotTime: 'asc' },
+        },
+        metadata: true,
+      },
+    });
+  }
+
+  async getRecordingById(id: string): Promise<Recording | null> {
+    return this.prisma.recording.findUnique({
+      where: { id },
+    });
+  }
+
+  async getAnalyticsAggregate(filters?: {
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<{
+    totalCalls: number;
+    averageDuration: number | null;
+    callsByStatus: Record<string, number>;
+    sentimentBreakdown: Record<string, number>;
+  }> {
+    const where: Record<string, unknown> = {};
+
+    if (filters?.startDate || filters?.endDate) {
+      where.createdAt = {};
+      if (filters?.startDate) {
+        (where.createdAt as Record<string, Date>).gte = filters.startDate;
+      }
+      if (filters?.endDate) {
+        (where.createdAt as Record<string, Date>).lte = filters.endDate;
+      }
+    }
+
+    const calls = await this.prisma.call.findMany({
+      where,
+      include: {
+        analytics: true,
+      },
+    });
+
+    const totalCalls = calls.length;
+    const validDurations = calls
+      .filter((c) => c.duration !== null && c.duration !== undefined)
+      .map((c) => c.duration || 0);
+    const averageDuration =
+      validDurations.length > 0
+        ? validDurations.reduce((a, b) => a + b, 0) / validDurations.length
+        : null;
+
+    const callsByStatus: Record<string, number> = {};
+    calls.forEach((call) => {
+      callsByStatus[call.status] = (callsByStatus[call.status] || 0) + 1;
+    });
+
+    const sentimentBreakdown: Record<string, number> = {};
+    calls.forEach((call) => {
+      call.analytics.forEach((analytics) => {
+        if (analytics.sentiment) {
+          sentimentBreakdown[analytics.sentiment] =
+            (sentimentBreakdown[analytics.sentiment] || 0) + 1;
+        }
+      });
+    });
+
+    return {
+      totalCalls,
+      averageDuration,
+      callsByStatus,
+      sentimentBreakdown,
+    };
+  }
+
+  async getAnalyticsTimeSeries(
+    interval: 'hour' | 'day' | 'week' = 'day',
+    filters?: {
+      startDate?: Date;
+      endDate?: Date;
+    },
+  ): Promise<Array<{ timestamp: Date; callCount: number; averageDuration: number | null }>> {
+    const where: Record<string, unknown> = {};
+
+    if (filters?.startDate || filters?.endDate) {
+      where.createdAt = {};
+      if (filters?.startDate) {
+        (where.createdAt as Record<string, Date>).gte = filters.startDate;
+      }
+      if (filters?.endDate) {
+        (where.createdAt as Record<string, Date>).lte = filters.endDate;
+      }
+    }
+
+    const calls = await this.prisma.call.findMany({
+      where,
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const grouped: Record<string, Call[]> = {};
+    calls.forEach((call) => {
+      const date = new Date(call.createdAt);
+      let key: string;
+
+      if (interval === 'hour') {
+        key = date.toISOString().slice(0, 13);
+      } else if (interval === 'week') {
+        const startOfWeek = new Date(date);
+        startOfWeek.setDate(date.getDate() - date.getDay());
+        key = startOfWeek.toISOString().slice(0, 10);
+      } else {
+        key = date.toISOString().slice(0, 10);
+      }
+
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      grouped[key].push(call);
+    });
+
+    const timeSeries = Object.entries(grouped).map(([key, groupCalls]) => {
+      const validDurations = groupCalls
+        .filter((c) => c.duration !== null && c.duration !== undefined)
+        .map((c) => c.duration || 0);
+      const averageDuration =
+        validDurations.length > 0
+          ? validDurations.reduce((a, b) => a + b, 0) / validDurations.length
+          : null;
+
+      return {
+        timestamp: new Date(key),
+        callCount: groupCalls.length,
+        averageDuration,
+      };
+    });
+
+    return timeSeries;
+  }
 }
