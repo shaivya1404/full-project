@@ -19,6 +19,7 @@ model Call {
   endTime          DateTime?
   duration         Int?
   status           String            @default("active")
+  notes            String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   recordings       Recording[]

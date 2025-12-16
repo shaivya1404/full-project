@@ -7,6 +7,7 @@ import healthRoutes from './routes/health';
 import callsRoutes from './routes/calls';
 import analyticsRoutes from './routes/analytics';
 import statusRoutes from './routes/status';
+import twilioRoutes from './routes/twilio';
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use('/health', healthRoutes);
 app.use('/api/calls', callsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/status', statusRoutes);
+app.use('/twilio', twilioRoutes);
 
 app.use(errorHandler);
 

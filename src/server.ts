@@ -6,14 +6,11 @@ import { logger } from './utils/logger';
 import { TwilioStreamService } from './services/twilioStream';
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, path: '/streams' });
 
-wss.on('connection', (ws, _req) => {
-  logger.info('New WebSocket connection');
+wss.on('connection', (ws, req) => {
+  logger.info('New WebSocket connection', { path: req.url });
 
-  // Basic path check to ensure it's the media stream
-  // Twilio streams usually connect to a specific path defined in TwiML
-  // We can assume it's /streams for now or just handle all connections
   const twilioStream = new TwilioStreamService(ws);
   twilioStream.handleConnection();
 });
