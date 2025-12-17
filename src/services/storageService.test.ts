@@ -200,7 +200,9 @@ describe('StorageService', () => {
     });
 
     it('should throw error when appending to non-existent file', async () => {
-      await expect(service.appendToRecording('/nonexistent/file.wav', Buffer.alloc(100))).rejects.toThrow();
+      await expect(
+        service.appendToRecording('/nonexistent/file.wav', Buffer.alloc(100)),
+      ).rejects.toThrow();
     });
   });
 });

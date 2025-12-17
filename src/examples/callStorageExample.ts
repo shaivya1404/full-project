@@ -22,7 +22,14 @@ export async function demonstrateCallStorage() {
 
   await callManager.addAudioChunk(streamSid, base64Audio);
 
-  await callManager.addTranscript(streamSid, 'caller', 'Hello, I need help with my account', 0.95, 0.0, 2.5);
+  await callManager.addTranscript(
+    streamSid,
+    'caller',
+    'Hello, I need help with my account',
+    0.95,
+    0.0,
+    2.5,
+  );
   await callManager.addTranscript(
     streamSid,
     'agent',

@@ -7,6 +7,7 @@ This guide explains how to set up and use the call storage system.
 ### 1. Install Dependencies
 
 The following dependencies are already installed:
+
 - `prisma` - Prisma CLI
 - `@prisma/client` - Prisma Client for database access
 
@@ -20,6 +21,7 @@ RECORDING_STORAGE_PATH=./recordings
 ```
 
 For production, you might use:
+
 ```env
 DATABASE_URL=file:./production.db
 RECORDING_STORAGE_PATH=/var/recordings
@@ -32,6 +34,7 @@ npm run db:migrate
 ```
 
 This will:
+
 - Create the SQLite database file
 - Apply all migrations
 - Generate the Prisma Client
@@ -54,9 +57,9 @@ import { CallManager } from './services/callManager';
 const callManager = new CallManager();
 
 const call = await callManager.startCall(
-  'stream_sid_123',  // Twilio stream SID
-  '+1234567890',      // Caller phone number
-  'call_sid_123'      // Optional: Twilio call SID
+  'stream_sid_123', // Twilio stream SID
+  '+1234567890', // Caller phone number
+  'call_sid_123', // Optional: Twilio call SID
 );
 ```
 
@@ -69,6 +72,7 @@ await callManager.addAudioChunk(streamSid, base64Audio);
 ```
 
 The audio will be automatically:
+
 1. Decoded from base64
 2. Converted from mu-law to PCM16
 3. Resampled to 16kHz for storage
@@ -79,11 +83,11 @@ The audio will be automatically:
 ```typescript
 await callManager.addTranscript(
   streamSid,
-  'caller',                          // Speaker: 'caller', 'agent', etc.
-  'Hello, how can I help you?',     // Transcript text
-  0.95,                              // Confidence (0.0 - 1.0)
-  0.0,                               // Start time in seconds
-  2.5                                // End time in seconds
+  'caller', // Speaker: 'caller', 'agent', etc.
+  'Hello, how can I help you?', // Transcript text
+  0.95, // Confidence (0.0 - 1.0)
+  0.0, // Start time in seconds
+  2.5, // End time in seconds
 );
 ```
 
@@ -91,16 +95,17 @@ await callManager.addTranscript(
 
 ```typescript
 await callManager.addAnalytics(streamSid, {
-  sentiment: 'positive',            // 'positive', 'neutral', 'negative'
-  sentimentScore: 0.8,              // Score (0.0 - 1.0)
-  talkTime: 120.5,                  // Talk time in seconds
-  silenceTime: 5.5,                 // Silence time in seconds
-  interruptions: 2,                 // Number of interruptions
-  averageLatency: 250.5,            // Average latency in milliseconds
-  metrics: {                        // Custom metrics as JSON
+  sentiment: 'positive', // 'positive', 'neutral', 'negative'
+  sentimentScore: 0.8, // Score (0.0 - 1.0)
+  talkTime: 120.5, // Talk time in seconds
+  silenceTime: 5.5, // Silence time in seconds
+  interruptions: 2, // Number of interruptions
+  averageLatency: 250.5, // Average latency in milliseconds
+  metrics: {
+    // Custom metrics as JSON
     wordsPerMinute: 150,
-    pauseCount: 3
-  }
+    pauseCount: 3,
+  },
 });
 ```
 
@@ -114,8 +119,8 @@ await callManager.setMetadata(streamSid, {
   networkQuality: 'excellent',
   customData: {
     campaignId: 'campaign_123',
-    customerId: 'customer_456'
-  }
+    customerId: 'customer_456',
+  },
 });
 ```
 
@@ -126,6 +131,7 @@ await callManager.endCall(streamSid);
 ```
 
 This will:
+
 1. Update call status to 'completed'
 2. Calculate and store call duration
 3. Save accumulated audio chunks as a WAV file
@@ -190,6 +196,7 @@ const resampled = AudioNormalizer.resample(buffer, fromRate, toRate);
 ## Database Schema
 
 ### Call
+
 - `id` - UUID
 - `streamSid` - Twilio stream SID (unique)
 - `callSid` - Twilio call SID (unique, optional)
@@ -201,6 +208,7 @@ const resampled = AudioNormalizer.resample(buffer, fromRate, toRate);
 - `status` - Call status (default: 'active')
 
 ### Recording
+
 - `id` - UUID
 - `callId` - Foreign key to Call
 - `filePath` - File system path to recording
@@ -213,6 +221,7 @@ const resampled = AudioNormalizer.resample(buffer, fromRate, toRate);
 - `sizeBytes` - File size in bytes (optional)
 
 ### Transcript
+
 - `id` - UUID
 - `callId` - Foreign key to Call
 - `speaker` - Speaker identifier
@@ -222,6 +231,7 @@ const resampled = AudioNormalizer.resample(buffer, fromRate, toRate);
 - `endTime` - End time in seconds (optional)
 
 ### Analytics
+
 - `id` - UUID
 - `callId` - Foreign key to Call
 - `sentiment` - Sentiment classification (optional)
@@ -234,6 +244,7 @@ const resampled = AudioNormalizer.resample(buffer, fromRate, toRate);
 - `snapshotTime` - Time of snapshot
 
 ### CallMetadata
+
 - `id` - UUID
 - `callId` - Foreign key to Call (unique)
 - `language` - Language code (optional)
@@ -245,12 +256,14 @@ const resampled = AudioNormalizer.resample(buffer, fromRate, toRate);
 ## Testing
 
 Unit tests are provided for:
+
 - Audio normalization utilities
 - Database repositories
 - Storage service
 - Call manager service
 
 Run tests with:
+
 ```bash
 npm test
 ```
@@ -271,6 +284,7 @@ npm test
 ### Database Connection Issues
 
 If you see database connection errors:
+
 ```bash
 npm run db:generate
 ```
@@ -278,6 +292,7 @@ npm run db:generate
 ### Migration Conflicts
 
 If migrations are out of sync:
+
 ```bash
 npm run db:reset
 ```
@@ -287,6 +302,7 @@ npm run db:reset
 ### Storage Directory Issues
 
 Ensure the recording storage directory exists and has write permissions:
+
 ```bash
 mkdir -p ./recordings
 chmod 755 ./recordings
@@ -295,6 +311,7 @@ chmod 755 ./recordings
 ### Test Failures
 
 Clear test artifacts:
+
 ```bash
 rm -rf /tmp/test-recordings/*
 ```

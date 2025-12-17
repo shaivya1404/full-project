@@ -166,9 +166,7 @@ describe('Calls API', () => {
     });
 
     it('should handle repository errors', async () => {
-      mockCallRepository.prototype.searchCalls.mockRejectedValue(
-        new Error('Database error'),
-      );
+      mockCallRepository.prototype.searchCalls.mockRejectedValue(new Error('Database error'));
 
       const res = await request(app).get('/api/calls');
 
@@ -188,7 +186,7 @@ describe('Calls API', () => {
         endTime: new Date(),
         duration: 300,
         status: 'completed',
-          notes: null,
+        notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         recordings: [
@@ -304,7 +302,7 @@ describe('Calls API', () => {
         endTime: new Date(),
         duration: 300,
         status: 'completed',
-          notes: null,
+        notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         recordings: [

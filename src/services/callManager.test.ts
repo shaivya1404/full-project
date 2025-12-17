@@ -93,7 +93,11 @@ describe('CallManager', () => {
       };
 
       mockRepository.createCall.mockResolvedValue(mockCall);
-      mockRepository.getCallById.mockResolvedValue({ ...mockCall, callSid: 'call_123', agent: 'Agent Smith' });
+      mockRepository.getCallById.mockResolvedValue({
+        ...mockCall,
+        callSid: 'call_123',
+        agent: 'Agent Smith',
+      });
 
       await manager.startCall('stream_123', '+1234567890');
       await manager.updateCall('stream_123', 'call_123', 'Agent Smith');
@@ -154,7 +158,7 @@ describe('CallManager', () => {
       mockRepository.createCall.mockResolvedValue(mockCall);
 
       await manager.startCall('stream_123', '+1234567890');
-      
+
       const base64Audio = Buffer.alloc(80).toString('base64');
       await manager.addAudioChunk('stream_123', base64Audio);
 
@@ -185,10 +189,10 @@ describe('CallManager', () => {
       });
 
       await manager.startCall('stream_123', '+1234567890');
-      
+
       const base64Audio = Buffer.alloc(80).toString('base64');
       await manager.addAudioChunk('stream_123', base64Audio);
-      
+
       await manager.endCall('stream_123');
 
       expect(mockStorage.saveRecording).toHaveBeenCalled();
@@ -296,7 +300,9 @@ describe('CallManager', () => {
     });
 
     it('should handle analytics for non-existent call', async () => {
-      await expect(manager.addAnalytics('nonexistent', { sentiment: 'neutral' })).resolves.not.toThrow();
+      await expect(
+        manager.addAnalytics('nonexistent', { sentiment: 'neutral' }),
+      ).resolves.not.toThrow();
     });
   });
 
@@ -336,7 +342,9 @@ describe('CallManager', () => {
     });
 
     it('should handle metadata for non-existent call', async () => {
-      await expect(manager.setMetadata('nonexistent', { language: 'en-US' })).resolves.not.toThrow();
+      await expect(
+        manager.setMetadata('nonexistent', { language: 'en-US' }),
+      ).resolves.not.toThrow();
     });
   });
 
@@ -401,7 +409,7 @@ describe('CallManager', () => {
           endTime: null,
           duration: null,
           status: 'active',
-        notes: null,
+          notes: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -415,7 +423,7 @@ describe('CallManager', () => {
           endTime: null,
           duration: null,
           status: 'active',
-        notes: null,
+          notes: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         },

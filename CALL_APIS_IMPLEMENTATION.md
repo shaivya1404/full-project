@@ -9,9 +9,11 @@ The implementation exposes comprehensive Call APIs with pagination, search, filt
 ## Endpoints
 
 ### 1. List Calls with Pagination and Filters
+
 **Endpoint:** `GET /api/calls`
 
 **Query Parameters:**
+
 - `limit` (number, default: 10, max: 100) - Number of calls to return
 - `offset` (number, default: 0) - Number of calls to skip
 - `caller` (string, optional) - Filter by caller phone number (case-insensitive partial match)
@@ -21,6 +23,7 @@ The implementation exposes comprehensive Call APIs with pagination, search, filt
 - `endDate` (ISO 8601 string, optional) - Filter calls created before this date
 
 **Response:**
+
 ```json
 {
   "data": [
@@ -50,12 +53,15 @@ The implementation exposes comprehensive Call APIs with pagination, search, filt
 ```
 
 **Error Handling:**
+
 - Returns 500 if database error occurs
 
 ### 2. Get Call Details
+
 **Endpoint:** `GET /api/calls/:id`
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -115,16 +121,20 @@ The implementation exposes comprehensive Call APIs with pagination, search, filt
 ```
 
 **Error Handling:**
+
 - Returns 404 if call not found
 - Returns 500 if database error occurs
 
 ### 3. Stream/Download Recording
+
 **Endpoint:** `GET /api/calls/:id/recording`
 
 **Query Parameters:**
+
 - `download` (boolean, default: false) - If true, sets Content-Disposition header for download
 
 **Response:**
+
 - 200: Audio file stream (Content-Type: audio/wav)
 - Headers:
   - `Content-Type`: audio/wav
@@ -133,20 +143,24 @@ The implementation exposes comprehensive Call APIs with pagination, search, filt
   - `Content-Disposition` (if download=true): attachment; filename="recording-{callId}.wav"
 
 **Error Handling:**
+
 - Returns 404 if call not found
 - Returns 404 if no recordings exist for this call
 - Returns 404 if recording file not found on storage
 - Returns 500 if stream error occurs
 
 ### 4. Analytics - Aggregates and Timeseries
+
 **Endpoint:** `GET /api/analytics`
 
 **Query Parameters:**
+
 - `interval` (string, default: 'day') - Timeseries interval: 'hour', 'day', or 'week'
 - `startDate` (ISO 8601 string, optional) - Filter data from this date
 - `endDate` (ISO 8601 string, optional) - Filter data until this date
 
 **Response:**
+
 ```json
 {
   "data": {
@@ -176,31 +190,36 @@ The implementation exposes comprehensive Call APIs with pagination, search, filt
 ```
 
 **Error Handling:**
+
 - Returns 400 if invalid interval is provided
 - Returns 500 if database error occurs
 
 ### 5. Real-time Status Updates (SSE)
+
 **Endpoint:** `GET /api/status`
 
 **Protocol:** Server-Sent Events (text/event-stream)
 
 **Initial Message:**
+
 ```json
-{"type":"connected","message":"Connected to status updates"}
+{ "type": "connected", "message": "Connected to status updates" }
 ```
 
 **Status Update Messages:**
+
 ```json
 {
   "type": "call_started|call_ended|recording_saved|error",
   "callId": "string|undefined",
   "streamSid": "string|undefined",
-  "data": {"key": "value"},
+  "data": { "key": "value" },
   "timestamp": "ISO 8601"
 }
 ```
 
 **Features:**
+
 - Maintains queue of up to 100 recent messages for new clients
 - Sends keepalive ping every 30 seconds
 - Automatically cleans up disconnected clients
@@ -241,6 +260,7 @@ The implementation exposes comprehensive Call APIs with pagination, search, filt
 All endpoints follow a consistent response pattern:
 
 **Success Response:**
+
 ```json
 {
   "data": {...},
@@ -249,6 +269,7 @@ All endpoints follow a consistent response pattern:
 ```
 
 **Error Response:**
+
 ```json
 {
   "message": "Human-readable error message",
@@ -312,6 +333,7 @@ All endpoints follow a consistent response pattern:
 Comprehensive test coverage includes:
 
 ### CallRepository Tests
+
 - CRUD operations for all models
 - Search with filters
 - Pagination
@@ -319,6 +341,7 @@ Comprehensive test coverage includes:
 - Time-series generation
 
 ### Calls API Tests
+
 - List with pagination
 - Pagination limits
 - Search by caller, agent, sentiment
@@ -328,6 +351,7 @@ Comprehensive test coverage includes:
 - Error handling
 
 ### Analytics API Tests
+
 - Aggregate calculation
 - Time-series generation
 - Interval support (hour, day, week)
@@ -336,6 +360,7 @@ Comprehensive test coverage includes:
 - Error scenarios
 
 ### Status API Tests
+
 - Message queuing
 - Broadcast functionality
 - All status types
@@ -344,37 +369,44 @@ Comprehensive test coverage includes:
 ## Usage Examples
 
 ### List recent calls
+
 ```bash
 curl "http://localhost:3000/api/calls?limit=10&offset=0"
 ```
 
 ### Search calls by agent
+
 ```bash
 curl "http://localhost:3000/api/calls?agent=John&limit=20"
 ```
 
 ### Get call details
+
 ```bash
 curl "http://localhost:3000/api/calls/{callId}"
 ```
 
 ### Download recording
+
 ```bash
 curl "http://localhost:3000/api/calls/{callId}/recording?download=true" \
   -o recording.wav
 ```
 
 ### Stream recording
+
 ```bash
 curl "http://localhost:3000/api/calls/{callId}/recording" | ffmpeg -i pipe: output.wav
 ```
 
 ### Get analytics
+
 ```bash
 curl "http://localhost:3000/api/analytics?interval=day&startDate=2024-01-01&endDate=2024-01-31"
 ```
 
 ### Listen for real-time updates
+
 ```bash
 curl -N "http://localhost:3000/api/status"
 ```
@@ -382,11 +414,13 @@ curl -N "http://localhost:3000/api/status"
 ## Configuration
 
 ### Environment Variables
+
 - `RECORDING_STORAGE_PATH`: Directory where recordings are stored
 - `DATABASE_URL`: SQLite database connection string
 - `NODE_ENV`: development, test, or production
 
 ### Prisma Configuration
+
 - Schema defined in `prisma/schema.prisma`
 - Migrations in `prisma/migrations/`
 - Client generation via `npm run db:generate`

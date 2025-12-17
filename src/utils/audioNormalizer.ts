@@ -101,7 +101,7 @@ export class AudioNormalizer {
 
     let exponent = 7;
     for (let exp = 0; exp < 8; exp++) {
-      if (sample <= (MULAW_MAX >> (7 - exp))) {
+      if (sample <= MULAW_MAX >> (7 - exp)) {
         exponent = exp;
         break;
       }
@@ -158,7 +158,12 @@ export class AudioNormalizer {
     return outputBuffer;
   }
 
-  static createWavHeader(dataLength: number, sampleRate: number, channels: number, bitDepth: number): Buffer {
+  static createWavHeader(
+    dataLength: number,
+    sampleRate: number,
+    channels: number,
+    bitDepth: number,
+  ): Buffer {
     const header = Buffer.alloc(44);
     const byteRate = (sampleRate * channels * bitDepth) / 8;
     const blockAlign = (channels * bitDepth) / 8;

@@ -61,6 +61,7 @@ npm run db:generate
 ```
 
 This will:
+
 - Create the SQLite database at `./dev.db`
 - Apply all migrations
 - Generate Prisma client
@@ -117,6 +118,7 @@ curl http://localhost:3000/health
 ```
 
 You should see:
+
 ```json
 {
   "status": "ok",
@@ -127,6 +129,7 @@ You should see:
 ### 2. Make a Test Call
 
 Call your Twilio phone number. The system should:
+
 1. Answer the call
 2. Establish a WebSocket connection
 3. Stream audio to OpenAI Realtime API
@@ -136,16 +139,19 @@ Call your Twilio phone number. The system should:
 ### 3. View Call Records
 
 List all calls:
+
 ```bash
 curl http://localhost:3000/api/calls
 ```
 
 Get specific call details:
+
 ```bash
 curl http://localhost:3000/api/calls/{call-id}
 ```
 
 Download recording:
+
 ```bash
 curl http://localhost:3000/api/calls/{call-id}/recording?download=true -o recording.wav
 ```
@@ -242,6 +248,7 @@ npm run db:reset
 If you encounter database errors:
 
 1. Delete the database file:
+
    ```bash
    rm dev.db dev.db-journal
    ```
@@ -305,6 +312,7 @@ For production deployment:
 ## Support
 
 For issues or questions:
+
 1. Check the main README.md for detailed documentation
 2. Review the IMPLEMENTATION_SUMMARY.md for architecture details
 3. Check logs in the console (development) or log files (production)

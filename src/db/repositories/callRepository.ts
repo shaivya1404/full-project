@@ -11,6 +11,7 @@ export interface CreateCallInput {
 export interface UpdateCallInput {
   callSid?: string;
   agent?: string;
+  startTime?: Date;
   endTime?: Date;
   duration?: number;
   status?: string;
@@ -296,14 +297,15 @@ export class CallRepository {
     return { calls, total };
   }
 
-  async getCallWithDetails(
-    id: string,
-  ): Promise<(Call & {
-    recordings: Recording[];
-    transcripts: Transcript[];
-    analytics: Analytics[];
-    metadata: CallMetadata | null;
-  }) | null> {
+  async getCallWithDetails(id: string): Promise<
+    | (Call & {
+        recordings: Recording[];
+        transcripts: Transcript[];
+        analytics: Analytics[];
+        metadata: CallMetadata | null;
+      })
+    | null
+  > {
     return this.prisma.call.findUnique({
       where: { id },
       include: {
@@ -325,10 +327,7 @@ export class CallRepository {
     });
   }
 
-  async getAnalyticsAggregate(filters?: {
-    startDate?: Date;
-    endDate?: Date;
-  }): Promise<{
+  async getAnalyticsAggregate(filters?: { startDate?: Date; endDate?: Date }): Promise<{
     totalCalls: number;
     averageDuration: number | null;
     callsByStatus: Record<string, number>;
