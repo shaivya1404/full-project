@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Call } from '../../types';
 import { Button } from '../Button';
-import { X, User, Phone, Clock, Activity, Calendar } from 'lucide-react';
+import { X, User, Phone, Clock, Activity, Calendar, FileText } from 'lucide-react';
 import { AudioPlayer } from './AudioPlayer';
 import { downloadRecording } from '../../api/calls';
+import { useAddNotes } from '../../api/hooks';
 import clsx from 'clsx';
+import toast from 'react-hot-toast';
 
 interface CallDetailsPanelProps {
   call: Call | null;
@@ -12,12 +14,36 @@ interface CallDetailsPanelProps {
 }
 
 export const CallDetailsPanel: React.FC<CallDetailsPanelProps> = ({ call, onClose }) => {
+  const [notes, setNotes] = useState('');
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const { mutate: addNotes, isPending: isAddingNotes } = useAddNotes();
+
   if (!call) return null;
 
   const handleDownload = () => {
     if (call.id) {
         downloadRecording(call.id);
     }
+  };
+
+  const handleAddNotes = () => {
+    if (!notes.trim()) {
+      toast.error('Notes cannot be empty');
+      return;
+    }
+    addNotes(
+      { callId: call.id, notes },
+      {
+        onSuccess: () => {
+          toast.success('Notes added successfully');
+          setNotes('');
+          setIsEditingNotes(false);
+        },
+        onError: (error) => {
+          toast.error('Failed to add notes: ' + (error.message || 'Unknown error'));
+        },
+      }
+    );
   };
 
   const formatDuration = (seconds: number) => {
@@ -114,11 +140,67 @@ export const CallDetailsPanel: React.FC<CallDetailsPanelProps> = ({ call, onClos
           {/* Transcript */}
           <div className="space-y-3 flex-1 flex flex-col min-h-0">
              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Transcript</h3>
-             <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-xl text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed border border-gray-100 dark:border-gray-700">
+             <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-xl text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed border border-gray-100 dark:border-gray-700 overflow-y-auto">
                {call.transcript || <span className="text-gray-400 italic">No transcript available for this call.</span>}
              </div>
           </div>
-          
+
+          {/* Notes Section */}
+          <div className="space-y-3">
+             <div className="flex items-center justify-between">
+               <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                 <FileText size={20} className="text-primary" />
+                 Notes
+               </h3>
+               {!isEditingNotes && (
+                 <Button
+                   size="sm"
+                   variant="secondary"
+                   onClick={() => setIsEditingNotes(true)}
+                 >
+                   Add Note
+                 </Button>
+               )}
+             </div>
+
+             {isEditingNotes ? (
+               <div className="space-y-3">
+                 <textarea
+                   value={notes}
+                   onChange={(e) => setNotes(e.target.value)}
+                   placeholder="Add a note about this call..."
+                   className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white resize-none"
+                   rows={4}
+                   disabled={isAddingNotes}
+                 />
+                 <div className="flex gap-2">
+                   <Button
+                     size="sm"
+                     onClick={handleAddNotes}
+                     isLoading={isAddingNotes}
+                   >
+                     Save Note
+                   </Button>
+                   <Button
+                     size="sm"
+                     variant="ghost"
+                     onClick={() => {
+                       setIsEditingNotes(false);
+                       setNotes('');
+                     }}
+                     disabled={isAddingNotes}
+                   >
+                     Cancel
+                   </Button>
+                 </div>
+               </div>
+             ) : (
+               <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg text-gray-700 dark:text-gray-300 min-h-20 border border-gray-100 dark:border-gray-700">
+                 <span className="text-gray-400 italic">No notes yet. Click "Add Note" to get started.</span>
+               </div>
+             )}
+          </div>
+
           <div className="pt-4 border-t dark:border-gray-700">
             <Button variant="ghost" fullWidth onClick={onClose}>Close Panel</Button>
           </div>

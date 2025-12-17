@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
 import {
   LoginPage,
   DashboardPage,
@@ -9,6 +10,8 @@ import {
 import { ProtectedRoute } from '../components';
 
 export const AppRouter = () => {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
   return (
     <Router>
       <Routes>
@@ -50,8 +53,8 @@ export const AppRouter = () => {
           }
         />
 
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />} />
+        <Route path="*" element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />} />
       </Routes>
     </Router>
   );

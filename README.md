@@ -52,37 +52,51 @@ A modern, fully-featured React + TypeScript dashboard application with authentic
 ```
 src/
 ├── api/
-│   ├── client.ts       # Axios instance with interceptors
-│   └── hooks.ts        # TanStack Query hooks for API calls
-├── components/         # Reusable UI components
-│   ├── Button.tsx
-│   ├── Input.tsx
-│   ├── Card.tsx
-│   ├── Sidebar.tsx
-│   ├── TopBar.tsx
-│   ├── ProtectedRoute.tsx
-│   ├── DashboardLayout.tsx
-│   ├── ToastProvider.tsx
+│   ├── client.ts           # Axios instance with interceptors
+│   ├── calls.ts            # TanStack Query hooks for calls
+│   └── hooks.ts            # TanStack Query hooks (auth, users, etc.)
+├── services/
+│   └── api.ts              # Direct API service functions (optional)
+├── components/
+│   ├── Button.tsx          # Button component with variants
+│   ├── Input.tsx           # Form input component
+│   ├── Card.tsx            # Container component
+│   ├── Sidebar.tsx         # Navigation sidebar
+│   ├── TopBar.tsx          # Header with user menu
+│   ├── ProtectedRoute.tsx  # Auth-protected route wrapper
+│   ├── DashboardLayout.tsx # Layout wrapper
+│   ├── ToastProvider.tsx   # Toast notifications provider
+│   ├── dashboard/          # Dashboard-specific components
+│   │   ├── CallHistoryTable.tsx    # Calls table
+│   │   ├── CallDetailsPanel.tsx    # Call details sidebar
+│   │   ├── AudioPlayer.tsx         # Audio player
+│   │   ├── AnalyticsCards.tsx      # Stats cards
+│   │   ├── AnalyticsChart.tsx      # Chart visualization
+│   │   ├── RealTimeWidget.tsx      # Real-time status
+│   │   └── index.ts
 │   └── index.ts
-├── pages/              # Page components
-│   ├── Login.tsx
-│   ├── Dashboard.tsx
-│   ├── Users.tsx
-│   ├── Analytics.tsx
-│   ├── Settings.tsx
+├── pages/
+│   ├── Login.tsx           # Login page
+│   ├── Dashboard.tsx       # Main dashboard with calls
+│   ├── Analytics.tsx       # Analytics dashboard
+│   ├── Users.tsx           # User management
+│   ├── Settings.tsx        # Settings page
 │   └── index.ts
 ├── router/
-│   └── index.tsx       # Route definitions
+│   └── index.tsx           # Route definitions
 ├── store/
-│   └── authStore.ts    # Zustand auth store
-├── test/               # Test files
+│   └── authStore.ts        # Zustand auth store
+├── types/
+│   └── index.ts            # TypeScript type definitions
+├── test/
 │   ├── setup.ts
 │   ├── authStore.test.ts
 │   ├── ProtectedRoute.test.tsx
 │   ├── Layout.test.tsx
 │   ├── Button.test.tsx
 │   ├── Input.test.tsx
-│   └── LoginFlow.test.tsx
+│   ├── LoginFlow.test.tsx
+│   └── CallOps.test.tsx
 ├── App.tsx
 ├── main.tsx
 └── index.css
@@ -116,7 +130,7 @@ npm run test:ui
 ## Authentication Flow
 
 1. User navigates to `/login`
-2. Enters username and password
+2. Enters email and password
 3. Credentials are sent to backend API (`POST /api/auth/login`)
 4. Backend returns JWT token and user data
 5. Token is stored securely in HTTP-only cookies
@@ -126,38 +140,111 @@ npm run test:ui
 
 ## API Integration
 
-The application uses a flexible API client setup:
+The application uses a comprehensive API client with TanStack Query for data management:
 
+### API Client Architecture
+
+**Files:**
+- `src/api/client.ts` - Axios instance with request/response interceptors
+- `src/api/hooks.ts` - TanStack Query hooks for all API operations
+- `src/services/api.ts` - Service functions for direct API calls
+
+### Authentication
+
+Using TanStack Query hooks:
 ```typescript
-// Using the API hooks
 const { mutate: login, isPending } = useLogin();
 
 login(
-  { username, password },
+  { email, password },
   {
     onSuccess: (data) => {
-      // Handle successful login
+      toast.success('Login successful!');
+      navigate('/dashboard');
     },
     onError: (error) => {
-      // Handle error
+      toast.error(error.message || 'Login failed');
     },
   }
 );
 ```
 
-### Expected Backend API Endpoints
+### Call History & Details
 
+```typescript
+// Get paginated call history with filters
+const { data: callsData, isLoading } = useCalls({
+  page: 1,
+  limit: 10,
+  search: 'search term',
+  status: 'completed',
+  sentiment: 'positive'
+});
+
+// Get specific call details
+const { data: call, isLoading } = useCall('call-id-123');
+
+// Download recording
+await downloadRecording('call-id-123');
+
+// Add notes to call
+const { mutate: addNotes } = useAddNotes();
+addNotes({ callId: 'call-id-123', notes: 'Customer complaint about service' });
+
+// Search calls
+const { data: results } = useSearchCalls('search query');
 ```
-POST   /api/auth/login          # Login endpoint
-POST   /api/auth/logout         # Logout endpoint
-GET    /api/users               # Get users list
-GET    /api/user/:id            # Get user details
+
+### Analytics
+
+```typescript
+// Get call statistics and trends
+const { data: stats, isLoading } = useCallStats();
+// Returns: totalCalls, avgDuration, sentimentScore, activeCalls, callVolumeHistory
+
+// Get detailed analytics
+const { data: analytics } = useQuery({
+  queryKey: ['analytics/summary'],
+  queryFn: async () => {
+    const response = await client.get('/analytics/summary');
+    return response.data;
+  }
+});
+```
+
+### Backend API Endpoints
+
+**Authentication:**
+```
+POST   /api/auth/login          # { email, password } -> { user, token }
+POST   /api/auth/logout         # No body required
+```
+
+**Calls:**
+```
+GET    /api/calls               # Query params: page, limit, search, status, sentiment
+GET    /api/calls/:callId       # Get specific call details
+GET    /api/calls/:callId/recording  # Download call recording (returns blob)
+GET    /api/calls/search?q=...  # Search calls by query
+POST   /api/calls/:callId/notes # { notes: string } - Add notes to call
+```
+
+**Analytics:**
+```
+GET    /api/analytics/summary   # Get overall analytics
+GET    /api/analytics/calls     # Get call statistics
+```
+
+**Users:**
+```
+GET    /api/users               # Get all users
+GET    /api/users/:id           # Get specific user details
 ```
 
 ## Demo Credentials
 
 For testing purposes, the login form displays demo credentials:
-- **Username**: demo
+- **Email**: demo@example.com
 - **Password**: demo123
 
 These should be updated or removed in production.
@@ -191,13 +278,59 @@ The project includes comprehensive tests for:
 - ✅ Layout components (sidebar, top bar, dashboard)
 - ✅ UI components (Button, Input)
 - ✅ Login flow (form validation, submission)
+- ✅ Call operations (call history, details, analytics)
 
-Run tests:
+### Running Tests
+
 ```bash
-npm test                 # Run all tests
-npm test -- --watch     # Watch mode
-npm run test:ui         # Interactive UI
+npm test                 # Run all tests once
+npm test -- --watch     # Watch mode for development
+npm run test:ui         # Interactive UI for test exploration
 ```
+
+### Test Checklist for API Integration
+
+To verify the API integration is working correctly:
+
+1. **Authentication**
+   - [ ] Login with demo credentials (demo@example.com / demo123)
+   - [ ] Token is stored in cookies
+   - [ ] User is redirected to dashboard
+   - [ ] Logout clears token and redirects to login
+   - [ ] Accessing protected routes without auth redirects to login
+
+2. **Call History**
+   - [ ] Dashboard loads call history from API
+   - [ ] Pagination controls work (prev/next buttons)
+   - [ ] Search functionality filters calls
+   - [ ] Status filter (active/completed/missed) works
+   - [ ] Sentiment filter (positive/neutral/negative) works
+   - [ ] Clicking a call row opens the details panel
+
+3. **Call Details**
+   - [ ] Call metadata displays correctly (caller, agent, duration, etc.)
+   - [ ] Full transcript displays with proper formatting
+   - [ ] Audio player loads and plays recording
+   - [ ] Download button downloads the recording file
+   - [ ] Notes section allows adding new notes
+   - [ ] Notes are saved to the backend
+
+4. **Analytics**
+   - [ ] Key metrics display (Total Calls, Avg Duration, Sentiment Score, Active Calls)
+   - [ ] Call volume chart renders historical data
+   - [ ] Sentiment distribution shows percentages
+   - [ ] Call trends section displays peak hours and growth
+
+5. **Error Handling**
+   - [ ] Network errors display user-friendly error messages
+   - [ ] 404 errors for missing calls are handled gracefully
+   - [ ] Unauthorized (401) responses trigger automatic logout
+   - [ ] Toast notifications appear for success/error actions
+
+6. **Loading States**
+   - [ ] Loading spinners display while fetching data
+   - [ ] Skeleton loaders show in tables during load
+   - [ ] Disabled states on buttons during API calls
 
 ## Environment Variables
 

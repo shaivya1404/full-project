@@ -11,6 +11,7 @@ export interface Call {
   sentiment: Sentiment;
   transcript?: string;
   recordingUrl?: string;
+  notes?: string;
 }
 
 export interface CallStats {
