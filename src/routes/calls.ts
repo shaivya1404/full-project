@@ -72,6 +72,30 @@ const getCallFilters = (req: Request): CallFilters => {
   return filters;
 };
 
+// GET /api/calls/search - Search calls by various criteria
+router.get('/search', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { limit, offset } = getPaginationParams(req);
+    const filters = getCallFilters(req);
+    const { callRepository: repo } = getRepositories();
+
+    const { calls, total } = await repo.searchCalls(limit, offset, filters);
+
+    res.status(200).json({
+      data: calls,
+      pagination: {
+        total,
+        limit,
+        offset,
+        hasMore: offset + limit < total,
+      },
+    });
+  } catch (error) {
+    logger.error('Error searching calls', error);
+    next(error);
+  }
+});
+
 // GET /api/calls - List calls with pagination, search, and filters
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -180,6 +204,45 @@ router.get('/:id/recording', async (req: Request, res: Response, next: NextFunct
     });
   } catch (error) {
     logger.error('Error handling recording request', error);
+    next(error);
+  }
+});
+
+// GET /api/calls/:id/transcript - Get detailed transcript
+router.get('/:id/transcript', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { callRepository: repo } = getRepositories();
+
+    const call = await repo.getCallWithDetails(id);
+    if (!call) {
+      return res.status(404).json({
+        message: 'Call not found',
+        code: 'CALL_NOT_FOUND',
+      } as ErrorResponse);
+    }
+
+    const transcripts = call.transcripts.map((t) => ({
+      id: t.id,
+      speaker: t.speaker,
+      text: t.text,
+      confidence: t.confidence,
+      startTime: t.startTime,
+      endTime: t.endTime,
+      timestamp: t.createdAt,
+    }));
+
+    res.status(200).json({
+      data: {
+        callId: call.id,
+        callStartTime: call.startTime,
+        callEndTime: call.endTime,
+        transcripts,
+        totalSegments: transcripts.length,
+      },
+    });
+  } catch (error) {
+    logger.error('Error fetching transcript', error);
     next(error);
   }
 });

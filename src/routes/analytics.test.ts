@@ -197,7 +197,9 @@ describe('Analytics API', () => {
       const res = await request(app).get('/api/analytics');
 
       expect(res.status).toBe(200);
-      expect(res.body.data.aggregates.sentimentBreakdown).toEqual(mockAggregates.sentimentBreakdown);
+      expect(res.body.data.aggregates.sentimentBreakdown).toEqual(
+        mockAggregates.sentimentBreakdown,
+      );
     });
 
     it('should return zero values when no calls exist', async () => {

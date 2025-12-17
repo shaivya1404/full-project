@@ -4,9 +4,12 @@ import cors from 'cors';
 import { requestLogger } from './middleware/requestLogger';
 import { errorHandler } from './middleware/errorHandler';
 import healthRoutes from './routes/health';
+import authRoutes from './routes/auth';
 import callsRoutes from './routes/calls';
+import recordingsRoutes from './routes/recordings';
 import analyticsRoutes from './routes/analytics';
 import statusRoutes from './routes/status';
+import testRoutes from './routes/test';
 import twilioRoutes from './routes/twilio';
 
 const app = express();
@@ -20,9 +23,12 @@ app.use(requestLogger);
 
 // Routes
 app.use('/health', healthRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/calls', callsRoutes);
+app.use('/api/recordings', recordingsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/status', statusRoutes);
+app.use('/api/test', testRoutes);
 app.use('/twilio', twilioRoutes);
 
 app.use(errorHandler);

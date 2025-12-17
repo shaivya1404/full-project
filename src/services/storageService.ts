@@ -67,7 +67,7 @@ export class StorageService {
   async appendToRecording(filePath: string, audioData: Buffer): Promise<void> {
     try {
       const existingData = await promisify(fs.readFile)(filePath);
-      
+
       let dataToAppend = audioData;
       if (this.isWavFile(existingData)) {
         const existingPCM = AudioNormalizer.extractPCMFromWav(existingData);

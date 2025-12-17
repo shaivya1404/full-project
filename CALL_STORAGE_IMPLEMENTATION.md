@@ -26,33 +26,43 @@ The call storage system provides persistent storage for call history, audio reco
 ### Models
 
 #### Call
+
 Primary entity representing a phone call.
+
 - Tracks call lifecycle (start, end, duration, status)
 - Links to recordings, transcripts, analytics, and metadata
 - Indexed by streamSid and callSid for quick lookups
 
 #### Recording
+
 Stores information about audio recordings.
+
 - References call
 - Stores file path and metadata (format, codec, sample rate, size)
 - Supports cloud URLs for remote storage
 
 #### Transcript
+
 Stores transcribed text from calls.
+
 - References call
 - Includes speaker identification
 - Tracks confidence scores and timestamps
 - Ordered by creation time
 
 #### Analytics
+
 Stores analytics snapshots during/after calls.
+
 - References call
 - Tracks sentiment, talk time, silence, interruptions, latency
 - Supports custom metrics via JSON field
 - Multiple snapshots per call for temporal analysis
 
 #### CallMetadata
+
 Stores additional call metadata.
+
 - One-to-one relationship with call
 - Tracks language, region, device type, network quality
 - Supports custom data via JSON field
@@ -60,6 +70,7 @@ Stores additional call metadata.
 ## Audio Processing Pipeline
 
 ### Input: Twilio Stream
+
 - Format: mu-law (G.711)
 - Sample Rate: 8000 Hz
 - Encoding: Base64
@@ -69,11 +80,13 @@ Stores additional call metadata.
 ### Conversion Process
 
 1. **Base64 Decoding**
+
    ```
    Base64 String → Raw mu-law Buffer
    ```
 
 2. **Mu-law Decoding**
+
    ```
    Mu-law Buffer → PCM16 Buffer (16-bit linear)
    ```
@@ -89,6 +102,7 @@ Stores additional call metadata.
 ### Output Formats
 
 #### For OpenAI Realtime API
+
 - Format: PCM16
 - Sample Rate: 24000 Hz
 - Encoding: Base64
@@ -96,6 +110,7 @@ Stores additional call metadata.
 - Bit Depth: 16-bit
 
 #### For Storage
+
 - Format: WAV (RIFF)
 - Sample Rate: 16000 Hz
 - Codec: PCM16
@@ -105,14 +120,17 @@ Stores additional call metadata.
 ## Call Lifecycle
 
 ### 1. Call Start
+
 ```typescript
 const call = await callManager.startCall(streamSid, caller, callSid);
 ```
+
 - Creates Call record in database
 - Initializes in-memory session
 - Sets status to "active"
 
 ### 2. During Call
+
 ```typescript
 // Add audio chunks
 await callManager.addAudioChunk(streamSid, base64Audio);
@@ -126,14 +144,17 @@ await callManager.addAnalytics(streamSid, { sentiment, sentimentScore, ... });
 // Set/update metadata
 await callManager.setMetadata(streamSid, { language, region, ... });
 ```
+
 - Audio chunks accumulated in memory
 - Transcripts/analytics persisted immediately
 - Metadata can be updated during call
 
 ### 3. Call End
+
 ```typescript
 await callManager.endCall(streamSid);
 ```
+
 - Updates call status to "completed"
 - Calculates and stores duration
 - Combines audio chunks into single WAV file
@@ -144,6 +165,7 @@ await callManager.endCall(streamSid);
 ## Repository Pattern
 
 All database operations go through the repository layer for:
+
 - Type safety
 - Consistent error handling
 - Testability (mockable)
@@ -152,6 +174,7 @@ All database operations go through the repository layer for:
 ### Key Methods
 
 **Call Operations:**
+
 - `createCall()` - Create new call record
 - `updateCall()` - Update call details
 - `getCallById()` - Retrieve call by ID
@@ -159,24 +182,29 @@ All database operations go through the repository layer for:
 - `getAllCalls()` - List calls with pagination
 
 **Recording Operations:**
+
 - `createRecording()` - Store recording metadata
 - `getRecordingsByCallId()` - Get all recordings for a call
 
 **Transcript Operations:**
+
 - `createTranscript()` - Store transcript entry
 - `getTranscriptsByCallId()` - Get all transcripts for a call
 
 **Analytics Operations:**
+
 - `createAnalytics()` - Store analytics snapshot
 - `getAnalyticsByCallId()` - Get all analytics for a call
 
 **Metadata Operations:**
+
 - `createOrUpdateMetadata()` - Create or update call metadata
 - `getMetadataByCallId()` - Get metadata for a call
 
 ## File Storage
 
 ### Directory Structure
+
 ```
 recordings/
 ├── {streamSid}_{timestamp}.wav
@@ -185,6 +213,7 @@ recordings/
 ```
 
 ### Storage Service Features
+
 - Automatic WAV header generation
 - File existence checking
 - Atomic writes
@@ -223,6 +252,7 @@ recordings/
    - Integration with repository and storage
 
 ### Test Coverage
+
 - All public methods tested
 - Edge cases covered
 - Error conditions handled
@@ -231,16 +261,19 @@ recordings/
 ## Performance Considerations
 
 ### Memory Management
+
 - Audio chunks buffered in memory during active call
 - Memory released when call ends
 - Recommended to limit maximum call duration to prevent memory issues
 
 ### Database
+
 - Indexes on frequently queried fields (streamSid, callSid)
 - Cascading deletes for related records
 - Pagination for large result sets
 
 ### File System
+
 - Asynchronous I/O for all file operations
 - Atomic writes to prevent corruption
 - Configurable storage path
@@ -248,11 +281,13 @@ recordings/
 ## Error Handling
 
 ### Graceful Degradation
+
 - Logging of all errors
 - Non-blocking operations where possible
 - Warnings for missing/invalid data
 
 ### Error Types
+
 - Database connection errors
 - File system errors
 - Audio format errors
@@ -261,6 +296,7 @@ recordings/
 ## Future Enhancements
 
 ### Potential Improvements
+
 1. **Cloud Storage Integration**
    - S3/GCS/Azure Blob support
    - Automatic upload after call completion
@@ -291,6 +327,7 @@ recordings/
 ## Security Considerations
 
 ### Data Protection
+
 - Recordings contain sensitive audio data
 - Database contains PII (phone numbers)
 - Implement encryption at rest
@@ -298,6 +335,7 @@ recordings/
 - Audit logging
 
 ### Best Practices
+
 - Validate all inputs
 - Sanitize file paths
 - Use parameterized queries (Prisma handles this)
@@ -307,18 +345,21 @@ recordings/
 ## Deployment
 
 ### Prerequisites
+
 - Node.js 14+
 - Write access to database location
 - Write access to recordings directory
 - Sufficient disk space
 
 ### Environment Setup
+
 1. Set DATABASE_URL
 2. Set RECORDING_STORAGE_PATH
 3. Run migrations: `npm run db:migrate`
 4. Generate Prisma client: `npm run db:generate`
 
 ### Production Checklist
+
 - [ ] Database backups configured
 - [ ] Storage monitoring enabled
 - [ ] Error logging configured
@@ -330,6 +371,7 @@ recordings/
 ## Monitoring
 
 ### Key Metrics
+
 - Active calls count
 - Recording file sizes
 - Database size
@@ -338,6 +380,7 @@ recordings/
 - Error rates
 
 ### Logging
+
 - All operations logged via Winston
 - Structured JSON logs in production
 - Log levels: error, warn, info, debug
@@ -345,6 +388,7 @@ recordings/
 ## Maintenance
 
 ### Regular Tasks
+
 1. Monitor disk space
 2. Review error logs
 3. Clean up old recordings (if retention policy)
@@ -353,6 +397,7 @@ recordings/
 6. Update dependencies
 
 ### Database Migrations
+
 ```bash
 # Create new migration
 npm run db:migrate

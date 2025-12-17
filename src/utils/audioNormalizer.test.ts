@@ -1,4 +1,9 @@
-import { AudioNormalizer, TWILIO_AUDIO_FORMAT, OPENAI_AUDIO_FORMAT, STORAGE_AUDIO_FORMAT } from './audioNormalizer';
+import {
+  AudioNormalizer,
+  TWILIO_AUDIO_FORMAT,
+  OPENAI_AUDIO_FORMAT,
+  STORAGE_AUDIO_FORMAT,
+} from './audioNormalizer';
 
 describe('AudioNormalizer', () => {
   describe('Base64 encoding/decoding', () => {

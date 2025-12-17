@@ -10,6 +10,7 @@
     "lint": "eslint . --ext .ts",
     "format": "prettier --write .",
     "test": "jest",
+    "seed": "ts-node src/scripts/seed.ts",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
