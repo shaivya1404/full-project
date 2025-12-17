@@ -5,7 +5,8 @@ import { useAuthStore } from '../store/authStore';
 import type { User } from '../store/authStore';
 
 export interface LoginRequest {
-  username: string;
+  email?: string;
+  username?: string;
   password: string;
 }
 
@@ -55,5 +56,27 @@ export const useFetchUsers = (options?: UseQueryOptions<User[]>) => {
       return response.data;
     },
     ...options,
+  });
+};
+
+// Add notes to a call
+export const useAddNotes = () => {
+  return useMutation({
+    mutationFn: async ({ callId, notes }: { callId: string; notes: string }) => {
+      const response = await client.post(`/calls/${callId}/notes`, { notes });
+      return response.data;
+    },
+  });
+};
+
+// Search calls
+export const useSearchCalls = (query: string) => {
+  return useQuery({
+    queryKey: ['calls', 'search', query],
+    queryFn: async () => {
+      const response = await client.get(`/calls/search?q=${encodeURIComponent(query)}`);
+      return response.data;
+    },
+    enabled: !!query,
   });
 };

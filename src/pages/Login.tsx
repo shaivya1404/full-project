@@ -8,9 +8,9 @@ import { LogIn } from 'lucide-react';
 export const LoginPage = () => {
   const navigate = useNavigate();
   const { mutate: login, isPending } = useLogin();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<{ username?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +18,7 @@ export const LoginPage = () => {
 
     // Validation
     const newErrors: typeof errors = {};
-    if (!username) newErrors.username = 'Username is required';
+    if (!email) newErrors.email = 'Email is required';
     if (!password) newErrors.password = 'Password is required';
 
     if (Object.keys(newErrors).length > 0) {
@@ -27,7 +27,7 @@ export const LoginPage = () => {
     }
 
     login(
-      { username, password },
+      { email, password },
       {
         onSuccess: () => {
           toast.success('Login successful!');
@@ -59,12 +59,12 @@ export const LoginPage = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Username"
-            type="text"
-            placeholder="Enter your username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            error={errors.username}
+            label="Email"
+            type="email"
+            placeholder="Enter your email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            error={errors.email}
             disabled={isPending}
           />
 
@@ -91,7 +91,7 @@ export const LoginPage = () => {
           <p className="text-sm text-gray-600 dark:text-gray-400">
             <strong>Demo credentials:</strong>
             <br />
-            Username: demo
+            Email: demo@example.com
             <br />
             Password: demo123
           </p>

@@ -1,15 +1,29 @@
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useLogout } from '../api/hooks';
 import { Bell, LogOut, User } from 'lucide-react';
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 
 export const TopBar = () => {
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const { mutate: performLogout } = useLogout();
   const [showMenu, setShowMenu] = useState(false);
 
   const handleLogout = () => {
-    performLogout();
+    performLogout(undefined, {
+      onSuccess: () => {
+        toast.success('Logged out successfully');
+        navigate('/login');
+      },
+      onError: (error) => {
+        console.error('Logout error:', error);
+        // Even if the logout API call fails, clear local state and redirect
+        useAuthStore.getState().logout();
+        navigate('/login');
+      },
+    });
   };
 
   return (
