@@ -107,6 +107,7 @@ model Campaign {
   updatedAt        DateTime          @updatedAt
   contacts         Contact[]
   callLogs         CallLog[]
+  analytics        CampaignAnalytics?
 }
 
 model Contact {
@@ -134,6 +135,45 @@ model CallLog {
   result           String            @default("pending")
   recordingUrl     String?
   transcript       String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model FAQ {
+  id               String            @id @default(uuid())
+  question         String            @unique
+  frequency        Int               @default(1)
+  topic            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model UnansweredQuestion {
+  id               String            @id @default(uuid())
+  question         String            @unique
+  frequency        Int               @default(1)
+  lastAsked        DateTime          @default(now())
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model TopicAnalytics {
+  id               String            @id @default(uuid())
+  topic            String            @unique
+  callCount        Int               @default(0)
+  sentiment        Float?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model CampaignAnalytics {
+  id               String            @id @default(uuid())
+  campaignId       String            @unique
+  campaign         Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  successRate      Float             @default(0)
+  roi              Float             @default(0)
+  cost             Float             @default(0)
+  revenue          Float             @default(0)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 }

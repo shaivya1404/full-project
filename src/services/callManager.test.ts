@@ -1,15 +1,18 @@
 import { CallManager } from './callManager';
 import { CallRepository } from '../db/repositories/callRepository';
 import { StorageService } from './storageService';
+import { AnalyticsService } from './analyticsService';
 import { Call } from '@prisma/client';
 
 jest.mock('../db/repositories/callRepository');
 jest.mock('./storageService');
+jest.mock('./analyticsService');
 
 describe('CallManager', () => {
   let manager: CallManager;
   let mockRepository: jest.Mocked<CallRepository>;
   let mockStorage: jest.Mocked<StorageService>;
+  let mockAnalyticsService: jest.Mocked<AnalyticsService>;
 
   beforeEach(() => {
     mockRepository = {
@@ -28,6 +31,7 @@ describe('CallManager', () => {
       createOrUpdateMetadata: jest.fn(),
       getMetadataByCallId: jest.fn(),
       deleteCall: jest.fn(),
+      getCallWithDetails: jest.fn(),
     } as any;
 
     mockStorage = {
@@ -40,8 +44,21 @@ describe('CallManager', () => {
       deleteFile: jest.fn(),
     } as any;
 
+    mockAnalyticsService = {
+      processAllTranscripts: jest.fn(),
+      analyzeTranscripts: jest.fn(),
+      updateAllCampaignAnalytics: jest.fn(),
+      getTopFAQs: jest.fn(),
+      getTopUnansweredQuestions: jest.fn(),
+      getTopicBreakdown: jest.fn(),
+      getCampaignPerformance: jest.fn(),
+      getAnalyticsSummary: jest.fn(),
+      generateCSVReport: jest.fn(),
+    } as any;
+
     (CallRepository as jest.Mock).mockImplementation(() => mockRepository);
     (StorageService as jest.Mock).mockImplementation(() => mockStorage);
+    (AnalyticsService as jest.Mock).mockImplementation(() => mockAnalyticsService);
 
     manager = new CallManager();
   });
@@ -125,11 +142,19 @@ describe('CallManager', () => {
       };
 
       mockRepository.createCall.mockResolvedValue(mockCall);
+      mockRepository.getCallWithDetails.mockResolvedValue({
+        ...mockCall,
+        recordings: [],
+        transcripts: [{ speaker: 'user', text: 'Hello?' }],
+        analytics: [],
+        metadata: null,
+      } as any);
 
       await manager.startCall('stream_123', '+1234567890');
       await manager.endCall('stream_123');
 
       expect(mockRepository.updateCall).toHaveBeenCalled();
+      expect(mockAnalyticsService.analyzeTranscripts).toHaveBeenCalled();
       expect(manager.isCallActive('stream_123')).toBe(false);
     });
 
@@ -182,6 +207,13 @@ describe('CallManager', () => {
       };
 
       mockRepository.createCall.mockResolvedValue(mockCall);
+      mockRepository.getCallWithDetails.mockResolvedValue({
+        ...mockCall,
+        recordings: [],
+        transcripts: [],
+        analytics: [],
+        metadata: null,
+      } as any);
       mockStorage.saveRecording.mockResolvedValue({
         filePath: '/recordings/test.wav',
         sizeBytes: 1000,
@@ -216,6 +248,13 @@ describe('CallManager', () => {
       };
 
       mockRepository.createCall.mockResolvedValue(mockCall);
+      mockRepository.getCallWithDetails.mockResolvedValue({
+        ...mockCall,
+        recordings: [],
+        transcripts: [],
+        analytics: [],
+        metadata: null,
+      } as any);
 
       await manager.startCall('stream_123', '+1234567890');
       await manager.endCall('stream_123');
