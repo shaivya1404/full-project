@@ -33,6 +33,7 @@ describe('Calls API', () => {
           notes: null,
           createdAt: new Date(),
           updatedAt: new Date(),
+          teamId: null,
           recordings: [],
           transcripts: [],
           analytics: [],
@@ -189,6 +190,7 @@ describe('Calls API', () => {
         notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
+          teamId: null,
         recordings: [
           {
             id: 'rec-1',
@@ -203,6 +205,7 @@ describe('Calls API', () => {
             sizeBytes: 9600000,
             createdAt: new Date(),
             updatedAt: new Date(),
+          teamId: null,
           },
         ],
         transcripts: [
@@ -216,6 +219,7 @@ describe('Calls API', () => {
             endTime: 1,
             createdAt: new Date(),
             updatedAt: new Date(),
+          teamId: null,
           },
         ],
         analytics: [
@@ -232,6 +236,7 @@ describe('Calls API', () => {
             snapshotTime: new Date(),
             createdAt: new Date(),
             updatedAt: new Date(),
+          teamId: null,
           },
         ],
         metadata: {
@@ -244,6 +249,7 @@ describe('Calls API', () => {
           customData: null,
           createdAt: new Date(),
           updatedAt: new Date(),
+          teamId: null,
         },
       };
 
@@ -305,6 +311,7 @@ describe('Calls API', () => {
         notes: null,
         createdAt: new Date(),
         updatedAt: new Date(),
+          teamId: null,
         recordings: [
           {
             id: 'rec-1',
@@ -319,6 +326,7 @@ describe('Calls API', () => {
             sizeBytes: 9600000,
             createdAt: new Date(),
             updatedAt: new Date(),
+          teamId: null,
           },
         ],
         transcripts: [],

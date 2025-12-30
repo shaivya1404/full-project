@@ -5,6 +5,8 @@ import { requestLogger } from './middleware/requestLogger';
 import { errorHandler } from './middleware/errorHandler';
 import healthRoutes from './routes/health';
 import authRoutes from './routes/auth';
+import apiKeysRoutes from './routes/apiKeys';
+import teamsRoutes from './routes/teams';
 import callsRoutes from './routes/calls';
 import recordingsRoutes from './routes/recordings';
 import analyticsRoutes from './routes/analytics';
@@ -26,6 +28,8 @@ app.use(requestLogger);
 // Routes
 app.use('/health', healthRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api', apiKeysRoutes);
+app.use('/api/teams', teamsRoutes);
 app.use('/api/calls', callsRoutes);
 app.use('/api/recordings', recordingsRoutes);
 app.use('/api/analytics', analyticsRoutes);
