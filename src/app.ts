@@ -11,6 +11,8 @@ import analyticsRoutes from './routes/analytics';
 import statusRoutes from './routes/status';
 import testRoutes from './routes/test';
 import twilioRoutes from './routes/twilio';
+import contactsRoutes from './routes/contacts';
+import campaignsRoutes from './routes/campaigns';
 
 const app = express();
 
@@ -30,6 +32,8 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/status', statusRoutes);
 app.use('/api/test', testRoutes);
 app.use('/twilio', twilioRoutes);
+app.use('/api/contacts', contactsRoutes);
+app.use('/api/campaigns', campaignsRoutes);
 
 app.use(errorHandler);
 

@@ -92,3 +92,48 @@ model CallMetadata {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 }
+
+model Campaign {
+  id               String            @id @default(uuid())
+  name             String
+  description      String?
+  status           String            @default("draft")
+  script           String
+  startDate        DateTime?
+  endDate          DateTime?
+  dailyLimit       Int               @default(100)
+  retryAttempts    Int               @default(3)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  contacts         Contact[]
+  callLogs         CallLog[]
+}
+
+model Contact {
+  id               String            @id @default(uuid())
+  campaignId       String?
+  campaign         Campaign?         @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  phone            String
+  name             String?
+  email            String?
+  isValid          Boolean           @default(false)
+  isDoNotCall      Boolean           @default(false)
+  validationError  String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  callLogs         CallLog[]
+}
+
+model CallLog {
+  id               String            @id @default(uuid())
+  campaignId       String
+  campaign         Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contactId        String
+  contact          Contact           @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  duration         Int?
+  result           String            @default("pending")
+  recordingUrl     String?
+  transcript       String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
