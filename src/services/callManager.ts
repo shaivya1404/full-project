@@ -1,6 +1,7 @@
 import { Call } from '@prisma/client';
 import { CallRepository } from '../db/repositories/callRepository';
 import { StorageService } from './storageService';
+import { AnalyticsService } from './analyticsService';
 import { AudioNormalizer } from '../utils/audioNormalizer';
 import { logger } from '../utils/logger';
 
@@ -12,11 +13,13 @@ export interface CallSession {
 export class CallManager {
   private repository: CallRepository;
   private storage: StorageService;
+  private analyticsService: AnalyticsService;
   private activeCalls: Map<string, CallSession>;
 
   constructor() {
     this.repository = new CallRepository();
     this.storage = new StorageService();
+    this.analyticsService = new AnalyticsService();
     this.activeCalls = new Map();
   }
 
@@ -167,6 +170,16 @@ export class CallManager {
 
     if (session.audioChunks.length > 0) {
       await this.saveRecording(streamSid, session);
+    }
+
+    // Analyze transcripts at the end of the call for advanced analytics
+    try {
+      const callWithDetails = await this.repository.getCallWithDetails(session.call.id);
+      if (callWithDetails && callWithDetails.transcripts.length > 0) {
+        await this.analyticsService.analyzeTranscripts(session.call.id, callWithDetails.transcripts);
+      }
+    } catch (error) {
+      logger.error(`Failed to analyze transcripts for call ${session.call.id}`, error);
     }
 
     this.activeCalls.delete(streamSid);

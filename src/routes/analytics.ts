@@ -1,16 +1,25 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { CallRepository } from '../db/repositories/callRepository';
+import { AnalyticsService } from '../services/analyticsService';
 import { logger } from '../utils/logger';
 
 const router = Router();
 
 let callRepository: CallRepository;
+let analyticsService: AnalyticsService;
 
 const getRepository = () => {
   if (!callRepository) {
     callRepository = new CallRepository();
   }
   return callRepository;
+};
+
+const getAnalyticsService = () => {
+  if (!analyticsService) {
+    analyticsService = new AnalyticsService();
+  }
+  return analyticsService;
 };
 
 interface ErrorResponse {
@@ -71,7 +80,12 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 router.get('/summary', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const repo = getRepository();
-    const aggregates = await repo.getAnalyticsAggregate();
+    const service = getAnalyticsService();
+    
+    const [aggregates, newSummary] = await Promise.all([
+      repo.getAnalyticsAggregate(),
+      service.getAnalyticsSummary()
+    ]);
 
     const totalCalls = aggregates.totalCalls;
     const averageDuration = aggregates.averageDuration || 0;
@@ -86,6 +100,7 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
         failedCalls: aggregates.callsByStatus['failed'] || 0,
         activeCalls: aggregates.callsByStatus['active'] || 0,
         successRate: Math.round(successRate * 100) / 100,
+        ...newSummary
       },
     });
   } catch (error) {
@@ -169,6 +184,91 @@ router.get('/call-duration', async (req: Request, res: Response, next: NextFunct
     });
   } catch (error) {
     logger.error('Error fetching call duration trends', error);
+    next(error);
+  }
+});
+
+// GET /api/analytics/faqs - List top FAQs
+router.get('/faqs', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const service = getAnalyticsService();
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+    const faqs = await service.getTopFAQs(limit);
+    res.status(200).json({ data: faqs });
+  } catch (error) {
+    logger.error('Error fetching FAQs', error);
+    next(error);
+  }
+});
+
+// GET /api/analytics/unanswered - Unanswered questions
+router.get('/unanswered', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const service = getAnalyticsService();
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+    const unanswered = await service.getTopUnansweredQuestions(limit);
+    res.status(200).json({ data: unanswered });
+  } catch (error) {
+    logger.error('Error fetching unanswered questions', error);
+    next(error);
+  }
+});
+
+// GET /api/analytics/topics - Topic breakdown
+router.get('/topics', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const service = getAnalyticsService();
+    const topics = await service.getTopicBreakdown();
+    res.status(200).json({ data: topics });
+  } catch (error) {
+    logger.error('Error fetching topic breakdown', error);
+    next(error);
+  }
+});
+
+// GET /api/analytics/campaigns/:id - Campaign performance
+router.get('/campaigns/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const service = getAnalyticsService();
+    const performance = await service.getCampaignPerformance(req.params.id);
+    if (!performance) {
+      return res.status(404).json({ message: 'Campaign analytics not found' });
+    }
+    res.status(200).json({ data: performance });
+  } catch (error) {
+    logger.error('Error fetching campaign performance', error);
+    next(error);
+  }
+});
+
+// POST /api/analytics/report - Generate report
+router.post('/report', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const service = getAnalyticsService();
+    const format = req.body.format || 'csv';
+    
+    if (format === 'csv') {
+      const csv = await service.generateCSVReport();
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=analytics-report.csv');
+      return res.status(200).send(csv);
+    }
+    
+    res.status(400).json({ message: 'Unsupported format. Only csv is supported for now.' });
+  } catch (error) {
+    logger.error('Error generating report', error);
+    next(error);
+  }
+});
+
+// POST /api/analytics/process - Trigger transcript analysis
+router.post('/process', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const service = getAnalyticsService();
+    await service.processAllTranscripts();
+    res.status(200).json({ message: 'Analytics processing completed' });
+  } catch (error) {
+    logger.error('Error processing analytics', error);
     next(error);
   }
 });
