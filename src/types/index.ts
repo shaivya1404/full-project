@@ -1,4 +1,4 @@
-export type CallStatus = 'active' | 'completed' | 'missed';
+export type CallStatus = 'active' | 'completed' | 'missed' | 'failed' | 'in-progress';
 export type Sentiment = 'positive' | 'neutral' | 'negative';
 
 // Team & User Management Types
@@ -132,6 +132,41 @@ export interface CallStats {
   sentimentScore: number; // 0-100
   activeCalls: number;
   callVolumeHistory: { date: string; count: number }[];
+  // Extended analytics data
+  statusBreakdown: { status: CallStatus; count: number; percentage: number }[];
+  durationDistribution: { range: string; count: number; percentage: number }[];
+  statusTrends: { date: string; status: CallStatus; count: number }[];
+  sentimentBreakdown: { sentiment: Sentiment; count: number; percentage: number }[];
+  sentimentTrends: { date: string; sentiment: Sentiment; count: number; score: number }[];
+  peakHours: { hour: number; count: number; day: string }[];
+  dayOfWeekBreakdown: { day: string; count: number }[];
+  agentPerformance?: AgentPerformance[];
+  callQualityMetrics: CallQualityMetrics;
+}
+
+export interface AgentPerformance {
+  agentId: string;
+  agentName: string;
+  callsHandled: number;
+  avgDuration: number;
+  completionRate: number;
+  avgSentimentScore: number;
+}
+
+export interface CallQualityMetrics {
+  avgTalkTime: number;
+  interruptionRate: number;
+  avgLatency: number;
+  dropoutRate: number;
+  connectionQuality: number; // 0-100
+}
+
+export type DateRangePreset = '7d' | '30d' | '90d' | 'custom';
+
+export interface DateRange {
+  startDate: string;
+  endDate: string;
+  preset?: DateRangePreset;
 }
 
 export interface CallFilter {

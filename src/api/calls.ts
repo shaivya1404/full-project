@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { Call, CallFilter, PaginatedResponse, CallStats } from '../types';
+import type { Call, CallFilter, PaginatedResponse, CallStats, DateRange } from '../types';
 import client from './client';
 
 export const useCalls = (filter: CallFilter) => {
@@ -31,11 +31,15 @@ export const useCall = (id: string | null) => {
   });
 };
 
-export const useCallStats = () => {
+export const useCallStats = (dateRange?: DateRange) => {
   return useQuery({
-    queryKey: ['callStats'],
+    queryKey: ['callStats', dateRange],
     queryFn: async () => {
-      const response = await client.get<CallStats>('/analytics/calls');
+      const params = new URLSearchParams();
+      if (dateRange?.startDate) params.append('startDate', dateRange.startDate);
+      if (dateRange?.endDate) params.append('endDate', dateRange.endDate);
+
+      const response = await client.get<CallStats>(`/analytics/calls?${params.toString()}`);
       return response.data;
     },
   });

@@ -9,3 +9,9 @@ export { DashboardLayout } from './DashboardLayout';
 export { Modal } from './Modal';
 export { Select } from './Select';
 export { RoleBadge, StatusBadge, InviteBadge } from './Badge';
+
+// Analytics components
+export * from './analytics';
+
+// Dashboard components
+export * from './dashboard';

@@ -1,112 +1,161 @@
+import { useState } from 'react';
 import { DashboardLayout, Card } from '../components';
-import { AnalyticsCards, AnalyticsChart } from '../components/dashboard';
 import { useCallStats } from '../api/calls';
-import { TrendingUp, Clock, Smile } from 'lucide-react';
+import {
+  DateRangeSelector,
+  CallVolumeChart,
+  CallStatusChart,
+  DurationDistributionChart,
+  StatusTrendsChart,
+  SentimentPieChart,
+  SentimentTrendsChart,
+  PeakHoursHeatmap,
+  DayOfWeekBreakdown,
+  AgentPerformanceTable,
+  CallQualityMetrics,
+  RefreshControl,
+  ExportControls,
+} from '../components/analytics';
+import { AnalyticsCards } from '../components/dashboard';
+import type { DateRange } from '../types';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const AnalyticsPage = () => {
-  const { data: stats, isLoading } = useCallStats();
+  const queryClient = useQueryClient();
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+
+  // Default date range: last 30 days
+  const defaultDateRange: DateRange = {
+    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
+    preset: '30d',
+  };
+
+  const [dateRange, setDateRange] = useState<DateRange>(defaultDateRange);
+
+  const { data: stats, isLoading } = useCallStats(dateRange);
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['callStats'] });
+    setLastRefresh(new Date());
+  };
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Analytics
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Detailed analytics and insights into call performance
-          </p>
+      <div className="space-y-6">
+        {/* Header Section */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              Analytics Dashboard
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Comprehensive insights into call performance, trends, and quality metrics
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4">
+            <RefreshControl onRefresh={handleRefresh} isLoading={isLoading} lastRefresh={lastRefresh} />
+          </div>
         </div>
 
-        {/* Key Metrics */}
+        {/* Controls Section */}
+        <Card className="p-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <DateRangeSelector dateRange={dateRange} onDateRangeChange={setDateRange} />
+            <ExportControls dateRange={dateRange} data={stats} />
+          </div>
+        </Card>
+
+        {/* Key Metrics Cards */}
         <AnalyticsCards stats={stats} isLoading={isLoading} />
 
-        {/* Main Charts */}
+        {/* Call Quality Metrics */}
+        <CallQualityMetrics metrics={stats?.callQualityMetrics} isLoading={isLoading} />
+
+        {/* Main Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <AnalyticsChart data={stats?.callVolumeHistory} isLoading={isLoading} />
-          
-          {/* Sentiment Distribution */}
-          <Card>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-              <Smile size={20} className="text-primary" />
-              Sentiment Distribution
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Positive</span>
-                  <span className="text-sm font-semibold text-green-600 dark:text-green-400">45%</span>
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div className="bg-green-500 h-2 rounded-full" style={{ width: '45%' }}></div>
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Neutral</span>
-                  <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">35%</span>
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div className="bg-gray-500 h-2 rounded-full" style={{ width: '35%' }}></div>
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Negative</span>
-                  <span className="text-sm font-semibold text-red-600 dark:text-red-400">20%</span>
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div className="bg-red-500 h-2 rounded-full" style={{ width: '20%' }}></div>
-                </div>
-              </div>
-            </div>
-          </Card>
+          <CallVolumeChart data={stats?.callVolumeHistory} isLoading={isLoading} />
+          <CallStatusChart data={stats?.statusBreakdown} isLoading={isLoading} />
         </div>
 
-        {/* Additional Insights */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <TrendingUp size={20} className="text-primary" />
-              Call Trends
-            </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Peak Hours:</span>
-                <span className="font-semibold text-gray-900 dark:text-white">2-4 PM</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Average Calls/Hour:</span>
-                <span className="font-semibold text-gray-900 dark:text-white">24.5</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Week-over-Week Growth:</span>
-                <span className="font-semibold text-green-600 dark:text-green-400">+12.5%</span>
-              </div>
-            </div>
-          </Card>
-
-          <Card>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Clock size={20} className="text-primary" />
-              Duration Analytics
-            </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Shortest Call:</span>
-                <span className="font-semibold text-gray-900 dark:text-white">15 seconds</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Longest Call:</span>
-                <span className="font-semibold text-gray-900 dark:text-white">45 minutes</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Median Duration:</span>
-                <span className="font-semibold text-gray-900 dark:text-white">4 minutes 30 seconds</span>
-              </div>
-            </div>
-          </Card>
+        {/* Second Charts Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <DurationDistributionChart data={stats?.durationDistribution} isLoading={isLoading} />
+          <StatusTrendsChart data={stats?.statusTrends} isLoading={isLoading} />
         </div>
+
+        {/* Sentiment Analysis Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <SentimentPieChart data={stats?.sentimentBreakdown} isLoading={isLoading} />
+          <SentimentTrendsChart data={stats?.sentimentTrends} isLoading={isLoading} />
+        </div>
+
+        {/* Peak Hours and Day of Week Analysis */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <PeakHoursHeatmap data={stats?.peakHours} isLoading={isLoading} />
+          <DayOfWeekBreakdown data={stats?.dayOfWeekBreakdown} isLoading={isLoading} />
+        </div>
+
+        {/* Agent Performance */}
+        <AgentPerformanceTable data={stats?.agentPerformance} isLoading={isLoading} />
+
+        {/* Quick Stats Summary */}
+        {!isLoading && stats && (
+          <Card>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Summary</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                <p className="text-xs text-blue-700 dark:text-blue-300 mb-1">Success Rate</p>
+                <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                  {(() => {
+                    const completed = stats.statusBreakdown.find(s => s.status === 'completed')?.count || 0;
+                    const total = stats.totalCalls;
+                    return total > 0 ? ((completed / total) * 100).toFixed(1) : '0.0';
+                  })()}%
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                <p className="text-xs text-green-700 dark:text-green-300 mb-1">Positive Sentiment</p>
+                <p className="text-lg font-semibold text-green-900 dark:text-green-100">
+                  {stats.sentimentBreakdown.find(s => s.sentiment === 'positive')?.percentage || 0}%
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                <p className="text-xs text-purple-700 dark:text-purple-300 mb-1">Avg Call Duration</p>
+                <p className="text-lg font-semibold text-purple-900 dark:text-purple-100">
+                  {Math.floor(stats.avgDuration / 60)}m {stats.avgDuration % 60}s
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
+                <p className="text-xs text-orange-700 dark:text-orange-300 mb-1">Peak Hour</p>
+                <p className="text-lg font-semibold text-orange-900 dark:text-orange-100">
+                  {(() => {
+                    const peak = stats.peakHours.reduce((max, h) => h.count > max.count ? h : max, stats.peakHours[0] || { hour: 0, count: 0 });
+                    return `${peak.hour}:00`;
+                  })()}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                <p className="text-xs text-red-700 dark:text-red-300 mb-1">Failed Calls</p>
+                <p className="text-lg font-semibold text-red-900 dark:text-red-100">
+                  {stats.statusBreakdown.find(s => s.status === 'failed')?.count || 0}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
+                <p className="text-xs text-indigo-700 dark:text-indigo-300 mb-1">Connection Quality</p>
+                <p className="text-lg font-semibold text-indigo-900 dark:text-indigo-100">
+                  {stats.callQualityMetrics.connectionQuality}/100
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );
