@@ -6,6 +6,11 @@ import {
   UsersPage,
   AnalyticsPage,
   SettingsPage,
+  TeamPage,
+  TeamMembersPage,
+  TeamSettingsPage,
+  TeamAuditPage,
+  UserProfilePage,
 } from '../pages';
 import { ProtectedRoute } from '../components';
 
@@ -49,6 +54,51 @@ export const AppRouter = () => {
           element={
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/team"
+          element={
+            <ProtectedRoute>
+              <TeamPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/team/members"
+          element={
+            <ProtectedRoute>
+              <TeamMembersPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/team/settings"
+          element={
+            <ProtectedRoute>
+              <TeamSettingsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/team/audit"
+          element={
+            <ProtectedRoute>
+              <TeamAuditPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/profile"
+          element={
+            <ProtectedRoute>
+              <UserProfilePage />
             </ProtectedRoute>
           }
         />
