@@ -3,3 +3,8 @@ export { DashboardPage } from './Dashboard';
 export { AnalyticsPage } from './Analytics';
 export { UsersPage } from './Users';
 export { SettingsPage } from './Settings';
+export { TeamPage } from './Team';
+export { TeamMembersPage } from './TeamMembers';
+export { TeamSettingsPage } from './TeamSettings';
+export { TeamAuditPage } from './TeamAudit';
+export { UserProfilePage } from './UserProfile';

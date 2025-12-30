@@ -6,3 +6,6 @@ export { TopBar } from './TopBar';
 export { ToastProvider } from './ToastProvider';
 export { ProtectedRoute } from './ProtectedRoute';
 export { DashboardLayout } from './DashboardLayout';
+export { Modal } from './Modal';
+export { Select } from './Select';
+export { RoleBadge, StatusBadge, InviteBadge } from './Badge';
