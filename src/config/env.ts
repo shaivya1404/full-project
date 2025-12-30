@@ -18,6 +18,12 @@ const envSchema = z.object({
   RECORDING_STORAGE_PATH: z.string().min(1, 'Recording storage path is required'),
   // Signing Secrets
   TWILIO_WEBHOOK_SECRET: z.string().min(1, 'Twilio Webhook Secret is required'),
+  // JWT Configuration
+  JWT_SECRET: z.string().default('default-jwt-secret-for-development-only'),
+  JWT_ACCESS_TOKEN_EXPIRY: z.string().default('15m'),
+  JWT_REFRESH_TOKEN_EXPIRY: z.string().default('7d'),
+  // API Key Secret
+  API_KEY_SECRET: z.string().default('default-api-key-secret-for-development-only'),
 });
 
 const parseEnv = () => {

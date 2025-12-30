@@ -27,6 +27,8 @@ model Call {
   transcripts      Transcript[]
   analytics        Analytics[]
   metadata         CallMetadata?
+  teamId           String?
+  team             Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
 }
 
 model Recording {
@@ -108,6 +110,8 @@ model Campaign {
   contacts         Contact[]
   callLogs         CallLog[]
   analytics        CampaignAnalytics?
+  teamId           String?
+  team             Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
 }
 
 model Contact {
@@ -176,4 +180,101 @@ model CampaignAnalytics {
   revenue          Float             @default(0)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+}
+
+model Team {
+  id               String            @id @default(uuid())
+  name             String
+  description      String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  ownerId          String
+  members          TeamMember[]
+  calls            Call[]
+  campaigns        Campaign[]
+  apiKeys          ApiKey[]
+  auditLogs        AuditLog[]
+}
+
+model TeamMember {
+  id               String            @id @default(uuid())
+  teamId           String
+  team             Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role             String            @default("member")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+}
+
+model User {
+  id               String            @id @default(uuid())
+  email            String            @unique
+  passwordHash     String
+  firstName        String?
+  lastName         String?
+  isActive         Boolean           @default(true)
+  lastLoginAt      DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  sessions         Session[]
+  teamMemberships  TeamMember[]
+  apiKeys          ApiKey[]
+}
+
+model Session {
+  id               String            @id @default(uuid())
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken      String            @unique
+  refreshToken     String            @unique
+  accessTokenExpiresAt DateTime
+  refreshTokenExpiresAt DateTime
+  ipAddress        String?
+  userAgent        String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([userId])
+}
+
+model ApiKey {
+  id               String            @id @default(uuid())
+  key              String            @unique
+  name             String
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId           String?
+  team             Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  lastUsedAt       DateTime?
+  expiresAt        DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([key])
+  @@index([userId])
+  @@index([teamId])
+}
+
+model AuditLog {
+  id               String            @id @default(uuid())
+  teamId           String?
+  team             Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  userId           String?
+  action           String
+  resourceType     String
+  resourceId       String?
+  details          String?
+  ipAddress        String?
+  userAgent        String?
+  createdAt        DateTime          @default(now())
+
+  @@index([teamId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
 }
