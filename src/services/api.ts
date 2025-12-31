@@ -32,6 +32,15 @@ import type {
   CampaignContact,
   CampaignAnalyticsData,
   CampaignResponse,
+  LiveCall,
+  LiveCallsResponse,
+  TranscriptLine,
+  CallMetrics,
+  CallQualityMetrics,
+  CallAlert,
+  AgentAvailability,
+  CallTransferRequest,
+  InterventionRequest,
 } from '../types';
 
 /**
@@ -696,4 +705,210 @@ export const exportCampaignAnalytics = async (id: string, format: 'csv' | 'pdf')
     responseType: 'blob',
   });
   return response.data;
+};
+
+/**
+ * Live Call Monitoring Services
+ */
+
+// Live Call Operations
+export const getLiveCalls = async (teamId: string): Promise<LiveCallsResponse> => {
+  const response = await client.get<LiveCallsResponse>(`/live-calls?teamId=${teamId}`);
+  return response.data;
+};
+
+export const getLiveCallDetails = async (callId: string): Promise<LiveCall> => {
+  const response = await client.get<LiveCall>(`/live-calls/${callId}`);
+  return response.data;
+};
+
+export const getCallMetrics = async (callId: string): Promise<CallMetrics> => {
+  const response = await client.get<CallMetrics>(`/live-calls/${callId}/metrics`);
+  return response.data;
+};
+
+export const getCallTranscript = async (callId: string): Promise<TranscriptLine[]> => {
+  const response = await client.get<TranscriptLine[]>(`/live-calls/${callId}/transcript`);
+  return response.data;
+};
+
+export const getCallSentiment = async (callId: string): Promise<{ sentiment: string; score: number; trend: 'up' | 'down' | 'stable' }> => {
+  const response = await client.get<{ sentiment: string; score: number; trend: 'up' | 'down' | 'stable' }>(`/live-calls/${callId}/sentiment`);
+  return response.data;
+};
+
+// Call Control Operations
+export const transferCall = async (transferRequest: CallTransferRequest): Promise<{ success: boolean; transferId: string }> => {
+  const response = await client.post<{ success: boolean; transferId: string }>('/live-calls/transfer', transferRequest);
+  return response.data;
+};
+
+export const endCall = async (callId: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/live-calls/${callId}/end`);
+  return response.data;
+};
+
+export const joinCall = async (callId: string): Promise<{ success: boolean; joinUrl: string }> => {
+  const response = await client.post<{ success: boolean; joinUrl: string }>(`/live-calls/${callId}/join`);
+  return response.data;
+};
+
+export const whisperToAgent = async (callId: string, message: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/live-calls/${callId}/whisper`, { message });
+  return response.data;
+};
+
+export const pauseRecording = async (callId: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/live-calls/${callId}/recording/pause`);
+  return response.data;
+};
+
+export const resumeRecording = async (callId: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/live-calls/${callId}/recording/resume`);
+  return response.data;
+};
+
+export const markCallForReview = async (callId: string, reason: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/live-calls/${callId}/review`, { reason });
+  return response.data;
+};
+
+// Agent Operations
+export const getAvailableAgents = async (teamId: string, skillFilter?: string): Promise<AgentAvailability[]> => {
+  const params = new URLSearchParams();
+  params.append('teamId', teamId);
+  if (skillFilter) params.append('skill', skillFilter);
+
+  const response = await client.get<AgentAvailability[]>(`/agents/available?${params.toString()}`);
+  return response.data;
+};
+
+export const getAgentStatus = async (agentId: string): Promise<AgentAvailability> => {
+  const response = await client.get<AgentAvailability>(`/agents/${agentId}/status`);
+  return response.data;
+};
+
+export const getAgentMetrics = async (agentId: string): Promise<{
+  responseTime: number;
+  talkTimePercentage: number;
+  interruptionCount: number;
+  empathyScore: number;
+  scriptAdherence: number;
+  complianceScore: number;
+}> => {
+  const response = await client.get<{
+    responseTime: number;
+    talkTimePercentage: number;
+    interruptionCount: number;
+    empathyScore: number;
+    scriptAdherence: number;
+    complianceScore: number;
+  }>(`/agents/${agentId}/metrics`);
+  return response.data;
+};
+
+// Audio Operations
+export const streamCallAudio = async (callId: string): Promise<string> => {
+  const response = await client.get<{ streamUrl: string }>(`/live-calls/${callId}/audio/stream`);
+  return response.data.streamUrl;
+};
+
+export const recordCall = async (callId: string): Promise<{ success: boolean; recordingId: string }> => {
+  const response = await client.post<{ success: boolean; recordingId: string }>(`/live-calls/${callId}/recording/start`);
+  return response.data;
+};
+
+export const downloadCallRecording = async (callId: string): Promise<Blob> => {
+  const response = await client.get(`/live-calls/${callId}/recording/download`, {
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
+// Monitoring & Quality
+export const getCallQuality = async (callId: string): Promise<CallQualityMetrics> => {
+  const response = await client.get<CallQualityMetrics>(`/live-calls/${callId}/quality`);
+  return response.data;
+};
+
+export const reportCallQualityIssue = async (callId: string, issue: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/live-calls/${callId}/quality/issue`, { issue });
+  return response.data;
+};
+
+// Alerts
+export const getCallAlerts = async (teamId: string): Promise<CallAlert[]> => {
+  const response = await client.get<CallAlert[]>(`/live-calls/alerts?teamId=${teamId}`);
+  return response.data;
+};
+
+export const markAlertAsRead = async (alertId: string): Promise<{ success: boolean }> => {
+  const response = await client.put<{ success: boolean }>(`/live-calls/alerts/${alertId}/read`);
+  return response.data;
+};
+
+export const dismissAlert = async (alertId: string): Promise<{ success: boolean }> => {
+  const response = await client.delete<{ success: boolean }>(`/live-calls/alerts/${alertId}`);
+  return response.data;
+};
+
+// Call History
+export const getCustomerCallHistory = async (customerId: string): Promise<Call[]> => {
+  const response = await client.get<Call[]>(`/customers/${customerId}/call-history`);
+  return response.data;
+};
+
+// WebSocket Connection Helper
+export const createLiveCallWebSocket = (teamId: string, callbacks: {
+  onCallUpdate?: (call: LiveCall) => void;
+  onTranscriptUpdate?: (callId: string, transcript: TranscriptLine) => void;
+  onMetricsUpdate?: (callId: string, metrics: CallMetrics) => void;
+  onAlert?: (alert: CallAlert) => void;
+  onAgentStatusChange?: (agent: AgentAvailability) => void;
+}): WebSocket => {
+  const wsUrl = `${client.defaults.baseURL?.replace('http', 'ws')}/live-calls/ws?teamId=${teamId}`;
+  const ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    console.log('Live call WebSocket connected');
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      
+      switch (data.type) {
+        case 'call_update':
+          callbacks.onCallUpdate?.(data.payload);
+          break;
+        case 'transcript_update':
+          callbacks.onTranscriptUpdate?.(data.callId, data.payload);
+          break;
+        case 'metrics_update':
+          callbacks.onMetricsUpdate?.(data.callId, data.payload);
+          break;
+        case 'alert':
+          callbacks.onAlert?.(data.payload);
+          break;
+        case 'agent_status_change':
+          callbacks.onAgentStatusChange?.(data.payload);
+          break;
+        default:
+          console.log('Unknown WebSocket message type:', data.type);
+      }
+    } catch (error) {
+      console.error('Error parsing WebSocket message:', error);
+    }
+  };
+
+  ws.onclose = () => {
+    console.log('Live call WebSocket disconnected');
+    // Implement reconnection logic here if needed
+  };
+
+  ws.onerror = (error) => {
+    console.error('Live call WebSocket error:', error);
+  };
+
+  return ws;
 };
