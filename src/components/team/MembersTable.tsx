@@ -2,7 +2,6 @@ import { MoreVertical, Search, ChevronUp, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import type { TeamMember, Role, MemberStatus } from '../../types';
 import { RoleBadge, StatusBadge } from '../Badge';
-import clsx from 'clsx';
 
 interface MembersTableProps {
   members: TeamMember[];
@@ -14,6 +13,21 @@ interface MembersTableProps {
 
 type SortField = 'name' | 'email' | 'role' | 'status' | 'joinedAt';
 type SortOrder = 'asc' | 'desc';
+
+interface SortIconProps {
+  field: SortField;
+  sortField: SortField;
+  sortOrder: SortOrder;
+}
+
+const SortIcon = ({ field, sortField, sortOrder }: SortIconProps) => {
+  if (sortField !== field) return null;
+  return sortOrder === 'asc' ? (
+    <ChevronUp size={14} />
+  ) : (
+    <ChevronDown size={14} />
+  );
+};
 
 export const MembersTable = ({
   members,
@@ -76,15 +90,6 @@ export const MembersTable = ({
       return sortOrder === 'asc' ? comparison : -comparison;
     });
 
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return null;
-    return sortOrder === 'asc' ? (
-      <ChevronUp size={14} className="ml-1" />
-    ) : (
-      <ChevronDown size={14} className="ml-1" />
-    );
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-4">
@@ -136,7 +141,8 @@ export const MembersTable = ({
                     onClick={() => handleSort('name')}
                     className="flex items-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white"
                   >
-                    Name <SortIcon field="name" />
+                    Name
+                    <span className="ml-1"><SortIcon field="name" sortField={sortField} sortOrder={sortOrder} /></span>
                   </button>
                 </th>
                 <th className="px-6 py-3 text-left">
@@ -144,7 +150,8 @@ export const MembersTable = ({
                     onClick={() => handleSort('email')}
                     className="flex items-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white"
                   >
-                    Email <SortIcon field="email" />
+                    Email
+                    <span className="ml-1"><SortIcon field="email" sortField={sortField} sortOrder={sortOrder} /></span>
                   </button>
                 </th>
                 <th className="px-6 py-3 text-left">
@@ -152,7 +159,8 @@ export const MembersTable = ({
                     onClick={() => handleSort('role')}
                     className="flex items-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white"
                   >
-                    Role <SortIcon field="role" />
+                    Role
+                    <span className="ml-1"><SortIcon field="role" sortField={sortField} sortOrder={sortOrder} /></span>
                   </button>
                 </th>
                 <th className="px-6 py-3 text-left">
@@ -160,7 +168,8 @@ export const MembersTable = ({
                     onClick={() => handleSort('status')}
                     className="flex items-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white"
                   >
-                    Status <SortIcon field="status" />
+                    Status
+                    <span className="ml-1"><SortIcon field="status" sortField={sortField} sortOrder={sortOrder} /></span>
                   </button>
                 </th>
                 <th className="px-6 py-3 text-left">
@@ -168,7 +177,8 @@ export const MembersTable = ({
                     onClick={() => handleSort('joinedAt')}
                     className="flex items-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white"
                   >
-                    Joined <SortIcon field="joinedAt" />
+                    Joined
+                    <span className="ml-1"><SortIcon field="joinedAt" sortField={sortField} sortOrder={sortOrder} /></span>
                   </button>
                 </th>
                 <th className="px-6 py-3 text-right">Actions</th>

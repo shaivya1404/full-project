@@ -34,7 +34,7 @@ export const TeamMembersPage = () => {
       toast.success('Member invited successfully');
       setIsAddModalOpen(false);
       window.location.reload();
-    } catch (error) {
+    } catch {
       toast.error('Failed to invite member');
     } finally {
       setIsAddingMember(false);
@@ -53,7 +53,7 @@ export const TeamMembersPage = () => {
       }
       setIsAddModalOpen(false);
       window.location.reload();
-    } catch (error) {
+    } catch {
       toast.error('Failed to send invitations');
     } finally {
       setIsAddingMember(false);
@@ -67,7 +67,7 @@ export const TeamMembersPage = () => {
       await updateMemberRole(memberId, role);
       toast.success('Role updated successfully');
       window.location.reload();
-    } catch (error) {
+    } catch {
       toast.error('Failed to update role');
     } finally {
       setIsUpdatingMember(false);
@@ -81,7 +81,7 @@ export const TeamMembersPage = () => {
       await removeMember(memberId);
       toast.success('Member removed successfully');
       window.location.reload();
-    } catch (error) {
+    } catch {
       toast.error('Failed to remove member');
     } finally {
       setIsRemovingMember(false);
@@ -93,7 +93,7 @@ export const TeamMembersPage = () => {
       const { resendInvite } = await import('../services/api');
       await resendInvite(member.email);
       toast.success('Invitation resent successfully');
-    } catch (error) {
+    } catch {
       toast.error('Failed to resend invitation');
     }
   };

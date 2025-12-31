@@ -35,13 +35,6 @@ export const RefreshControl: React.FC<RefreshControlProps> = ({ onRefresh, isLoa
     };
   }, [autoRefresh, onRefresh]);
 
-  // Reset timer when auto-refresh is turned off
-  useEffect(() => {
-    if (!autoRefresh) {
-      setTimeUntilRefresh(30);
-    }
-  }, [autoRefresh]);
-
   const handleRefresh = () => {
     onRefresh();
     if (autoRefresh) {
@@ -50,7 +43,12 @@ export const RefreshControl: React.FC<RefreshControlProps> = ({ onRefresh, isLoa
   };
 
   const toggleAutoRefresh = () => {
-    setAutoRefresh(!autoRefresh);
+    const newValue = !autoRefresh;
+    setAutoRefresh(newValue);
+    if (!newValue) {
+      // Reset timer when turning off auto-refresh
+      setTimeUntilRefresh(30);
+    }
   };
 
   const formatLastRefresh = () => {

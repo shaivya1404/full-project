@@ -1,7 +1,7 @@
 import { DashboardLayout, Card } from '../components';
 import { TeamOverviewCard } from '../components/team/TeamOverviewCard';
 import { useQuery } from '@tanstack/react-query';
-import { getTeam } from '../services/api';
+import { getTeam, getTeamMembers } from '../services/api';
 import { useState } from 'react';
 import { AddMemberModal } from '../components/team/AddMemberModal';
 import { EditMemberModal } from '../components/team/EditMemberModal';
@@ -45,7 +45,7 @@ export const TeamPage = () => {
       toast.success('Member invited successfully');
       setIsAddModalOpen(false);
       window.location.reload();
-    } catch (error) {
+    } catch {
       toast.error('Failed to invite member');
     } finally {
       setIsAddingMember(false);
@@ -64,7 +64,7 @@ export const TeamPage = () => {
       }
       setIsAddModalOpen(false);
       window.location.reload();
-    } catch (error) {
+    } catch {
       toast.error('Failed to send invitations');
     } finally {
       setIsAddingMember(false);
@@ -78,7 +78,7 @@ export const TeamPage = () => {
       await updateMemberRole(memberId, role);
       toast.success('Role updated successfully');
       window.location.reload();
-    } catch (error) {
+    } catch {
       toast.error('Failed to update role');
     } finally {
       setIsUpdatingMember(false);
@@ -92,7 +92,7 @@ export const TeamPage = () => {
       await removeMember(memberId);
       toast.success('Member removed successfully');
       window.location.reload();
-    } catch (error) {
+    } catch {
       toast.error('Failed to remove member');
     } finally {
       setIsRemovingMember(false);
@@ -105,7 +105,7 @@ export const TeamPage = () => {
       await revokeInvite(inviteId);
       toast.success('Invitation revoked');
       window.location.reload();
-    } catch (error) {
+    } catch {
       toast.error('Failed to revoke invitation');
     }
   };
@@ -118,7 +118,7 @@ export const TeamPage = () => {
         await resendInvite(invitation.email);
         toast.success('Invitation resent successfully');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to resend invitation');
     }
   };
@@ -154,7 +154,7 @@ export const TeamPage = () => {
               </Button>
             </div>
             <div className="space-y-3">
-              {membersData?.data.slice(0, 5).map((member) => (
+              {membersData?.data.slice(0, 5).map((member: TeamMember) => (
                 <div
                   key={member.id}
                   className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"

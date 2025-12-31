@@ -25,13 +25,15 @@ export const AnalyticsPage = () => {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
   // Default date range: last 30 days
-  const defaultDateRange: DateRange = {
-    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
-    preset: '30d',
-  };
-
-  const [dateRange, setDateRange] = useState<DateRange>(defaultDateRange);
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return {
+      startDate: thirtyDaysAgo.toISOString().split('T')[0],
+      endDate: now.toISOString().split('T')[0],
+      preset: '30d',
+    };
+  });
 
   const { data: stats, isLoading } = useCallStats(dateRange);
 

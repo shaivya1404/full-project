@@ -1,5 +1,5 @@
 import { Mail, Clock, Trash2, RefreshCw } from 'lucide-react';
-import type { Invitation, Role } from '../../types';
+import type { Invitation } from '../../types';
 import { InviteBadge, RoleBadge } from '../Badge';
 import { Button } from '../Button';
 

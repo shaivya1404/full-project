@@ -92,7 +92,7 @@ export const UserProfilePage = () => {
     }
     setIsChangingPassword(true);
     try {
-      await changePasswordMutation.mutateAsync(currentPassword, newPassword);
+      await changePasswordMutation.mutateAsync({ currentPassword, newPassword });
     } finally {
       setIsChangingPassword(false);
     }
@@ -109,7 +109,7 @@ export const UserProfilePage = () => {
       queryClient.invalidateQueries({ queryKey: ['user-api-keys'] });
       toast.success('API key created successfully');
       setApiKeyName('');
-    } catch (error) {
+    } catch {
       toast.error('Failed to create API key');
     } finally {
       setIsCreatingKey(false);
@@ -121,7 +121,7 @@ export const UserProfilePage = () => {
       await deleteApiKey(keyId);
       queryClient.invalidateQueries({ queryKey: ['user-api-keys'] });
       toast.success('API key deleted');
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete API key');
     }
   };
@@ -131,7 +131,7 @@ export const UserProfilePage = () => {
       await revokeSession(sessionId);
       queryClient.invalidateQueries({ queryKey: ['user-sessions'] });
       toast.success('Session revoked');
-    } catch (error) {
+    } catch {
       toast.error('Failed to revoke session');
     }
   };
@@ -141,7 +141,7 @@ export const UserProfilePage = () => {
       await revokeAllOtherSessions();
       queryClient.invalidateQueries({ queryKey: ['user-sessions'] });
       toast.success('All other sessions revoked');
-    } catch (error) {
+    } catch {
       toast.error('Failed to revoke sessions');
     }
   };
@@ -167,7 +167,7 @@ export const UserProfilePage = () => {
       const { avatarUrl } = await uploadAvatar(file);
       setProfile({ ...profile, avatarUrl });
       toast.success('Avatar uploaded successfully');
-    } catch (error) {
+    } catch {
       toast.error('Failed to upload avatar');
     }
   };
