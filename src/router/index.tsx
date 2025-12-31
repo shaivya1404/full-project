@@ -11,6 +11,7 @@ import {
   TeamSettingsPage,
   TeamAuditPage,
   UserProfilePage,
+  KnowledgeBasePage,
 } from '../pages';
 import { ProtectedRoute } from '../components';
 
@@ -36,6 +37,15 @@ export const AppRouter = () => {
           element={
             <ProtectedRoute>
               <UsersPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/knowledge-base"
+          element={
+            <ProtectedRoute>
+              <KnowledgeBasePage />
             </ProtectedRoute>
           }
         />

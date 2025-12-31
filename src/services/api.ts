@@ -25,6 +25,9 @@ import type {
   InviteStatus,
   BotAnalyticsData,
   UnansweredQuestion,
+  Product,
+  ProductFAQ,
+  ProductsResponse,
 } from '../types';
 
 /**
@@ -431,5 +434,107 @@ export const createTeamApiKey = async (name: string, scopes: string[]): Promise<
 
 export const deleteTeamApiKey = async (keyId: string): Promise<{ success: boolean }> => {
   const response = await client.delete(`/team/api-keys/${keyId}`);
+  return response.data;
+};
+
+/**
+ * Knowledge Base & Products Services
+ */
+
+export const getProducts = async (
+  teamId: string,
+  limit: number,
+  offset: number,
+  search?: string
+): Promise<ProductsResponse> => {
+  const params = new URLSearchParams();
+  params.append('teamId', teamId);
+  params.append('limit', limit.toString());
+  params.append('offset', offset.toString());
+  if (search) params.append('search', search);
+
+  const response = await client.get<ProductsResponse>(`/products?${params.toString()}`);
+  return response.data;
+};
+
+export const getProduct = async (id: string): Promise<Product & { faqs?: ProductFAQ[] }> => {
+  const response = await client.get<Product & { faqs?: ProductFAQ[] }>(`/products/${id}`);
+  return response.data;
+};
+
+export const createProduct = async (
+  teamId: string,
+  data: {
+    name: string;
+    description?: string;
+    category: string;
+    price?: number;
+    details?: Record<string, unknown>;
+  }
+): Promise<Product> => {
+  const response = await client.post<Product>('/products', { teamId, ...data });
+  return response.data;
+};
+
+export const updateProduct = async (
+  id: string,
+  data: {
+    name?: string;
+    description?: string;
+    category?: string;
+    price?: number;
+    details?: Record<string, unknown>;
+  }
+): Promise<Product> => {
+  const response = await client.put<Product>(`/products/${id}`, data);
+  return response.data;
+};
+
+export const deleteProduct = async (id: string): Promise<{ success: boolean }> => {
+  const response = await client.delete<{ success: boolean }>(`/products/${id}`);
+  return response.data;
+};
+
+export const searchProducts = async (teamId: string, query: string): Promise<Product[]> => {
+  const response = await client.get<Product[]>(`/products/search?teamId=${teamId}&q=${encodeURIComponent(query)}`);
+  return response.data;
+};
+
+export const getProductFAQs = async (productId: string): Promise<ProductFAQ[]> => {
+  const response = await client.get<ProductFAQ[]>(`/products/${productId}/faqs`);
+  return response.data;
+};
+
+export const createProductFAQ = async (
+  productId: string,
+  data: { question: string; answer: string; category?: string }
+): Promise<ProductFAQ> => {
+  const response = await client.post<ProductFAQ>(`/products/${productId}/faqs`, data);
+  return response.data;
+};
+
+export const updateProductFAQ = async (
+  id: string,
+  data: { question?: string; answer?: string; category?: string }
+): Promise<ProductFAQ> => {
+  const response = await client.put<ProductFAQ>(`/products/faqs/${id}`, data);
+  return response.data;
+};
+
+export const deleteProductFAQ = async (id: string): Promise<{ success: boolean }> => {
+  const response = await client.delete<{ success: boolean }>(`/products/faqs/${id}`);
+  return response.data;
+};
+
+export const importProductsCSV = async (teamId: string, file: File): Promise<{ success: boolean; imported: number; failed: number }> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('teamId', teamId);
+
+  const response = await client.post<{ success: boolean; imported: number; failed: number }>('/products/import', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return response.data;
 };

@@ -232,3 +232,34 @@ export interface BotAnalyticsData {
   improvementInsights: BotImprovementInsight[];
   unansweredTrends: { date: string; count: number }[];
 }
+
+// Knowledge Base & Products Types
+
+export interface Product {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  price?: number;
+  details?: Record<string, unknown>;
+  teamId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductFAQ {
+  id: string;
+  productId: string;
+  question: string;
+  answer: string;
+  category?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductsResponse {
+  data: Product[];
+  total: number;
+  limit: number;
+  offset: number;
+}

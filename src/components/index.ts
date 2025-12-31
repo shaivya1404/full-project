@@ -18,3 +18,9 @@ export * from './dashboard';
 
 // Bot Analytics components
 export * from './bot-analytics';
+
+// Knowledge Base components
+export * from './knowledge';
+
+// Team components
+export * from './team';

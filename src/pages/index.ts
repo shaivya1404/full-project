@@ -8,3 +8,4 @@ export { TeamMembersPage } from './TeamMembers';
 export { TeamSettingsPage } from './TeamSettings';
 export { TeamAuditPage } from './TeamAudit';
 export { UserProfilePage } from './UserProfile';
+export { KnowledgeBasePage } from './KnowledgeBase';
