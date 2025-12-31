@@ -99,13 +99,32 @@ export const addNotes = async (callId: string, notes: string): Promise<{ success
  * Analytics Services
  */
 
-export const getAnalytics = async (): Promise<CallStats> => {
-  const response = await client.get<CallStats>('/analytics/summary');
+export const getAnalytics = async (dateRange?: { startDate?: string; endDate?: string }): Promise<CallStats> => {
+  const params = new URLSearchParams();
+  if (dateRange?.startDate) params.append('startDate', dateRange.startDate);
+  if (dateRange?.endDate) params.append('endDate', dateRange.endDate);
+
+  const response = await client.get<CallStats>(`/analytics/summary?${params.toString()}`);
   return response.data;
 };
 
-export const getCallStats = async (): Promise<CallStats> => {
-  const response = await client.get<CallStats>('/analytics/calls');
+export const getCallStats = async (dateRange?: { startDate?: string; endDate?: string }): Promise<CallStats> => {
+  const params = new URLSearchParams();
+  if (dateRange?.startDate) params.append('startDate', dateRange.startDate);
+  if (dateRange?.endDate) params.append('endDate', dateRange.endDate);
+
+  const response = await client.get<CallStats>(`/analytics/calls?${params.toString()}`);
+  return response.data;
+};
+
+export const exportAnalyticsData = async (dateRange?: { startDate?: string; endDate?: string }): Promise<Blob> => {
+  const params = new URLSearchParams();
+  if (dateRange?.startDate) params.append('startDate', dateRange.startDate);
+  if (dateRange?.endDate) params.append('endDate', dateRange.endDate);
+
+  const response = await client.get(`/analytics/export?${params.toString()}`, {
+    responseType: 'blob',
+  });
   return response.data;
 };
 
