@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Settings, Users, BarChart3, Users as TeamUsers, User, ChevronDown, ChevronRight, BookOpen } from 'lucide-react';
+import { Home, Settings, Users, BarChart3, Users as TeamUsers, User, ChevronDown, ChevronRight, BookOpen, Megaphone } from 'lucide-react';
 import clsx from 'clsx';
 import { useState } from 'react';
 
@@ -24,6 +24,7 @@ const navItems: NavItem[] = [
     ],
   },
   { label: 'Users', href: '/dashboard/users', icon: <Users size={20} /> },
+  { label: 'Campaigns', href: '/dashboard/campaigns', icon: <Megaphone size={20} /> },
   { label: 'Knowledge Base', href: '/dashboard/knowledge-base', icon: <BookOpen size={20} /> },
   { label: 'Analytics', href: '/dashboard/analytics', icon: <BarChart3 size={20} /> },
   { label: 'Settings', href: '/dashboard/settings', icon: <Settings size={20} /> },

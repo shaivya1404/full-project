@@ -28,6 +28,10 @@ import type {
   Product,
   ProductFAQ,
   ProductsResponse,
+  Campaign,
+  CampaignContact,
+  CampaignAnalyticsData,
+  CampaignResponse,
 } from '../types';
 
 /**
@@ -535,6 +539,161 @@ export const importProductsCSV = async (teamId: string, file: File): Promise<{ s
     headers: {
       'Content-Type': 'multipart/form-data',
     },
+  });
+  return response.data;
+};
+
+/**
+ * Campaign Operations
+ */
+
+export const getCampaigns = async (
+  teamId: string,
+  limit: number,
+  offset: number,
+  filters?: { type?: string; status?: string; search?: string }
+): Promise<CampaignResponse> => {
+  const params = new URLSearchParams();
+  params.append('teamId', teamId);
+  params.append('limit', limit.toString());
+  params.append('offset', offset.toString());
+  if (filters?.type) params.append('type', filters.type);
+  if (filters?.status) params.append('status', filters.status);
+  if (filters?.search) params.append('search', filters.search);
+
+  const response = await client.get<CampaignResponse>(`/campaigns?${params.toString()}`);
+  return response.data;
+};
+
+export const getCampaignById = async (id: string): Promise<Campaign> => {
+  const response = await client.get<Campaign>(`/campaigns/${id}`);
+  return response.data;
+};
+
+export const createCampaign = async (teamId: string, data: Partial<Campaign>): Promise<Campaign> => {
+  const response = await client.post<Campaign>('/campaigns', { teamId, ...data });
+  return response.data;
+};
+
+export const updateCampaign = async (id: string, data: Partial<Campaign>): Promise<Campaign> => {
+  const response = await client.put<Campaign>(`/campaigns/${id}`, data);
+  return response.data;
+};
+
+export const deleteCampaign = async (id: string): Promise<{ success: boolean }> => {
+  const response = await client.delete<{ success: boolean }>(`/campaigns/${id}`);
+  return response.data;
+};
+
+export const pauseCampaign = async (id: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/campaigns/${id}/pause`);
+  return response.data;
+};
+
+export const resumeCampaign = async (id: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/campaigns/${id}/resume`);
+  return response.data;
+};
+
+export const getCampaignStatus = async (id: string): Promise<{ status: string; callsMade: number; successRate: number }> => {
+  const response = await client.get<{ status: string; callsMade: number; successRate: number }>(`/campaigns/${id}/status`);
+  return response.data;
+};
+
+/**
+ * Contact Operations
+ */
+
+export const uploadContactList = async (campaignId: string, file: File): Promise<{ success: boolean; imported: number; failed: number }> => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await client.post<{ success: boolean; imported: number; failed: number }>(`/campaigns/${campaignId}/contacts/import`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
+export const getContacts = async (
+  campaignId: string,
+  limit: number,
+  offset: number,
+  search?: string,
+  status?: string
+): Promise<{ data: CampaignContact[]; total: number }> => {
+  const params = new URLSearchParams();
+  params.append('limit', limit.toString());
+  params.append('offset', offset.toString());
+  if (search) params.append('search', search);
+  if (status) params.append('status', status);
+
+  const response = await client.get<{ data: CampaignContact[]; total: number }>(`/campaigns/${campaignId}/contacts?${params.toString()}`);
+  return response.data;
+};
+
+export const getContact = async (id: string): Promise<CampaignContact> => {
+  const response = await client.get<CampaignContact>(`/contacts/${id}`);
+  return response.data;
+};
+
+export const updateContact = async (id: string, data: Partial<CampaignContact>): Promise<CampaignContact> => {
+  const response = await client.put<CampaignContact>(`/contacts/${id}`, data);
+  return response.data;
+};
+
+export const deleteContact = async (id: string): Promise<{ success: boolean }> => {
+  const response = await client.delete<{ success: boolean }>(`/contacts/${id}`);
+  return response.data;
+};
+
+export const getContactCallHistory = async (contactId: string): Promise<Call[]> => {
+  const response = await client.get<Call[]>(`/contacts/${contactId}/calls`);
+  return response.data;
+};
+
+export const bulkUpdateContacts = async (campaignId: string, contactIds: string[], data: Partial<CampaignContact>): Promise<{ success: boolean }> => {
+  const response = await client.put<{ success: boolean }>(`/campaigns/${campaignId}/contacts/bulk`, { contactIds, data });
+  return response.data;
+};
+
+export const bulkDeleteContacts = async (campaignId: string, contactIds: string[]): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/campaigns/${campaignId}/contacts/bulk-delete`, { contactIds });
+  return response.data;
+};
+
+/**
+ * Campaign Analytics
+ */
+
+export const getCampaignAnalytics = async (id: string): Promise<CampaignAnalyticsData> => {
+  const response = await client.get<CampaignAnalyticsData>(`/campaigns/${id}/analytics`);
+  return response.data;
+};
+
+export const getCampaignCallTrends = async (id: string, startDate?: string, endDate?: string): Promise<{ date: string; count: number }[]> => {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+
+  const response = await client.get<{ date: string; count: number }[]>(`/campaigns/${id}/analytics/trends?${params.toString()}`);
+  return response.data;
+};
+
+export const getCampaignContactStatus = async (id: string): Promise<{ status: string; count: number }[]> => {
+  const response = await client.get<{ status: string; count: number }[]>(`/campaigns/${id}/analytics/contacts`);
+  return response.data;
+};
+
+export const getCampaignAgentPerformance = async (id: string): Promise<{ agentId: string; agentName: string; transfers: number; successRate: number }[]> => {
+  const response = await client.get<{ agentId: string; agentName: string; transfers: number; successRate: number }[]>(`/campaigns/${id}/analytics/agents`);
+  return response.data;
+};
+
+export const exportCampaignAnalytics = async (id: string, format: 'csv' | 'pdf'): Promise<Blob> => {
+  const response = await client.get(`/campaigns/${id}/analytics/export?format=${format}`, {
+    responseType: 'blob',
   });
   return response.data;
 };

@@ -12,6 +12,8 @@ import {
   TeamAuditPage,
   UserProfilePage,
   KnowledgeBasePage,
+  CampaignsPage,
+  CampaignDetailPage,
 } from '../pages';
 import { ProtectedRoute } from '../components';
 
@@ -46,6 +48,24 @@ export const AppRouter = () => {
           element={
             <ProtectedRoute>
               <KnowledgeBasePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/campaigns"
+          element={
+            <ProtectedRoute>
+              <CampaignsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/campaigns/:id"
+          element={
+            <ProtectedRoute>
+              <CampaignDetailPage />
             </ProtectedRoute>
           }
         />
