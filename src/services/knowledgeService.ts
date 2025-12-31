@@ -92,8 +92,8 @@ export class KnowledgeService {
             content: product.description,
             relevanceScore,
             metadata: {
-              category: product.category,
-              price: product.price,
+              category: product.category ?? undefined,
+              price: product.price ?? undefined,
             },
           });
         }
@@ -111,7 +111,7 @@ export class KnowledgeService {
           relevanceScore,
           metadata: {
             category: faq.category,
-            relevantProductId: faq.relevantProductId,
+            productId: faq.relevantProductId,
           },
         });
       }

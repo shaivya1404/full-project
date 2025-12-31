@@ -169,7 +169,7 @@ router.get('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
           createdAt: team.createdAt,
           updatedAt: team.updatedAt,
           myRole: userRole,
-          members: team.members.map((m) => ({
+          members: team.members.map((m: any) => ({
             id: m.id,
             user: {
               id: m.user.id,
