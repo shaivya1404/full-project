@@ -500,6 +500,153 @@ export interface AgentQueueItem {
   position: number;
 }
 
+// Order & Payment Types
+
+export interface OrderItem {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  total: number;
+}
+
+export interface Payment {
+  id: string;
+  orderId: string;
+  customerId: string;
+  teamId: string;
+  amount: number;
+  currency: string;
+  method: 'card' | 'upi' | 'net_banking' | 'wallet' | 'link' | 'cod';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  transactionId: string;
+  gatewayId?: string; // Razorpay payment ID
+  cardLast4?: string;
+  cardBrand?: string;
+  upiId?: string;
+  failureReason?: string;
+  refundAmount?: number;
+  refundStatus?: 'pending' | 'completed' | 'failed';
+  refundId?: string;
+  fraudRiskScore?: number;
+  fraudChecks?: string[];
+  metadata?: Record<string, any>;
+  timestamp: string;
+  completedAt?: string;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaymentLink {
+  id: string;
+  orderId: string;
+  paymentId?: string;
+  link: string;
+  shortLink?: string;
+  expiresAt: string;
+  clickedAt?: string;
+  status: 'pending' | 'completed' | 'expired' | 'cancelled';
+  sentCount: number;
+  sentAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Invoice {
+  id: string;
+  orderId: string;
+  paymentId?: string;
+  invoiceNumber: string;
+  items: OrderItem[];
+  taxAmount: number;
+  taxDetails?: Record<string, any>;
+  totalAmount: number;
+  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+  pdfUrl?: string;
+  sentAt?: string;
+  sentVia?: 'email' | 'sms' | 'both';
+  billingAddress?: string;
+  customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  notes?: string;
+  dueDate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaymentAnalytics {
+  id: string;
+  teamId: string;
+  totalRevenue: number;
+  totalRefunds: number;
+  successRate: number;
+  refundRate: number;
+  averageAmount: number;
+  methodBreakdown: Record<string, number>;
+  topPaymentMethod: string;
+  failedPayments: number;
+  commonFailureReason: string;
+  timestamp: string;
+}
+
+export interface Refund {
+  id: string;
+  paymentId: string;
+  amount: number;
+  reason: string;
+  notes?: string;
+  status: 'pending' | 'completed' | 'failed';
+  refundId?: string; // Gateway refund ID
+  initiatedAt: string;
+  completedAt?: string;
+  processingTime?: number; // seconds
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FraudCheck {
+  paymentId: string;
+  riskScore: number; // 0-100
+  riskLevel: 'low' | 'medium' | 'high';
+  checks: {
+    unusualAmount: boolean;
+    velocityCheck: boolean;
+    geographicMismatch: boolean;
+    deviceMismatch: boolean;
+    cardTestingPattern: boolean;
+  };
+  recommendation: 'allow' | 'review' | 'block';
+  timestamp: string;
+}
+
+export interface PaymentLog {
+  id: string;
+  paymentId: string;
+  action: string;
+  status: string;
+  errorMessage?: string;
+  metadata?: Record<string, any>;
+  ipAddress?: string;
+  userAgent?: string;
+  timestamp: string;
+}
+
+export interface PaymentsResponse {
+  data: Payment[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface InvoicesResponse {
+  data: Invoice[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface AgentActivityLogEntry {
   id: string;
   agentId: string;

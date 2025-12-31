@@ -50,6 +50,14 @@ import type {
   AgentActivityLogEntry,
   Certification,
   AgentsResponse,
+  Payment,
+  PaymentsResponse,
+  PaymentLink,
+  Invoice,
+  InvoicesResponse,
+  PaymentAnalytics,
+  Refund,
+  FraudCheck,
 } from '../types';
 
 /**
@@ -941,6 +949,293 @@ export const getAgents = async (
   if (filters?.search) params.append('search', filters.search);
 
   const response = await client.get<AgentsResponse>(`/agents?${params.toString()}`);
+  return response.data;
+};
+
+/**
+ * Payment Operations
+ */
+
+export const getPayments = async (
+  teamId: string,
+  limit: number,
+  offset: number,
+  filters?: { status?: string; method?: string; startDate?: string; endDate?: string; search?: string }
+): Promise<PaymentsResponse> => {
+  const params = new URLSearchParams();
+  params.append('teamId', teamId);
+  params.append('limit', limit.toString());
+  params.append('offset', offset.toString());
+  if (filters?.status) params.append('status', filters.status);
+  if (filters?.method) params.append('method', filters.method);
+  if (filters?.startDate) params.append('startDate', filters.startDate);
+  if (filters?.endDate) params.append('endDate', filters.endDate);
+  if (filters?.search) params.append('search', filters.search);
+
+  const response = await client.get<PaymentsResponse>(`/payments?${params.toString()}`);
+  return response.data;
+};
+
+export const getPaymentById = async (id: string): Promise<Payment> => {
+  const response = await client.get<Payment>(`/payments/${id}`);
+  return response.data;
+};
+
+export const searchPayments = async (
+  teamId: string,
+  query: string,
+  filters?: Record<string, any>
+): Promise<PaymentsResponse> => {
+  const params = new URLSearchParams();
+  params.append('teamId', teamId);
+  params.append('q', query);
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value.toString());
+    });
+  }
+
+  const response = await client.get<PaymentsResponse>(`/payments/search?${params.toString()}`);
+  return response.data;
+};
+
+export const getPaymentsByStatus = async (
+  teamId: string,
+  status: string,
+  limit: number = 10
+): Promise<Payment[]> => {
+  const response = await client.get<Payment[]>(`/payments/status/${status}?teamId=${teamId}&limit=${limit}`);
+  return response.data;
+};
+
+export const getPaymentByTransactionId = async (transactionId: string): Promise<Payment> => {
+  const response = await client.get<Payment>(`/payments/transaction/${transactionId}`);
+  return response.data;
+};
+
+export const updatePaymentStatus = async (id: string, status: string): Promise<Payment> => {
+  const response = await client.put<Payment>(`/payments/${id}/status`, { status });
+  return response.data;
+};
+
+export const markAsCompleted = async (id: string): Promise<Payment> => {
+  return updatePaymentStatus(id, 'completed');
+};
+
+export const markAsFailed = async (id: string, reason?: string): Promise<Payment> => {
+  const response = await client.put<Payment>(`/payments/${id}/status`, { status: 'failed', reason });
+  return response.data;
+};
+
+/**
+ * Refund Operations
+ */
+
+export const initiateRefund = async (
+  paymentId: string,
+  amount: number,
+  reason: string,
+  notes?: string
+): Promise<Refund> => {
+  const response = await client.post<Refund>(`/payments/${paymentId}/refund`, { amount, reason, notes });
+  return response.data;
+};
+
+export const getRefundStatus = async (refundId: string): Promise<Refund> => {
+  const response = await client.get<Refund>(`/refunds/${refundId}`);
+  return response.data;
+};
+
+export const cancelRefund = async (refundId: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/refunds/${refundId}/cancel`);
+  return response.data;
+};
+
+export const getRefundHistory = async (paymentId: string): Promise<Refund[]> => {
+  const response = await client.get<Refund[]>(`/payments/${paymentId}/refunds`);
+  return response.data;
+};
+
+/**
+ * Payment Link Operations
+ */
+
+export const generatePaymentLink = async (orderId: string, amount: number): Promise<PaymentLink> => {
+  const response = await client.post<PaymentLink>('/payments/links', { orderId, amount });
+  return response.data;
+};
+
+export const getPaymentLink = async (linkId: string): Promise<PaymentLink> => {
+  const response = await client.get<PaymentLink>(`/payments/links/${linkId}`);
+  return response.data;
+};
+
+export const sendPaymentLinkSMS = async (linkId: string, phoneNumber: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/payments/links/${linkId}/send-sms`, { phoneNumber });
+  return response.data;
+};
+
+export const cancelPaymentLink = async (linkId: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/payments/links/${linkId}/cancel`);
+  return response.data;
+};
+
+export const getPaymentLinkStatus = async (linkId: string): Promise<{ status: string }> => {
+  const response = await client.get<{ status: string }>(`/payments/links/${linkId}/status`);
+  return response.data;
+};
+
+/**
+ * Invoice Operations
+ */
+
+export const createInvoice = async (paymentId: string, invoiceData: any): Promise<Invoice> => {
+  const response = await client.post<Invoice>(`/payments/${paymentId}/invoices`, invoiceData);
+  return response.data;
+};
+
+export const getInvoiceById = async (id: string): Promise<Invoice> => {
+  const response = await client.get<Invoice>(`/invoices/${id}`);
+  return response.data;
+};
+
+export const getInvoiceByNumber = async (invoiceNumber: string): Promise<Invoice> => {
+  const response = await client.get<Invoice>(`/invoices/number/${invoiceNumber}`);
+  return response.data;
+};
+
+export const updateInvoice = async (id: string, data: any): Promise<Invoice> => {
+  const response = await client.put<Invoice>(`/invoices/${id}`, data);
+  return response.data;
+};
+
+export const downloadInvoicePDF = async (id: string): Promise<Blob> => {
+  const response = await client.get(`/invoices/${id}/pdf`, { responseType: 'blob' });
+  return response.data;
+};
+
+export const sendInvoiceEmail = async (id: string, email: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/invoices/${id}/send-email`, { email });
+  return response.data;
+};
+
+export const sendInvoiceSMS = async (id: string, phoneNumber: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/invoices/${id}/send-sms`, { phoneNumber });
+  return response.data;
+};
+
+export const getInvoices = async (
+  teamId: string,
+  limit: number,
+  offset: number,
+  filters?: { status?: string; startDate?: string; endDate?: string }
+): Promise<InvoicesResponse> => {
+  const params = new URLSearchParams();
+  params.append('teamId', teamId);
+  params.append('limit', limit.toString());
+  params.append('offset', offset.toString());
+  if (filters?.status) params.append('status', filters.status);
+  if (filters?.startDate) params.append('startDate', filters.startDate);
+  if (filters?.endDate) params.append('endDate', filters.endDate);
+
+  const response = await client.get<InvoicesResponse>(`/invoices?${params.toString()}`);
+  return response.data;
+};
+
+export const autoGenerateInvoice = async (paymentId: string): Promise<Invoice> => {
+  const response = await client.post<Invoice>(`/payments/${paymentId}/invoices/auto`);
+  return response.data;
+};
+
+/**
+ * Fraud Detection
+ */
+
+export const performFraudCheck = async (paymentData: any): Promise<FraudCheck> => {
+  const response = await client.post<FraudCheck>('/fraud/check', paymentData);
+  return response.data;
+};
+
+export const getFraudScore = async (paymentId: string): Promise<FraudCheck> => {
+  const response = await client.get<FraudCheck>(`/fraud/score/${paymentId}`);
+  return response.data;
+};
+
+export const getFraudStatistics = async (teamId: string): Promise<any> => {
+  const response = await client.get<any>(`/fraud/statistics?teamId=${teamId}`);
+  return response.data;
+};
+
+export const reportFraudulentPayment = async (paymentId: string, reason: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/fraud/report`, { paymentId, reason });
+  return response.data;
+};
+
+export const whitelistCustomer = async (customerId: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/fraud/whitelist/${customerId}`);
+  return response.data;
+};
+
+export const blacklistCustomer = async (customerId: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/fraud/blacklist/${customerId}`);
+  return response.data;
+};
+
+/**
+ * Analytics
+ */
+
+export const getPaymentAnalytics = async (teamId: string, startDate?: string, endDate?: string): Promise<PaymentAnalytics> => {
+  const params = new URLSearchParams();
+  params.append('teamId', teamId);
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+
+  const response = await client.get<PaymentAnalytics>(`/analytics/payments?${params.toString()}`);
+  return response.data;
+};
+
+export const getPaymentMethodAnalytics = async (teamId: string): Promise<any> => {
+  const response = await client.get<any>(`/analytics/payments/methods?teamId=${teamId}`);
+  return response.data;
+};
+
+export const getPaymentTrends = async (teamId: string, startDate: string, endDate: string): Promise<any> => {
+  const response = await client.get<any>(`/analytics/payments/trends?teamId=${teamId}&startDate=${startDate}&endDate=${endDate}`);
+  return response.data;
+};
+
+export const getRefundAnalytics = async (teamId: string, startDate?: string, endDate?: string): Promise<any> => {
+  const params = new URLSearchParams();
+  params.append('teamId', teamId);
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+
+  const response = await client.get<any>(`/analytics/refunds?${params.toString()}`);
+  return response.data;
+};
+
+export const getTopPaymentMethods = async (teamId: string): Promise<any> => {
+  const response = await client.get<any>(`/analytics/payments/top-methods?teamId=${teamId}`);
+  return response.data;
+};
+
+export const getFailedPayments = async (teamId: string, limit: number = 10): Promise<Payment[]> => {
+  const response = await client.get<Payment[]>(`/payments/failed?teamId=${teamId}&limit=${limit}`);
+  return response.data;
+};
+
+export const exportPaymentAnalytics = async (teamId: string, format: 'csv' | 'pdf'): Promise<Blob> => {
+  const response = await client.get(`/analytics/payments/export?teamId=${teamId}&format=${format}`, { responseType: 'blob' });
+  return response.data;
+};
+
+/**
+ * Webhook
+ */
+
+export const processPaymentWebhook = async (webhookData: any): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>('/webhooks/razorpay', webhookData);
   return response.data;
 };
 
