@@ -325,3 +325,102 @@ export interface CampaignResponse {
   limit: number;
   offset: number;
 }
+
+// Live Call Monitoring Types
+
+export interface LiveCall {
+  id: string;
+  callId: string;
+  teamId: string;
+  callerId: string;
+  callerName: string;
+  callerPhone: string;
+  agentId?: string;
+  agentName?: string;
+  status: 'active' | 'on-hold' | 'transferring' | 'recording';
+  startTime: string;
+  duration: number; // in seconds, live-updating
+  sentiment?: 'positive' | 'neutral' | 'negative';
+  sentimentScore?: number;
+  campaign?: string;
+  callQuality: number; // 0-100
+  talkTime?: number;
+  silenceTime?: number;
+  interruptions?: number;
+  latency?: number;
+  isRecording?: boolean;
+  transcript?: TranscriptLine[];
+  updatedAt: string;
+}
+
+export interface TranscriptLine {
+  id: string;
+  speaker: 'customer' | 'agent' | 'ai';
+  text: string;
+  timestamp: number;
+  confidence?: number;
+  sentiment?: 'positive' | 'neutral' | 'negative';
+}
+
+export interface CallMetrics {
+  duration: number;
+  talkTime: number;
+  silenceTime: number;
+  interruptions: number;
+  averageLatency: number;
+  packetLoss: number;
+  jitter: number;
+  audioQuality: number;
+  networkQuality: number;
+  sentiment: string;
+  sentimentScore: number;
+}
+
+export interface CallQualityMetrics {
+  audioQuality: number;
+  networkQuality: number;
+  latency: number;
+  packetLoss: number;
+  jitter: number;
+  bandwidth: number;
+  status: 'excellent' | 'good' | 'fair' | 'poor';
+}
+
+export interface CallAlert {
+  id: string;
+  callId: string;
+  type: 'sentiment_drop' | 'quality_issue' | 'long_duration' | 'escalation' | 'compliance';
+  severity: 'info' | 'warning' | 'critical';
+  message: string;
+  timestamp: string;
+  read: boolean;
+}
+
+export interface LiveCallsResponse {
+  data: LiveCall[];
+  total: number;
+  timestamp: string;
+}
+
+export interface AgentAvailability {
+  agentId: string;
+  agentName: string;
+  status: 'available' | 'busy' | 'offline' | 'in-call';
+  currentCalls: number;
+  skillTags?: string[];
+  queuePosition?: number;
+}
+
+export interface CallTransferRequest {
+  callId: string;
+  targetAgentId: string;
+  note?: string;
+  warmTransfer: boolean;
+}
+
+export interface InterventionRequest {
+  callId: string;
+  type: 'join' | 'whisper' | 'message';
+  message?: string;
+  duration?: number;
+}

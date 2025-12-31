@@ -11,3 +11,5 @@ export { UserProfilePage } from './UserProfile';
 export { KnowledgeBasePage } from './KnowledgeBase';
 export { CampaignsPage } from './Campaigns';
 export { CampaignDetailPage } from './CampaignDetail';
+export { LiveCalls } from './LiveCalls';
+export { CallMonitor } from './CallMonitor';

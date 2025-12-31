@@ -14,6 +14,8 @@ import {
   KnowledgeBasePage,
   CampaignsPage,
   CampaignDetailPage,
+  LiveCalls,
+  CallMonitor,
 } from '../pages';
 import { ProtectedRoute } from '../components';
 
@@ -66,6 +68,24 @@ export const AppRouter = () => {
           element={
             <ProtectedRoute>
               <CampaignDetailPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/live-calls"
+          element={
+            <ProtectedRoute>
+              <LiveCalls />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/calls/:callId/monitor"
+          element={
+            <ProtectedRoute>
+              <CallMonitor />
             </ProtectedRoute>
           }
         />
