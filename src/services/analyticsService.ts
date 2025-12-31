@@ -1,4 +1,4 @@
-import { FAQ, UnansweredQuestion, TopicAnalytics, CampaignAnalytics, Transcript } from '@prisma/client';
+import { UnansweredQuestion, TopicAnalytics, CampaignAnalytics, Transcript } from '@prisma/client';
 import { AnalyticsRepository } from '../db/repositories/analyticsRepository';
 import { CallRepository } from '../db/repositories/callRepository';
 import { CampaignRepository } from '../db/repositories/campaignRepository';
@@ -124,7 +124,7 @@ export class AnalyticsService {
     }
   }
 
-  async getTopFAQs(limit?: number): Promise<FAQ[]> {
+  async getTopFAQs(limit?: number): Promise<any[]> {
     return this.analyticsRepository.getTopFAQs(limit);
   }
 

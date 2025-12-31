@@ -1,11 +1,13 @@
-import { PrismaClient, Call, Recording, Transcript, Analytics, CallMetadata } from '@prisma/client';
+import { PrismaClient, Call, Recording, Transcript, Analytics, CallMetadata, KnowledgeBaseSource } from '@prisma/client';
 import { getPrismaClient } from '../client';
+import { logger } from '../../utils/logger';
 
 export interface CreateCallInput {
   streamSid: string;
   callSid?: string;
   caller: string;
   agent?: string;
+  teamId?: string;
 }
 
 export interface UpdateCallInput {
@@ -446,5 +448,188 @@ export class CallRepository {
     });
 
     return timeSeries;
+  }
+
+  /**
+   * Create knowledge base source record
+   */
+  async createKnowledgeBaseSource(data: {
+    callId: string;
+    knowledgeBaseId?: string;
+    productId?: string;
+    faqId?: string;
+    relevanceScore?: number;
+  }): Promise<KnowledgeBaseSource> {
+    const prisma = getPrismaClient();
+    
+    return prisma.knowledgeBaseSource.create({
+      data: {
+        callId: data.callId,
+        knowledgeBaseId: data.knowledgeBaseId,
+        productId: data.productId,
+        faqId: data.faqId,
+        relevanceScore: data.relevanceScore,
+      },
+    });
+  }
+
+  /**
+   * Get recent transcripts for a call
+   */
+  async getRecentTranscripts(callId: string, limit: number = 10): Promise<Transcript[]> {
+    const prisma = getPrismaClient();
+    
+    return prisma.transcript.findMany({
+      where: { callId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
+
+  /**
+   * Get FAQs by team ID
+   */
+  async getFaqsByTeamId(teamId: string): Promise<any[]> {
+    const prisma = getPrismaClient();
+    
+    // This would need to be implemented based on your FAQ model structure
+    // For now, returning empty array as placeholder
+    return [];
+  }
+
+  /**
+   * Create or update unanswered question
+   */
+  async createOrUpdateUnansweredQuestion(question: string): Promise<void> {
+    const prisma = getPrismaClient();
+    
+    try {
+      await prisma.unansweredQuestion.upsert({
+        where: { question },
+        update: {
+          frequency: { increment: 1 },
+          lastAsked: new Date(),
+        },
+        create: {
+          question,
+          frequency: 1,
+        },
+      });
+    } catch (error) {
+      logger.error('Error creating/updating unanswered question', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get knowledge used for a call
+   */
+  async getKnowledgeUsedForCall(callId: string): Promise<any[]> {
+    const prisma = getPrismaClient();
+    
+    const sources = await prisma.knowledgeBaseSource.findMany({
+      where: { callId },
+      include: {
+        knowledgeBase: true,
+        product: true,
+        faq: true,
+      },
+      orderBy: { usedAt: 'desc' },
+    });
+
+    return sources.map(source => ({
+      id: source.id,
+      type: source.knowledgeBaseId ? 'knowledge' : source.productId ? 'product' : 'faq',
+      title: source.knowledgeBase?.title || source.product?.name || source.faq?.question,
+      content: source.knowledgeBase?.content || source.product?.description || source.faq?.answer,
+      relevanceScore: source.relevanceScore,
+      usedAt: source.usedAt,
+      metadata: {
+        category: source.knowledgeBase?.category || source.product?.category || source.faq?.category,
+      },
+    }));
+  }
+
+  /**
+   * Get unanswered questions with pagination
+   */
+  async getUnansweredQuestions(limit: number = 20, offset: number = 0): Promise<{
+    questions: any[];
+    total: number;
+  }> {
+    const prisma = getPrismaClient();
+    
+    const [questions, total] = await Promise.all([
+      prisma.unansweredQuestion.findMany({
+        orderBy: [
+          { frequency: 'desc' },
+          { lastAsked: 'desc' },
+        ],
+        take: limit,
+        skip: offset,
+      }),
+      prisma.unansweredQuestion.count(),
+    ]);
+
+    return {
+      questions,
+      total,
+    };
+  }
+
+  /**
+   * Get knowledge analytics for a team
+   */
+  async getKnowledgeAnalytics(teamId: string, startDate?: string, endDate?: string): Promise<any> {
+    const prisma = getPrismaClient();
+    
+    const whereClause: any = {
+      call: {
+        teamId,
+      },
+    };
+
+    if (startDate || endDate) {
+      whereClause.usedAt = {};
+      if (startDate) whereClause.usedAt.gte = new Date(startDate);
+      if (endDate) whereClause.usedAt.lte = new Date(endDate);
+    }
+
+    const [
+      totalSources,
+      knowledgeSources,
+      productSources,
+      faqSources,
+      averageRelevance,
+    ] = await Promise.all([
+      prisma.knowledgeBaseSource.count({ where: whereClause }),
+      prisma.knowledgeBaseSource.count({ 
+        where: { ...whereClause, knowledgeBaseId: { not: null } } 
+      }),
+      prisma.knowledgeBaseSource.count({ 
+        where: { ...whereClause, productId: { not: null } } 
+      }),
+      prisma.knowledgeBaseSource.count({ 
+        where: { ...whereClause, faqId: { not: null } } 
+      }),
+      prisma.knowledgeBaseSource.aggregate({
+        where: whereClause,
+        _avg: { relevanceScore: true },
+      }),
+    ]);
+
+    return {
+      totalSources,
+      byType: {
+        knowledge: knowledgeSources,
+        product: productSources,
+        faq: faqSources,
+      },
+      averageRelevance: averageRelevance._avg.relevanceScore || 0,
+      period: {
+        startDate,
+        endDate,
+      },
+    };
   }
 }
