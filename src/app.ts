@@ -27,6 +27,7 @@ import ordersRoutes from './routes/orders';
 import customersRoutes from './routes/customers';
 import orderAnalyticsRoutes from './routes/orderAnalytics';
 import orderBotRoutes from './routes/orderBot';
+import paymentsRoutes from './routes/payments';
 import { KnowledgeBaseRepository } from './db/repositories/knowledgeBaseRepository';
 import { ProductRepository } from './db/repositories/productRepository';
 import { logger } from './utils/logger';
@@ -63,6 +64,7 @@ app.use('/api/orders', ordersRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/analytics/orders', orderAnalyticsRoutes);
 app.use('/api/orders/bot', orderBotRoutes);
+app.use('/api/payments', paymentsRoutes);
 
 // External API endpoint for knowledge search (for WhatsApp, email, chat flows)
 app.get('/api/knowledge/search', authMiddleware, async (req: Request, res: Response) => {
