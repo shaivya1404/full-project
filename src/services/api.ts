@@ -41,6 +41,15 @@ import type {
   AgentAvailability,
   CallTransferRequest,
   InterventionRequest,
+  Agent,
+  AgentSkill,
+  AgentSchedule,
+  AgentPerformanceData,
+  AgentStatusUpdate,
+  AgentQueueItem,
+  AgentActivityLogEntry,
+  Certification,
+  AgentsResponse,
 } from '../types';
 
 /**
@@ -911,4 +920,236 @@ export const createLiveCallWebSocket = (teamId: string, callbacks: {
   };
 
   return ws;
+};
+
+/**
+ * Agent Management Services
+ */
+
+export const getAgents = async (
+  teamId: string,
+  limit: number,
+  offset: number,
+  filters?: { status?: string; role?: string; search?: string }
+): Promise<AgentsResponse> => {
+  const params = new URLSearchParams();
+  params.append('teamId', teamId);
+  params.append('limit', limit.toString());
+  params.append('offset', offset.toString());
+  if (filters?.status) params.append('status', filters.status);
+  if (filters?.role) params.append('role', filters.role);
+  if (filters?.search) params.append('search', filters.search);
+
+  const response = await client.get<AgentsResponse>(`/agents?${params.toString()}`);
+  return response.data;
+};
+
+export const getAgentById = async (id: string): Promise<Agent> => {
+  const response = await client.get<Agent>(`/agents/${id}`);
+  return response.data;
+};
+
+export const createAgent = async (teamId: string, data: Partial<Agent>): Promise<Agent> => {
+  const response = await client.post<Agent>('/agents', { teamId, ...data });
+  return response.data;
+};
+
+export const updateAgent = async (id: string, data: Partial<Agent>): Promise<Agent> => {
+  const response = await client.put<Agent>(`/agents/${id}`, data);
+  return response.data;
+};
+
+export const deleteAgent = async (id: string): Promise<{ success: boolean }> => {
+  const response = await client.delete<{ success: boolean }>(`/agents/${id}`);
+  return response.data;
+};
+
+export const searchAgents = async (teamId: string, query: string): Promise<Agent[]> => {
+  const response = await client.get<Agent[]>(`/agents/search?teamId=${teamId}&q=${encodeURIComponent(query)}`);
+  return response.data;
+};
+
+export const getAgentsByStatus = async (teamId: string, status: string): Promise<Agent[]> => {
+  const response = await client.get<Agent[]>(`/agents/status/${status}?teamId=${teamId}`);
+  return response.data;
+};
+
+export const updateAgentStatus = async (agentId: string, status: string, reason?: string): Promise<AgentStatusUpdate> => {
+  const response = await client.post<AgentStatusUpdate>(`/agents/${agentId}/status`, { status, reason });
+  return response.data;
+};
+
+export const getAgentAvailabilityCalendar = async (agentId: string, startDate?: string, endDate?: string): Promise<any[]> => {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  const response = await client.get<any[]>(`/agents/${agentId}/availability?${params.toString()}`);
+  return response.data;
+};
+
+/**
+ * Skills Management
+ */
+
+export const getAgentSkills = async (agentId: string): Promise<AgentSkill[]> => {
+  const response = await client.get<AgentSkill[]>(`/agents/${agentId}/skills`);
+  return response.data;
+};
+
+export const addAgentSkill = async (agentId: string, skillData: Partial<AgentSkill>): Promise<AgentSkill> => {
+  const response = await client.post<AgentSkill>(`/agents/${agentId}/skills`, skillData);
+  return response.data;
+};
+
+export const updateAgentSkill = async (id: string, data: Partial<AgentSkill>): Promise<AgentSkill> => {
+  const response = await client.put<AgentSkill>(`/agents/skills/${id}`, data);
+  return response.data;
+};
+
+export const removeAgentSkill = async (agentId: string, skillId: string): Promise<{ success: boolean }> => {
+  const response = await client.delete<{ success: boolean }>(`/agents/${agentId}/skills/${skillId}`);
+  return response.data;
+};
+
+export const getAllSkills = async (teamId: string): Promise<string[]> => {
+  const response = await client.get<string[]>(`/skills?teamId=${teamId}`);
+  return response.data;
+};
+
+/**
+ * Scheduling
+ */
+
+export const getAgentSchedule = async (agentId: string, startDate?: string, endDate?: string): Promise<AgentSchedule[]> => {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  const response = await client.get<AgentSchedule[]>(`/agents/${agentId}/schedule?${params.toString()}`);
+  return response.data;
+};
+
+export const createShift = async (agentId: string, shiftData: Partial<AgentSchedule>): Promise<AgentSchedule> => {
+  const response = await client.post<AgentSchedule>(`/agents/${agentId}/schedule`, shiftData);
+  return response.data;
+};
+
+export const updateShift = async (shiftId: string, data: Partial<AgentSchedule>): Promise<AgentSchedule> => {
+  const response = await client.put<AgentSchedule>(`/agents/schedule/${shiftId}`, data);
+  return response.data;
+};
+
+export const deleteShift = async (shiftId: string): Promise<{ success: boolean }> => {
+  const response = await client.delete<{ success: boolean }>(`/agents/schedule/${shiftId}`);
+  return response.data;
+};
+
+export const getTeamSchedule = async (teamId: string, startDate?: string, endDate?: string): Promise<any[]> => {
+  const params = new URLSearchParams();
+  params.append('teamId', teamId);
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  const response = await client.get<any[]>(`/team/schedule?${params.toString()}`);
+  return response.data;
+};
+
+export const requestShiftSwap = async (fromAgentId: string, toAgentId: string, shiftId: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>('/agents/schedule/swap', { fromAgentId, toAgentId, shiftId });
+  return response.data;
+};
+
+/**
+ * Performance Metrics
+ */
+
+export const getAgentPerformance = async (agentId: string, startDate?: string, endDate?: string): Promise<AgentPerformanceData[]> => {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  const response = await client.get<AgentPerformanceData[]>(`/agents/${agentId}/performance?${params.toString()}`);
+  return response.data;
+};
+
+export const getAgentCallHistoryExtended = async (agentId: string, limit: number, offset: number): Promise<PaginatedResponse<Call>> => {
+  const response = await client.get<PaginatedResponse<Call>>(`/agents/${agentId}/calls?limit=${limit}&offset=${offset}`);
+  return response.data;
+};
+
+export const getAgentQualityScores = async (agentId: string): Promise<any[]> => {
+  const response = await client.get<any[]>(`/agents/${agentId}/quality-scores`);
+  return response.data;
+};
+
+export const getTeamPerformanceExtended = async (teamId: string): Promise<any> => {
+  const response = await client.get<any>(`/team/${teamId}/performance`);
+  return response.data;
+};
+
+export const compareAgentPerformance = async (agentIds: string[]): Promise<any[]> => {
+  const response = await client.post<any[]>('/agents/compare', { agentIds });
+  return response.data;
+};
+
+/**
+ * Queue Management
+ */
+
+export const getAgentQueue = async (agentId: string): Promise<AgentQueueItem[]> => {
+  const response = await client.get<AgentQueueItem[]>(`/agents/${agentId}/queue`);
+  return response.data;
+};
+
+export const acceptCall = async (agentId: string, callId: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/agents/${agentId}/calls/${callId}/accept`);
+  return response.data;
+};
+
+export const declineCall = async (agentId: string, callId: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/agents/${agentId}/calls/${callId}/decline`);
+  return response.data;
+};
+
+/**
+ * Activity & Compliance
+ */
+
+export const getAgentActivityLog = async (agentId: string, startDate?: string, endDate?: string): Promise<AgentActivityLogEntry[]> => {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  const response = await client.get<AgentActivityLogEntry[]>(`/agents/${agentId}/activity?${params.toString()}`);
+  return response.data;
+};
+
+export const getCertifications = async (agentId: string): Promise<Certification[]> => {
+  const response = await client.get<Certification[]>(`/agents/${agentId}/certifications`);
+  return response.data;
+};
+
+export const addCertification = async (agentId: string, certData: Partial<Certification>): Promise<Certification> => {
+  const response = await client.post<Certification>(`/agents/${agentId}/certifications`, certData);
+  return response.data;
+};
+
+export const getComplianceChecklist = async (agentId: string): Promise<any> => {
+  const response = await client.get<any>(`/agents/${agentId}/compliance`);
+  return response.data;
+};
+
+/**
+ * Team Operations
+ */
+
+export const getTeamAgents = async (teamId: string): Promise<Agent[]> => {
+  const response = await client.get<Agent[]>(`/team/${teamId}/agents`);
+  return response.data;
+};
+
+export const assignAgentToTeam = async (agentId: string, teamId: string): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>(`/agents/${agentId}/assign-team`, { teamId });
+  return response.data;
+};
+
+export const bulkUpdateAgents = async (agentIds: string[], updates: Partial<Agent>): Promise<{ success: boolean }> => {
+  const response = await client.post<{ success: boolean }>('/agents/bulk-update', { agentIds, updates });
+  return response.data;
 };

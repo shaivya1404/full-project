@@ -25,3 +25,4 @@ export * from './campaigns';
 
 // Team components
 export * from './team';
+export * from './agents';
