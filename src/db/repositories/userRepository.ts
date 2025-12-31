@@ -2,8 +2,8 @@ import { PrismaClient, User, Session, TeamMember, ApiKey, Team } from '@prisma/c
 import { getPrismaClient } from '../client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { config } from '../config/env';
-import { logger } from '../utils/logger';
+import { config } from '../../config/env';
+import { logger } from '../../utils/logger';
 
 export interface UserWithMemberships extends User {
   teamMemberships?: (TeamMember & { team: { id: string; name: string } })[];
@@ -263,14 +263,13 @@ export class UserRepository {
     return jwt.sign(
       { userId, email, sessionId },
       config.JWT_SECRET,
-      { expiresIn: config.JWT_ACCESS_TOKEN_EXPIRY },
+      { expiresIn: config.JWT_ACCESS_TOKEN_EXPIRY } as any,
     );
   }
 
   generateRefreshToken(userId: string, sessionId: string): string {
     return jwt.sign({ userId, sessionId }, config.JWT_SECRET, {
-      expiresIn: config.JWT_REFRESH_TOKEN_EXPIRY,
-    });
+      expiresIn: config.JWT_REFRESH_TOKEN_EXPIRY } as any);
   }
 
   verifyToken(token: string): TokenPayload | null {

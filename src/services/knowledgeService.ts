@@ -72,14 +72,14 @@ export class KnowledgeService {
           content: kb.content,
           relevanceScore,
           metadata: {
-            category: kb.category,
+            category: kb.category || undefined,
             tags: kb.tags ? JSON.parse(kb.tags) : [],
           },
         });
       }
 
       // Search products
-      const products = await this.productRepository.findMany({ teamId });
+      const products = await this.productRepository.findManyProducts({ teamId });
       for (const product of products) {
         const searchText = `${product.name} ${product.description}`;
         const relevanceScore = this.calculateRelevanceScore(query, searchText, product.name);

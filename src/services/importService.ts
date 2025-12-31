@@ -1,8 +1,8 @@
 import { KnowledgeBaseRepository, CreateKnowledgeBaseInput } from '../db/repositories/knowledgeBaseRepository';
 import { ProductRepository, CreateProductInput, CreateProductFAQInput } from '../db/repositories/productRepository';
-import { parse } from 'csv-parse';
+import csv from 'csv-parser';
 import { Readable } from 'stream';
-import { Logger } from '../utils/logger';
+import { logger } from '../utils/logger';
 
 export interface CSVImportOptions {
   hasHeader?: boolean;
@@ -24,7 +24,7 @@ export class ImportValidationError extends Error {
 export class ImportService {
   private knowledgeBaseRepo: KnowledgeBaseRepository;
   private productRepo: ProductRepository;
-  private logger: Logger;
+  private logger = logger;
 
   constructor(
     knowledgeBaseRepo?: KnowledgeBaseRepository,
@@ -32,7 +32,6 @@ export class ImportService {
   ) {
     this.knowledgeBaseRepo = knowledgeBaseRepo || new KnowledgeBaseRepository();
     this.productRepo = productRepo || new ProductRepository();
-    this.logger = new Logger('ImportService');
   }
 
   /**
@@ -264,16 +263,15 @@ export class ImportService {
   }
 
   private createCSVParser(fileBuffer: Buffer, options: CSVImportOptions) {
-    const parserOptions = {
-      columns: options.hasHeader,
-      delimiter: options.delimiter || ',',
+    const readable = new Readable();
+    readable.push(fileBuffer);
+    readable.push(null);
+    
+    return readable.pipe(csv({
+      separator: options.delimiter || ',',
       quote: options.quote || '"',
-      relax_column_count: true,
-      skip_empty_lines: true,
-      trim: true,
-    };
-
-    return parse(fileBuffer.toString('utf-8'), parserOptions);
+      strict: true,
+    }));
   }
 
   private mapCSVToKnowledgeBase(

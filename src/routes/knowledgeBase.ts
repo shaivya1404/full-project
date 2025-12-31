@@ -251,7 +251,7 @@ router.get('/search', authMiddleware, async (req: Request, res: Response, next: 
     const results = await repo.search(q, {
       teamId: user.teamId,
       category: category as string,
-      tags: searchTags,
+      tags: searchTags as any,
     });
 
     res.status(200).json({

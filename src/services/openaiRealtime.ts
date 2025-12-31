@@ -4,6 +4,7 @@ import { config } from '../config/env';
 import { TwilioStreamService } from './twilioStream';
 import { KnowledgeService, KnowledgeContext, ConfidenceScore } from './knowledgeService';
 import { PromptService, DynamicPrompt } from './promptService';
+import { QueueService } from './queueService';
 
 export interface RealtimeMessage {
   type: string;
@@ -24,6 +25,7 @@ export class OpenAIRealtimeService {
   private twilioService: TwilioStreamService;
   private knowledgeService: KnowledgeService;
   private promptService: PromptService;
+  private queueService: QueueService;
   private isConnected: boolean = false;
   private retryCount: number = 0;
   private maxRetries: number = 5;
@@ -34,6 +36,7 @@ export class OpenAIRealtimeService {
     this.twilioService = twilioService;
     this.knowledgeService = new KnowledgeService();
     this.promptService = new PromptService();
+    this.queueService = new QueueService();
   }
 
   public connect() {
@@ -141,17 +144,69 @@ export class OpenAIRealtimeService {
         if (confidence.fallback) {
           await this.knowledgeService.trackUnansweredQuestion(responseText);
         }
+
+        // Check if we should trigger a transfer to a human agent
+        if (this.shouldTriggerTransfer(responseText, confidence)) {
+          logger.info(`Triggering automated transfer request for call ${context.callId}`);
+          await this.queueService.requestTransfer(context.callId, {
+            reason: confidence.fallback ? 'AI Uncertainty' : 'Customer Request',
+            priority: 1,
+            teamId: context.teamId,
+            context: {
+              lastConfidence: confidence.overall,
+              responseText
+            }
+          });
+          
+          // Optionally notify OpenAI to stop or say something about the transfer
+          await this.updateSystemPrompt(streamSid, "The customer is being transferred to a human agent. Please acknowledge this and tell them to wait a moment.");
+        }
       }
     } catch (error) {
       logger.error('Error processing response knowledge usage', error);
     }
   }
 
+  /**
+   * Determine if the conversation should be transferred to a human agent
+   */
+  private shouldTriggerTransfer(text: string, confidence: ConfidenceScore): boolean {
+    const textLower = text.toLowerCase();
+    
+    // Explicit requests for a human
+    const transferRequests = [
+      'talk to a human',
+      'speak with an agent',
+      'representative',
+      'human',
+      'real person',
+      'manager',
+      'operator'
+    ];
+    
+    if (transferRequests.some(phrase => textLower.includes(phrase))) {
+      return true;
+    }
+    
+    // Very low confidence or repeated fallback
+    if (confidence.overall < 0.2 || (confidence.fallback && confidence.overall < 0.4)) {
+      return true;
+    }
+    
+    // Negative sentiment/Frustration
+    const frustrationKeywords = ['angry', 'upset', 'terrible', 'horrible', 'stupid bot', 'not helping', 'useless'];
+    if (frustrationKeywords.some(keyword => textLower.includes(keyword))) {
+      return true;
+    }
+
+    return false;
+  }
+
   private identifyKnowledgeSources(
     responseText: string,
     context: ConversationContext,
-  ): Array<{ id: string; type: string; relevanceScore: number }> {
-    const usedSources = [];
+  ): Array<{ id: string; type: 'knowledge' | 'product' | 'faq'; relevanceScore: number }> {
+    const usedSources: Array<{ id: string; type: 'knowledge' | 'product' | 'faq'; relevanceScore: number }> = [];
     const textLower = responseText.toLowerCase();
     
     // Check which knowledge sources were referenced in the response

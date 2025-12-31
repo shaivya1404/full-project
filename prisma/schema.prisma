@@ -30,6 +30,9 @@ model Call {
   teamId           String?
   team             Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
   knowledgeBaseSources KnowledgeBaseSource[]
+  agentSessions    AgentSession[]
+  callQueue        CallQueue?
+  transferLogs     TransferLog[]
 }
 
 model Recording {
@@ -189,6 +192,8 @@ model Team {
   knowledgeBase    KnowledgeBase[]
   products         Product[]
   productFaqs      ProductFAQ[]
+  agents           Agent[]
+  callQueues       CallQueue[]
 }
 
 model TeamMember {
@@ -354,4 +359,69 @@ model KnowledgeBaseSource {
   @@index([knowledgeBaseId])
   @@index([productId])
   @@index([faqId])
+}
+
+model Agent {
+  id                   String         @id @default(uuid())
+  teamId               String?
+  team                 Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  name                 String
+  email                String         @unique
+  phone                String?
+  role                 String         @default("agent")
+  availabilityStatus   String         @default("offline") // online, offline, busy
+  skills               String?        // JSON string array
+  maxConcurrentCalls   Int            @default(1)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  sessions             AgentSession[]
+  assignedQueues       CallQueue[]
+}
+
+model AgentSession {
+  id        String    @id @default(uuid())
+  agentId   String
+  agent     Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  callId    String
+  call      Call      @relation(fields: [callId], references: [id], onDelete: Cascade)
+  startTime DateTime  @default(now())
+  endTime   DateTime?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([agentId])
+  @@index([callId])
+}
+
+model CallQueue {
+  id                String   @id @default(uuid())
+  teamId            String?
+  team              Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  callId            String   @unique
+  call              Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  reasonForTransfer String?
+  priority          Int      @default(0)
+  status            String   @default("waiting") // waiting, assigned, completed, abandoned
+  assignedAgentId   String?
+  assignedAgent     Agent?   @relation(fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  waitTime          Int?     // in seconds
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([teamId])
+  @@index([status])
+}
+
+model TransferLog {
+  id         String   @id @default(uuid())
+  callId     String
+  call       Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  fromBot    Boolean  @default(true)
+  toAgentId  String?
+  timestamp  DateTime @default(now())
+  context    String?  // JSON string for context
+  createdAt  DateTime @default(now())
+
+  @@index([callId])
 }
