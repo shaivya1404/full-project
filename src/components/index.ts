@@ -15,3 +15,6 @@ export * from './analytics';
 
 // Dashboard components
 export * from './dashboard';
+
+// Bot Analytics components
+export * from './bot-analytics';

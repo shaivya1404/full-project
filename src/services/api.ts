@@ -23,6 +23,8 @@ import type {
   Role,
   MemberStatus,
   InviteStatus,
+  BotAnalyticsData,
+  UnansweredQuestion,
 } from '../types';
 
 /**
@@ -123,6 +125,47 @@ export const exportAnalyticsData = async (dateRange?: { startDate?: string; endD
   if (dateRange?.endDate) params.append('endDate', dateRange.endDate);
 
   const response = await client.get(`/analytics/export?${params.toString()}`, {
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
+/**
+ * Bot Analytics Services
+ */
+
+export const getBotAnalytics = async (dateRange?: { startDate?: string; endDate?: string }): Promise<BotAnalyticsData> => {
+  const params = new URLSearchParams();
+  if (dateRange?.startDate) params.append('startDate', dateRange.startDate);
+  if (dateRange?.endDate) params.append('endDate', dateRange.endDate);
+
+  const response = await client.get<BotAnalyticsData>(`/analytics/bot?${params.toString()}`);
+  return response.data;
+};
+
+export const getUnansweredQuestions = async (
+  page: number,
+  limit: number,
+  filters?: { category?: string; sentiment?: string; startDate?: string; endDate?: string }
+): Promise<PaginatedResponse<UnansweredQuestion>> => {
+  const params = new URLSearchParams();
+  params.append('page', page.toString());
+  params.append('limit', limit.toString());
+  if (filters?.category) params.append('category', filters.category);
+  if (filters?.sentiment) params.append('sentiment', filters.sentiment);
+  if (filters?.startDate) params.append('startDate', filters.startDate);
+  if (filters?.endDate) params.append('endDate', filters.endDate);
+
+  const response = await client.get<PaginatedResponse<UnansweredQuestion>>(`/analytics/bot/unanswered?${params.toString()}`);
+  return response.data;
+};
+
+export const exportUnansweredQuestions = async (filters?: { startDate?: string; endDate?: string }): Promise<Blob> => {
+  const params = new URLSearchParams();
+  if (filters?.startDate) params.append('startDate', filters.startDate);
+  if (filters?.endDate) params.append('endDate', filters.endDate);
+
+  const response = await client.get(`/analytics/bot/unanswered/export?${params.toString()}`, {
     responseType: 'blob',
   });
   return response.data;
