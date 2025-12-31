@@ -24,13 +24,15 @@ export const EditMemberModal = ({
   onUpdateRole,
   loading,
 }: EditMemberModalProps) => {
-  const [role, setRole] = useState<Role>(member?.role || 'viewer');
+  const [role, setRole] = useState<Role>(() => member?.role || 'viewer');
 
+  // Reset role when member changes or modal opens/closes
   useEffect(() => {
-    if (member) {
+    if (member && isOpen && member.role !== role) {
       setRole(member.role);
     }
-  }, [member]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [member?.id, isOpen]); // Only depend on member.id and isOpen
 
   if (!member) return null;
 

@@ -103,7 +103,7 @@ export const TeamSettingsPage = () => {
       queryClient.invalidateQueries({ queryKey: ['team-api-keys'] });
       toast.success('API key created successfully');
       setApiKeyName('');
-    } catch (error) {
+    } catch {
       toast.error('Failed to create API key');
     } finally {
       setIsCreatingKey(false);
@@ -115,7 +115,7 @@ export const TeamSettingsPage = () => {
       await deleteTeamApiKey(keyId);
       queryClient.invalidateQueries({ queryKey: ['team-api-keys'] });
       toast.success('API key deleted');
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete API key');
     }
   };
@@ -141,7 +141,7 @@ export const TeamSettingsPage = () => {
       const { avatarUrl } = await uploadAvatar(file);
       setSettings({ ...settings, avatarUrl });
       toast.success('Avatar uploaded successfully');
-    } catch (error) {
+    } catch {
       toast.error('Failed to upload avatar');
     }
   };

@@ -32,7 +32,7 @@ export const TeamAuditPage = () => {
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
       toast.success('Audit logs exported successfully');
-    } catch (error) {
+    } catch {
       toast.error('Failed to export audit logs');
     } finally {
       setIsExporting(false);

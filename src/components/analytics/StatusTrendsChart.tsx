@@ -25,13 +25,22 @@ const COLORS: Record<string, string> = {
   missed: '#f59e0b',
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    name: string;
+    value: number;
+    color: string;
+  }>;
+  label?: string;
+}
+
+const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
         <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">{label}</p>
-        {payload.map((entry: any) => (
+        {payload.map((entry) => (
           <p key={entry.name} className="text-sm text-gray-600 dark:text-gray-400">
             <span
               className="inline-block w-2 h-2 rounded-full mr-2"
