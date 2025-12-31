@@ -183,3 +183,52 @@ export interface PaginatedResponse<T> {
   page: number;
   limit: number;
 }
+
+// Bot Analytics Types
+
+export interface UnansweredQuestion {
+  id: string;
+  text: string;
+  frequency: number;
+  category: string;
+  lastAsked: string;
+  sentiment: Sentiment;
+  confidenceScore: number;
+  isKnowledgeGap: boolean;
+  trends: { date: string; count: number }[];
+  keywords: string[];
+}
+
+export interface BotPerformanceMetrics {
+  questionAnsweringRate: number;
+  confidenceScoreDistribution: { range: string; count: number }[];
+  topCategories: { category: string; count: number }[];
+  humanTransfers: number;
+  knowledgeBaseUsage: number;
+  responseQuality: number;
+}
+
+export interface KnowledgeGap {
+  id: string;
+  topic: string;
+  frequency: number;
+  impactScore: number;
+  recommendation: string;
+  priority: 'low' | 'medium' | 'high';
+}
+
+export interface BotImprovementInsight {
+  id: string;
+  scenario: string;
+  frustrationLevel: number;
+  escalationRate: number;
+  suggestion: string;
+}
+
+export interface BotAnalyticsData {
+  unansweredQuestions: UnansweredQuestion[];
+  performanceMetrics: BotPerformanceMetrics;
+  knowledgeGaps: KnowledgeGap[];
+  improvementInsights: BotImprovementInsight[];
+  unansweredTrends: { date: string; count: number }[];
+}
