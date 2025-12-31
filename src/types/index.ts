@@ -263,3 +263,65 @@ export interface ProductsResponse {
   limit: number;
   offset: number;
 }
+
+// Campaign Management Types
+
+export interface Campaign {
+  id: string;
+  teamId: string;
+  name: string;
+  description?: string;
+  type: 'inbound' | 'outbound';
+  status: 'active' | 'paused' | 'completed' | 'draft';
+  callLimit?: number;
+  retryCount?: number;
+  retryDelay?: number;
+  operatingHours?: {
+    startTime: string;
+    endTime: string;
+    timezone: string;
+  };
+  prompt?: string;
+  knowledgeBaseId?: string;
+  contactsCount?: number;
+  callsMade?: number;
+  successRate?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CampaignContact {
+  id: string;
+  campaignId: string;
+  name: string;
+  phone: string;
+  email?: string;
+  status: 'pending' | 'called' | 'completed' | 'failed' | 'transferred';
+  notes?: string;
+  lastCalled?: string;
+  callCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CampaignAnalyticsData {
+  totalContacts: number;
+  callsMade: number;
+  callsCompleted: number;
+  successRate: number;
+  averageDuration: number;
+  statusBreakdown: {
+    pending: number;
+    called: number;
+    completed: number;
+    failed: number;
+    transferred: number;
+  };
+}
+
+export interface CampaignResponse {
+  data: Campaign[];
+  total: number;
+  limit: number;
+  offset: number;
+}

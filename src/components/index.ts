@@ -8,7 +8,7 @@ export { ProtectedRoute } from './ProtectedRoute';
 export { DashboardLayout } from './DashboardLayout';
 export { Modal } from './Modal';
 export { Select } from './Select';
-export { RoleBadge, StatusBadge, InviteBadge } from './Badge';
+export { RoleBadge, StatusBadge, InviteBadge, Badge } from './Badge';
 
 // Analytics components
 export * from './analytics';
@@ -21,6 +21,7 @@ export * from './bot-analytics';
 
 // Knowledge Base components
 export * from './knowledge';
+export * from './campaigns';
 
 // Team components
 export * from './team';
