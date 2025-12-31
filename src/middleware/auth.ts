@@ -227,3 +227,6 @@ export const authenticateWithTokenOrKey = async (
 
   return authenticate(req, res, next);
 };
+
+// Export alias for authMiddleware compatibility
+export const authMiddleware = authenticateWithTokenOrKey;

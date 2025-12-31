@@ -4,6 +4,7 @@ import cors from 'cors';
 import { Request, Response } from 'express';
 import { requestLogger } from './middleware/requestLogger';
 import { errorHandler } from './middleware/errorHandler';
+import { authMiddleware } from './middleware/auth';
 import healthRoutes from './routes/health';
 import authRoutes from './routes/auth';
 import apiKeysRoutes from './routes/apiKeys';
@@ -19,6 +20,7 @@ import campaignsRoutes from './routes/campaigns';
 import knowledgeBaseRoutes from './routes/knowledgeBase';
 import productsRoutes from './routes/products';
 import faqsRoutes from './routes/faqs';
+import knowledgeIntegrationRoutes from './routes/knowledgeIntegration';
 import { KnowledgeBaseRepository } from './db/repositories/knowledgeBaseRepository';
 import { ProductRepository } from './db/repositories/productRepository';
 import { logger } from './utils/logger';
@@ -48,6 +50,7 @@ app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/knowledge-base', knowledgeBaseRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/faqs', faqsRoutes);
+app.use('/api/knowledge', knowledgeIntegrationRoutes);
 
 // External API endpoint for knowledge search (for WhatsApp, email, chat flows)
 app.get('/api/knowledge/search', authMiddleware, async (req: Request, res: Response) => {

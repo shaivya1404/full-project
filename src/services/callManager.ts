@@ -2,42 +2,222 @@ import { Call } from '@prisma/client';
 import { CallRepository } from '../db/repositories/callRepository';
 import { StorageService } from './storageService';
 import { AnalyticsService } from './analyticsService';
+import { KnowledgeService } from './knowledgeService';
+import { OpenAIRealtimeService } from './openaiRealtime';
 import { AudioNormalizer } from '../utils/audioNormalizer';
 import { logger } from '../utils/logger';
 
 export interface CallSession {
   call: Call;
   audioChunks: Buffer[];
+  teamId: string;
+  campaignId?: string;
+  templateId?: string;
 }
 
 export class CallManager {
   private repository: CallRepository;
   private storage: StorageService;
   private analyticsService: AnalyticsService;
+  private knowledgeService: KnowledgeService;
+  private openaiService?: OpenAIRealtimeService;
   private activeCalls: Map<string, CallSession>;
 
   constructor() {
     this.repository = new CallRepository();
     this.storage = new StorageService();
     this.analyticsService = new AnalyticsService();
+    this.knowledgeService = new KnowledgeService();
     this.activeCalls = new Map();
   }
 
-  async startCall(streamSid: string, caller: string, callSid?: string): Promise<Call> {
+  setOpenAIService(service: OpenAIRealtimeService) {
+    this.openaiService = service;
+  }
+
+  async startCall(
+    streamSid: string, 
+    caller: string, 
+    callSid?: string, 
+    teamId?: string, 
+    campaignId?: string, 
+    templateId?: string
+  ): Promise<Call> {
     logger.info(`Starting call for streamSid: ${streamSid}`);
 
     const call = await this.repository.createCall({
       streamSid,
       callSid,
       caller,
+      teamId,
     });
 
     this.activeCalls.set(streamSid, {
       call,
       audioChunks: [],
+      teamId: teamId || 'default',
+      campaignId,
+      templateId,
     });
 
+    // Initialize OpenAI conversation with knowledge if service is available
+    if (this.openaiService && teamId) {
+      try {
+        await this.openaiService.initializeConversation(
+          streamSid,
+          call.id,
+          teamId,
+          campaignId,
+          templateId,
+        );
+      } catch (error) {
+        logger.warn('Failed to initialize OpenAI conversation with knowledge', error);
+      }
+    }
+
     return call;
+  }
+
+  /**
+   * Initialize knowledge context for an existing call
+   */
+  async initializeKnowledgeContext(
+    streamSid: string,
+    teamId: string,
+    campaignId?: string,
+    templateId?: string,
+  ): Promise<void> {
+    const session = this.activeCalls.get(streamSid);
+    if (!session) {
+      logger.warn(`No active call session found for streamSid: ${streamSid}`);
+      return;
+    }
+
+    try {
+      // Update session with knowledge context
+      session.teamId = teamId;
+      session.campaignId = campaignId;
+      session.templateId = templateId;
+
+      // Initialize OpenAI conversation with knowledge
+      if (this.openaiService) {
+        await this.openaiService.initializeConversation(
+          streamSid,
+          session.call.id,
+          teamId,
+          campaignId,
+          templateId,
+        );
+      }
+
+      logger.info(`Knowledge context initialized for call ${session.call.id}`);
+    } catch (error) {
+      logger.error('Error initializing knowledge context', error);
+    }
+  }
+
+  /**
+   * Update conversation knowledge based on customer query
+   */
+  async updateConversationKnowledge(
+    streamSid: string,
+    customerQuery: string,
+  ): Promise<void> {
+    const session = this.activeCalls.get(streamSid);
+    if (!session) {
+      logger.warn(`No active call session found for streamSid: ${streamSid}`);
+      return;
+    }
+
+    if (!this.openaiService) {
+      logger.debug('OpenAI service not available for knowledge update');
+      return;
+    }
+
+    try {
+      await this.openaiService.updateConversationKnowledge(streamSid, customerQuery);
+    } catch (error) {
+      logger.error('Error updating conversation knowledge', error);
+    }
+  }
+
+  /**
+   * Check if call should trigger fallback
+   */
+  shouldTriggerFallback(streamSid: string, responseText: string): boolean {
+    if (!this.openaiService) {
+      return false;
+    }
+
+    return this.openaiService.shouldTriggerFallback(streamSid, responseText);
+  }
+
+  /**
+   * Get knowledge context for a call
+   */
+  async getKnowledgeContext(callId: string): Promise<any> {
+    try {
+      const call = await this.repository.getCallById(callId);
+      if (!call) {
+        return null;
+      }
+
+      return this.knowledgeService.getKnowledgeContext(callId, call.teamId || 'default');
+    } catch (error) {
+      logger.error('Error getting knowledge context', error);
+      return null;
+    }
+  }
+
+  /**
+   * Record knowledge usage for a call
+   */
+  async recordKnowledgeUsage(
+    callId: string,
+    sources: Array<{ type: 'knowledge' | 'product' | 'faq'; id: string; relevanceScore: number }>,
+  ): Promise<void> {
+    try {
+      await this.knowledgeService.recordKnowledgeUsage(callId, sources);
+    } catch (error) {
+      logger.error('Error recording knowledge usage', error);
+    }
+  }
+
+  /**
+   * Calculate confidence score for a response
+   */
+  calculateResponseConfidence(
+    knowledgeContext: any,
+    responseSources: string[],
+  ): any {
+    return this.knowledgeService.calculateConfidenceScore(knowledgeContext, responseSources);
+  }
+
+  /**
+   * Track unanswered question
+   */
+  async trackUnansweredQuestion(question: string): Promise<void> {
+    try {
+      await this.knowledgeService.trackUnansweredQuestion(question);
+    } catch (error) {
+      logger.error('Error tracking unanswered question', error);
+    }
+  }
+
+  /**
+   * Search relevant knowledge for a query
+   */
+  async searchRelevantKnowledge(
+    query: string,
+    teamId: string,
+    limit?: number,
+  ): Promise<any[]> {
+    try {
+      return await this.knowledgeService.searchRelevantKnowledge(query, teamId, limit);
+    } catch (error) {
+      logger.error('Error searching relevant knowledge', error);
+      return [];
+    }
   }
 
   async updateCall(streamSid: string, callSid?: string, agent?: string): Promise<void> {

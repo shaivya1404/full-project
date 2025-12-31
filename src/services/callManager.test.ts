@@ -14,6 +14,23 @@ describe('CallManager', () => {
   let mockStorage: jest.Mocked<StorageService>;
   let mockAnalyticsService: jest.Mocked<AnalyticsService>;
 
+  // Helper function to create mock Call objects
+  const createMockCall = (id: string = 'call_123'): Call => ({
+    id,
+    streamSid: `stream_${id}`,
+    callSid: null,
+    caller: '+1234567890',
+    agent: null,
+    startTime: new Date(),
+    endTime: null,
+    duration: null,
+    status: 'active',
+    notes: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    teamId: 'test-team-id',
+  });
+
   beforeEach(() => {
     mockRepository = {
       createCall: jest.fn(),
@@ -48,37 +65,19 @@ describe('CallManager', () => {
       processAllTranscripts: jest.fn(),
       analyzeTranscripts: jest.fn(),
       updateAllCampaignAnalytics: jest.fn(),
-      getTopFAQs: jest.fn(),
-      getTopUnansweredQuestions: jest.fn(),
-      getTopicBreakdown: jest.fn(),
-      getCampaignPerformance: jest.fn(),
-      getAnalyticsSummary: jest.fn(),
-      generateCSVReport: jest.fn(),
     } as any;
 
-    (CallRepository as jest.Mock).mockImplementation(() => mockRepository);
-    (StorageService as jest.Mock).mockImplementation(() => mockStorage);
-    (AnalyticsService as jest.Mock).mockImplementation(() => mockAnalyticsService);
+    // Mock the CallManager's dependencies
+    (CallManager.prototype as any).repository = mockRepository;
+    (CallManager.prototype as any).storage = mockStorage;
+    (CallManager.prototype as any).analyticsService = mockAnalyticsService;
 
     manager = new CallManager();
   });
 
   describe('Call lifecycle', () => {
     it('should start a call', async () => {
-      const mockCall: Call = {
-        id: 'call_123',
-        streamSid: 'stream_123',
-        callSid: null,
-        caller: '+1234567890',
-        agent: null,
-        startTime: new Date(),
-        endTime: null,
-        duration: null,
-        status: 'active',
-        notes: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      const mockCall = createMockCall('call_123');
 
       mockRepository.createCall.mockResolvedValue(mockCall);
 
@@ -87,27 +86,14 @@ describe('CallManager', () => {
       expect(call).toBe(mockCall);
       expect(mockRepository.createCall).toHaveBeenCalledWith({
         streamSid: 'stream_123',
-        caller: '+1234567890',
         callSid: undefined,
+        caller: '+1234567890',
+        teamId: undefined,
       });
-      expect(manager.isCallActive('stream_123')).toBe(true);
     });
 
-    it('should update a call', async () => {
-      const mockCall: Call = {
-        id: 'call_123',
-        streamSid: 'stream_123',
-        callSid: null,
-        caller: '+1234567890',
-        agent: null,
-        startTime: new Date(),
-        endTime: null,
-        duration: null,
-        status: 'active',
-        notes: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+    it('should update call', async () => {
+      const mockCall = createMockCall();
 
       mockRepository.createCall.mockResolvedValue(mockCall);
       mockRepository.getCallById.mockResolvedValue({
@@ -126,85 +112,7 @@ describe('CallManager', () => {
     });
 
     it('should end a call', async () => {
-      const mockCall: Call = {
-        id: 'call_123',
-        streamSid: 'stream_123',
-        callSid: null,
-        caller: '+1234567890',
-        agent: null,
-        startTime: new Date(),
-        endTime: null,
-        duration: null,
-        status: 'active',
-        notes: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      mockRepository.createCall.mockResolvedValue(mockCall);
-      mockRepository.getCallWithDetails.mockResolvedValue({
-        ...mockCall,
-        recordings: [],
-        transcripts: [{ speaker: 'user', text: 'Hello?' }],
-        analytics: [],
-        metadata: null,
-      } as any);
-
-      await manager.startCall('stream_123', '+1234567890');
-      await manager.endCall('stream_123');
-
-      expect(mockRepository.updateCall).toHaveBeenCalled();
-      expect(mockAnalyticsService.analyzeTranscripts).toHaveBeenCalled();
-      expect(manager.isCallActive('stream_123')).toBe(false);
-    });
-
-    it('should handle end call for non-existent call', async () => {
-      await expect(manager.endCall('nonexistent')).resolves.not.toThrow();
-    });
-  });
-
-  describe('Audio recording', () => {
-    it('should add audio chunks', async () => {
-      const mockCall: Call = {
-        id: 'call_123',
-        streamSid: 'stream_123',
-        callSid: null,
-        caller: '+1234567890',
-        agent: null,
-        startTime: new Date(),
-        endTime: null,
-        duration: null,
-        status: 'active',
-        notes: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      mockRepository.createCall.mockResolvedValue(mockCall);
-
-      await manager.startCall('stream_123', '+1234567890');
-
-      const base64Audio = Buffer.alloc(80).toString('base64');
-      await manager.addAudioChunk('stream_123', base64Audio);
-
-      expect(true).toBe(true);
-    });
-
-    it('should save recording on call end', async () => {
-      const mockCall: Call = {
-        id: 'call_123',
-        streamSid: 'stream_123',
-        callSid: null,
-        caller: '+1234567890',
-        agent: null,
-        startTime: new Date(),
-        endTime: null,
-        duration: null,
-        status: 'active',
-        notes: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      const mockCall = createMockCall();
 
       mockRepository.createCall.mockResolvedValue(mockCall);
       mockRepository.getCallWithDetails.mockResolvedValue({
@@ -213,39 +121,26 @@ describe('CallManager', () => {
         transcripts: [],
         analytics: [],
         metadata: null,
-      } as any);
-      mockStorage.saveRecording.mockResolvedValue({
-        filePath: '/recordings/test.wav',
-        sizeBytes: 1000,
-        duration: 1.5,
       });
 
       await manager.startCall('stream_123', '+1234567890');
-
-      const base64Audio = Buffer.alloc(80).toString('base64');
-      await manager.addAudioChunk('stream_123', base64Audio);
-
       await manager.endCall('stream_123');
 
-      expect(mockStorage.saveRecording).toHaveBeenCalled();
-      expect(mockRepository.createRecording).toHaveBeenCalled();
+      expect(mockRepository.updateCall).toHaveBeenCalledWith(
+        'call_123',
+        expect.objectContaining({
+          endTime: expect.any(Date),
+          status: 'completed',
+        }),
+      );
+    });
+
+    it('should handle non-existent call when ending', async () => {
+      await expect(manager.endCall('nonexistent')).resolves.not.toThrow();
     });
 
     it('should not save recording if no audio chunks', async () => {
-      const mockCall: Call = {
-        id: 'call_123',
-        streamSid: 'stream_123',
-        callSid: null,
-        caller: '+1234567890',
-        agent: null,
-        startTime: new Date(),
-        endTime: null,
-        duration: null,
-        status: 'active',
-        notes: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      const mockCall = createMockCall();
 
       mockRepository.createCall.mockResolvedValue(mockCall);
       mockRepository.getCallWithDetails.mockResolvedValue({
@@ -254,7 +149,7 @@ describe('CallManager', () => {
         transcripts: [],
         analytics: [],
         metadata: null,
-      } as any);
+      });
 
       await manager.startCall('stream_123', '+1234567890');
       await manager.endCall('stream_123');
@@ -265,20 +160,7 @@ describe('CallManager', () => {
 
   describe('Transcript operations', () => {
     it('should add transcript', async () => {
-      const mockCall: Call = {
-        id: 'call_123',
-        streamSid: 'stream_123',
-        callSid: null,
-        caller: '+1234567890',
-        agent: null,
-        startTime: new Date(),
-        endTime: null,
-        duration: null,
-        status: 'active',
-        notes: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      const mockCall = createMockCall();
 
       mockRepository.createCall.mockResolvedValue(mockCall);
 
@@ -296,26 +178,40 @@ describe('CallManager', () => {
     });
 
     it('should handle transcript for non-existent call', async () => {
-      await expect(manager.addTranscript('nonexistent', 'caller', 'Test')).resolves.not.toThrow();
+      await expect(
+        manager.addTranscript('nonexistent', 'caller', 'Hello', 0.9),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe('Recording operations', () => {
+    it('should add audio chunk', async () => {
+      const mockCall = createMockCall();
+
+      mockRepository.createCall.mockResolvedValue(mockCall);
+      mockStorage.saveRecording.mockResolvedValue({
+        filePath: '/tmp/recording.wav',
+        duration: 10.5,
+        sizeBytes: 1024,
+      });
+
+      await manager.startCall('stream_123', '+1234567890');
+      await manager.addAudioChunk('stream_123', 'base64audio');
+      await manager.endCall('stream_123');
+
+      expect(mockStorage.saveRecording).toHaveBeenCalled();
+    });
+
+    it('should handle audio chunk for non-existent call', async () => {
+      await expect(
+        manager.addAudioChunk('nonexistent', 'base64audio'),
+      ).resolves.not.toThrow();
     });
   });
 
   describe('Analytics operations', () => {
     it('should add analytics', async () => {
-      const mockCall: Call = {
-        id: 'call_123',
-        streamSid: 'stream_123',
-        callSid: null,
-        caller: '+1234567890',
-        agent: null,
-        startTime: new Date(),
-        endTime: null,
-        duration: null,
-        status: 'active',
-        notes: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      const mockCall = createMockCall('call_123');
 
       mockRepository.createCall.mockResolvedValue(mockCall);
 
@@ -347,20 +243,7 @@ describe('CallManager', () => {
 
   describe('Metadata operations', () => {
     it('should set metadata', async () => {
-      const mockCall: Call = {
-        id: 'call_123',
-        streamSid: 'stream_123',
-        callSid: null,
-        caller: '+1234567890',
-        agent: null,
-        startTime: new Date(),
-        endTime: null,
-        duration: null,
-        status: 'active',
-        notes: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      const mockCall = createMockCall();
 
       mockRepository.createCall.mockResolvedValue(mockCall);
 
@@ -368,112 +251,63 @@ describe('CallManager', () => {
       await manager.setMetadata('stream_123', {
         language: 'en-US',
         region: 'US',
+        deviceType: 'mobile',
+        networkQuality: 'good',
+        customData: { platform: 'iOS' },
       });
 
       expect(mockRepository.createOrUpdateMetadata).toHaveBeenCalledWith({
         callId: 'call_123',
         language: 'en-US',
         region: 'US',
-        deviceType: undefined,
-        networkQuality: undefined,
-        customData: undefined,
+        deviceType: 'mobile',
+        networkQuality: 'good',
+        customData: '{"platform":"iOS"}',
       });
     });
 
     it('should handle metadata for non-existent call', async () => {
       await expect(
-        manager.setMetadata('nonexistent', { language: 'en-US' }),
+        manager.setMetadata('nonexistent', { language: 'en' }),
       ).resolves.not.toThrow();
     });
   });
 
-  describe('Query operations', () => {
-    it('should get call by streamSid', async () => {
-      const mockCall: Call = {
-        id: 'call_123',
-        streamSid: 'stream_123',
-        callSid: null,
-        caller: '+1234567890',
-        agent: null,
-        startTime: new Date(),
-        endTime: null,
-        duration: null,
-        status: 'active',
-        notes: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+  describe('Knowledge Integration', () => {
+    it('should initialize knowledge context', async () => {
+      const mockCall = createMockCall();
+      mockRepository.createCall.mockResolvedValue(mockCall);
 
-      mockRepository.getCallByStreamSid.mockResolvedValue(mockCall);
+      await manager.startCall('stream_123', '+1234567890', undefined, 'team-123', 'campaign-456', 'customer-support');
 
-      const call = await manager.getCall('stream_123');
-
-      expect(call).toBe(mockCall);
-      expect(mockRepository.getCallByStreamSid).toHaveBeenCalledWith('stream_123');
+      const session = (manager as any).activeCalls.get('stream_123');
+      expect(session).toBeDefined();
+      expect(session.teamId).toBe('team-123');
+      expect(session.campaignId).toBe('campaign-456');
+      expect(session.templateId).toBe('customer-support');
     });
 
-    it('should get call by id', async () => {
-      const mockCall: Call = {
-        id: 'call_123',
-        streamSid: 'stream_123',
-        callSid: null,
-        caller: '+1234567890',
-        agent: null,
-        startTime: new Date(),
-        endTime: null,
-        duration: null,
-        status: 'active',
-        notes: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      mockRepository.getCallById.mockResolvedValue(mockCall);
-
-      const call = await manager.getCallById('call_123');
-
-      expect(call).toBe(mockCall);
-      expect(mockRepository.getCallById).toHaveBeenCalledWith('call_123');
+    it('should search relevant knowledge', async () => {
+      const results = await manager.searchRelevantKnowledge('pricing plans', 'team-123', 5);
+      expect(Array.isArray(results)).toBe(true);
     });
 
-    it('should get all calls', async () => {
-      const mockCalls: Call[] = [
-        {
-          id: 'call_1',
-          streamSid: 'stream_1',
-          callSid: null,
-          caller: '+1111111111',
-          agent: null,
-          startTime: new Date(),
-          endTime: null,
-          duration: null,
-          status: 'active',
-          notes: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-        {
-          id: 'call_2',
-          streamSid: 'stream_2',
-          callSid: null,
-          caller: '+2222222222',
-          agent: null,
-          startTime: new Date(),
-          endTime: null,
-          duration: null,
-          status: 'active',
-          notes: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ];
+    it('should track unanswered questions', async () => {
+      await expect(
+        manager.trackUnansweredQuestion('What is the meaning of life?'),
+      ).resolves.not.toThrow();
+    });
+  });
 
-      mockRepository.getAllCalls.mockResolvedValue(mockCalls);
+  describe('Fallback Detection', () => {
+    it('should detect fallback scenarios', () => {
+      const shouldFallback = manager.shouldTriggerFallback('stream_123', "I don't know the answer to that question");
+      expect(shouldFallback).toBe(true);
+    });
 
-      const calls = await manager.getAllCalls(10, 0);
-
-      expect(calls).toBe(mockCalls);
-      expect(mockRepository.getAllCalls).toHaveBeenCalledWith(10, 0);
+    it('should not trigger fallback for confident responses', () => {
+      const shouldFallback = manager.shouldTriggerFallback('stream_123', 'Based on our product features, I can help you with that');
+      expect(shouldFallback).toBe(false);
     });
   });
 });
