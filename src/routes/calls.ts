@@ -282,4 +282,43 @@ router.post('/:id/notes', async (req: Request, res: Response, next: NextFunction
   }
 });
 
+// POST /api/calls/:id/transfer - Initiate transfer
+router.post('/:id/transfer', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { reason, priority, requiredSkills, teamId, context } = req.body;
+    
+    const { QueueService } = await import('../services/queueService');
+    const queueService = new QueueService();
+    
+    const result = await queueService.requestTransfer(id, {
+      reason,
+      priority,
+      requiredSkills,
+      teamId,
+      context
+    });
+    
+    res.status(200).json({ data: result });
+  } catch (error) {
+    logger.error('Error initiating transfer', error);
+    next(error);
+  }
+});
+
+// GET /api/calls/:id/transfer-history - Get transfer details
+router.get('/:id/transfer-history', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { QueueRepository } = await import('../db/repositories/queueRepository');
+    const repo = new QueueRepository();
+    
+    const history = await repo.getTransferHistory(id);
+    res.status(200).json({ data: history });
+  } catch (error) {
+    logger.error('Error fetching transfer history', error);
+    next(error);
+  }
+});
+
 export default router;

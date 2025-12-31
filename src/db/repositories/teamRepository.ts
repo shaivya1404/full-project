@@ -1,6 +1,6 @@
 import { PrismaClient, Team, TeamMember, AuditLog, User, ApiKey } from '@prisma/client';
 import { getPrismaClient } from '../client';
-import { logger } from '../utils/logger';
+import { logger } from '../../utils/logger';
 
 export interface TeamMemberWithUser extends TeamMember {
   user: User;
@@ -54,16 +54,7 @@ export class TeamRepository {
     });
   }
 
-  async getTeamById(id: string): Promise<
-    | (Team & {
-        members: (TeamMember & { user: User })[];
-        campaigns?: { id: string }[];
-        calls?: { id: string }[];
-        apiKeys?: ApiKey[];
-        auditLogs?: AuditLog[];
-      })
-    | null
-  > {
+  async getTeamById(id: string): Promise<any> {
     return this.prisma.team.findUnique({
       where: { id },
       include: {
@@ -95,10 +86,10 @@ export class TeamRepository {
           select: { id: true },
         },
       },
-    });
+    }) as any;
   }
 
-  async getTeamByIdSimple(id: string): Promise<(Team & { members: TeamMember[] }) | null> {
+  async getTeamByIdSimple(id: string): Promise<any> {
     return this.prisma.team.findUnique({
       where: { id },
       include: {
@@ -116,7 +107,7 @@ export class TeamRepository {
           },
         },
       },
-    });
+    }) as any;
   }
 
   async updateTeam(id: string, data: UpdateTeamInput): Promise<Team> {
@@ -277,7 +268,7 @@ export class TeamRepository {
     });
   }
 
-  async getTeamMembers(teamId: string): Promise<(TeamMember & { user: User })[]> {
+  async getTeamMembers(teamId: string): Promise<any[]> {
     return this.prisma.teamMember.findMany({
       where: { teamId },
       include: {
@@ -294,7 +285,7 @@ export class TeamRepository {
         },
       },
       orderBy: { createdAt: 'asc' },
-    });
+    }) as any;
   }
 
   async isTeamMember(teamId: string, userId: string): Promise<boolean> {

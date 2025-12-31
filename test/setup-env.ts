@@ -4,6 +4,6 @@ process.env.TWILIO_ACCOUNT_SID = 'ACtest';
 process.env.TWILIO_AUTH_TOKEN = 'authtoken';
 process.env.TWILIO_PHONE_NUMBER = '+1234567890';
 process.env.OPENAI_API_KEY = 'sk-test';
-process.env.DATABASE_URL = 'postgres://user:pass@localhost:5432/dbname';
+process.env.DATABASE_URL = 'file:./test.db';
 process.env.RECORDING_STORAGE_PATH = '/tmp/recordings';
 process.env.TWILIO_WEBHOOK_SECRET = 'secret';

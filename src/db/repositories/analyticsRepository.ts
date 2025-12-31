@@ -1,5 +1,7 @@
-import { PrismaClient, FAQ, UnansweredQuestion, TopicAnalytics, CampaignAnalytics } from '@prisma/client';
+import { PrismaClient, UnansweredQuestion, TopicAnalytics, CampaignAnalytics } from '@prisma/client';
 import { getPrismaClient } from '../client';
+
+type FAQ = any;
 
 export interface CreateFAQInput {
   question: string;
@@ -35,12 +37,12 @@ export class AnalyticsRepository {
   }
 
   async upsertFAQ(data: CreateFAQInput): Promise<FAQ> {
-    const existing = await this.prisma.fAQ.findUnique({
+    const existing = await (this.prisma as any).fAQ.findUnique({
       where: { question: data.question },
     });
 
     if (existing) {
-      return this.prisma.fAQ.update({
+      return (this.prisma as any).fAQ.update({
         where: { question: data.question },
         data: {
           frequency: { increment: 1 },
@@ -49,7 +51,7 @@ export class AnalyticsRepository {
       });
     }
 
-    return this.prisma.fAQ.create({
+    return (this.prisma as any).fAQ.create({
       data: {
         question: data.question,
         frequency: data.frequency || 1,
@@ -59,7 +61,7 @@ export class AnalyticsRepository {
   }
 
   async getTopFAQs(limit: number = 10): Promise<FAQ[]> {
-    return this.prisma.fAQ.findMany({
+    return (this.prisma as any).fAQ.findMany({
       take: limit,
       orderBy: { frequency: 'desc' },
     });

@@ -244,4 +244,28 @@ export class TwilioOutboundService {
       throw error;
     }
   }
+
+  /**
+   * Transfer an active call to a human agent
+   */
+  async transferCallToAgent(callSid: string, agentPhone: string): Promise<void> {
+    try {
+      logger.info(`Transferring call ${callSid} to agent phone ${agentPhone}`);
+      
+      await this.twilioClient.calls(callSid).update({
+        twiml: `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="alice">Connecting you to an agent. Please hold.</Say>
+  <Dial>
+    <Number>${agentPhone}</Number>
+  </Dial>
+</Response>`
+      });
+      
+      logger.info(`Call ${callSid} transfer command sent to Twilio`);
+    } catch (error) {
+      logger.error(`Failed to transfer call ${callSid}`, error);
+      throw error;
+    }
+  }
 }

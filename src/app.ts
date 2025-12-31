@@ -21,6 +21,8 @@ import knowledgeBaseRoutes from './routes/knowledgeBase';
 import productsRoutes from './routes/products';
 import faqsRoutes from './routes/faqs';
 import knowledgeIntegrationRoutes from './routes/knowledgeIntegration';
+import agentRoutes from './routes/agents';
+import queueRoutes from './routes/queue';
 import { KnowledgeBaseRepository } from './db/repositories/knowledgeBaseRepository';
 import { ProductRepository } from './db/repositories/productRepository';
 import { logger } from './utils/logger';
@@ -51,6 +53,8 @@ app.use('/api/knowledge-base', knowledgeBaseRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/faqs', faqsRoutes);
 app.use('/api/knowledge', knowledgeIntegrationRoutes);
+app.use('/api/agents', agentRoutes);
+app.use('/api/queue', queueRoutes);
 
 // External API endpoint for knowledge search (for WhatsApp, email, chat flows)
 app.get('/api/knowledge/search', authMiddleware, async (req: Request, res: Response) => {

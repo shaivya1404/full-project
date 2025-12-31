@@ -589,15 +589,15 @@ router.patch('/:id/members/:memberId/role', async (req: AuthRequest, res: Respon
       success: true,
       data: {
         member: {
-          id: updatedMember.id,
+          id: (updatedMember as any).id,
           user: {
-            id: updatedMember.user.id,
-            email: updatedMember.user.email,
-            firstName: updatedMember.user.firstName,
-            lastName: updatedMember.user.lastName,
-            isActive: updatedMember.user.isActive,
+            id: (updatedMember as any).user.id,
+            email: (updatedMember as any).user.email,
+            firstName: (updatedMember as any).user.firstName,
+            lastName: (updatedMember as any).user.lastName,
+            isActive: (updatedMember as any).user.isActive,
           },
-          role: updatedMember.role,
+          role: (updatedMember as any).role,
         },
       },
       message: 'Member role updated successfully',

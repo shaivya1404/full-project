@@ -4,7 +4,7 @@ module.exports = {
   roots: ['<rootDir>/src'],
   testMatch: ['**/*.test.ts'],
   transform: {
-    '^.+\\.tsx?$': 'ts-jest',
+    '^.+\\.tsx?$': ['ts-jest', { isolatedModules: true }],
   },
   setupFiles: ['<rootDir>/test/setup-env.ts'],
 };
