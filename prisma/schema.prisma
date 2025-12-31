@@ -29,6 +29,7 @@ model Call {
   metadata         CallMetadata?
   teamId           String?
   team             Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  knowledgeBaseSources KnowledgeBaseSource[]
 }
 
 model Recording {
@@ -143,15 +144,6 @@ model CallLog {
   updatedAt        DateTime          @updatedAt
 }
 
-model FAQ {
-  id               String            @id @default(uuid())
-  question         String            @unique
-  frequency        Int               @default(1)
-  topic            String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-}
-
 model UnansweredQuestion {
   id               String            @id @default(uuid())
   question         String            @unique
@@ -194,6 +186,9 @@ model Team {
   campaigns        Campaign[]
   apiKeys          ApiKey[]
   auditLogs        AuditLog[]
+  knowledgeBase    KnowledgeBase[]
+  products         Product[]
+  productFaqs      ProductFAQ[]
 }
 
 model TeamMember {
@@ -277,4 +272,86 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+}
+
+model KnowledgeBase {
+  id          String   @id @default(uuid())
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  title       String
+  content     String
+  category    String?
+  tags        String?  // JSON string array for tags
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  sources     KnowledgeBaseSource[]
+
+  @@index([teamId])
+  @@index([category])
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  name        String
+  description String
+  category    String?
+  price       Float?
+  details     String?  // JSON string for flexible product details
+  faqs        String?  // JSON string for product-specific FAQs
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  sources     KnowledgeBaseSource[]
+  productFaqs ProductFAQ[]
+
+  @@index([teamId])
+  @@index([category])
+}
+
+model ProductFAQ {
+  id                String   @id @default(uuid())
+  teamId            String
+  team              Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  question          String
+  answer            String
+  category          String?
+  relevantProductId String?
+  relevantProduct   Product? @relation(fields: [relevantProductId], references: [id], onDelete: SetNull)
+  views             Int      @default(0)
+  helpfulCount      Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  sources           KnowledgeBaseSource[]
+
+  @@index([teamId])
+  @@index([category])
+  @@index([relevantProductId])
+  @@index([views])
+  @@index([helpfulCount])
+}
+
+model KnowledgeBaseSource {
+  id              String        @id @default(uuid())
+  callId          String
+  call            Call          @relation(fields: [callId], references: [id], onDelete: Cascade)
+  knowledgeBaseId String?
+  knowledgeBase   KnowledgeBase? @relation(fields: [knowledgeBaseId], references: [id], onDelete: SetNull)
+  productId       String?
+  product         Product?       @relation(fields: [productId], references: [id], onDelete: SetNull)
+  faqId           String?
+  faq             ProductFAQ?           @relation(fields: [faqId], references: [id], onDelete: SetNull)
+  relevanceScore  Float?
+  usedAt          DateTime       @default(now())
+
+  @@index([callId])
+  @@index([knowledgeBaseId])
+  @@index([productId])
+  @@index([faqId])
 }
