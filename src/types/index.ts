@@ -424,3 +424,106 @@ export interface InterventionRequest {
   message?: string;
   duration?: number;
 }
+
+export interface Agent {
+  id: string;
+  teamId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  employeeId?: string;
+  department?: string;
+  managerId?: string;
+  role: 'agent' | 'senior_agent' | 'supervisor' | 'admin';
+  status: 'online' | 'offline' | 'break' | 'away' | 'busy';
+  activeStatus?: string; // whether agent is actively working
+  hireDate?: string;
+  terminationDate?: string;
+  agentType?: 'full_time' | 'part_time' | 'contract';
+  skills?: AgentSkill[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentSkill {
+  id: string;
+  agentId: string;
+  skillName: string;
+  proficiencyLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  isPrimary?: boolean;
+  validationDate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentSchedule {
+  id: string;
+  agentId: string;
+  dayOfWeek: number; // 0-6 (Sun-Sat)
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  shiftType?: 'regular' | 'oncall' | 'training';
+  isRecurring?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentPerformanceData {
+  agentId: string;
+  date: string;
+  totalCalls: number;
+  averageHandleTime: number;
+  averageAfterCallWork: number;
+  customerSatisfactionScore: number;
+  firstCallResolution: number;
+  callQualityScore: number;
+  scheduleAdherence: number;
+  attendance: number;
+}
+
+export interface AgentStatusUpdate {
+  agentId: string;
+  status: 'online' | 'offline' | 'break' | 'away' | 'busy';
+  reason?: string;
+  timestamp: string;
+  timeInStatus: number; // seconds
+}
+
+export interface AgentQueueItem {
+  agentId: string;
+  callId: string;
+  customerId: string;
+  customerName: string;
+  skillRequired: string;
+  waitTime: number; // seconds
+  position: number;
+}
+
+export interface AgentActivityLogEntry {
+  id: string;
+  agentId: string;
+  activityType: 'call' | 'status_change' | 'login' | 'logout' | 'break' | 'note';
+  description: string;
+  timestamp: string;
+  duration?: number;
+}
+
+export interface Certification {
+  id: string;
+  agentId: string;
+  name: string;
+  issueDate: string;
+  expiryDate?: string;
+  documentUrl?: string;
+  status: 'active' | 'expired' | 'pending';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentsResponse {
+  data: Agent[];
+  total: number;
+  limit: number;
+  offset: number;
+}

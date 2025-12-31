@@ -13,3 +13,5 @@ export { CampaignsPage } from './Campaigns';
 export { CampaignDetailPage } from './CampaignDetail';
 export { LiveCalls } from './LiveCalls';
 export { CallMonitor } from './CallMonitor';
+export { AgentsPage } from './Agents';
+export { AgentDetailPage } from './AgentDetail';
