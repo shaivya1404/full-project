@@ -4,6 +4,7 @@ import { StorageService } from './storageService';
 import { AnalyticsService } from './analyticsService';
 import { KnowledgeService } from './knowledgeService';
 import { OpenAIRealtimeService } from './openaiRealtime';
+import { OrderCollectionService } from './orderCollectionService';
 import { AudioNormalizer } from '../utils/audioNormalizer';
 import { logger } from '../utils/logger';
 
@@ -21,6 +22,7 @@ export class CallManager {
   private analyticsService: AnalyticsService;
   private knowledgeService: KnowledgeService;
   private openaiService?: OpenAIRealtimeService;
+  private orderCollectionService: OrderCollectionService;
   private activeCalls: Map<string, CallSession>;
 
   constructor() {
@@ -28,6 +30,7 @@ export class CallManager {
     this.storage = new StorageService();
     this.analyticsService = new AnalyticsService();
     this.knowledgeService = new KnowledgeService();
+    this.orderCollectionService = new OrderCollectionService();
     this.activeCalls = new Map();
   }
 
@@ -339,6 +342,9 @@ export class CallManager {
       return;
     }
 
+    // Clean up order collection state
+    this.orderCollectionService.cleanupSession(streamSid);
+
     const endTime = new Date();
     const duration = Math.floor((endTime.getTime() - session.call.startTime.getTime()) / 1000);
 
@@ -403,6 +409,79 @@ export class CallManager {
 
   async getAllCalls(limit?: number, offset?: number): Promise<Call[]> {
     return this.repository.getAllCalls(limit, offset);
+  }
+
+  // Order Collection Methods
+
+  async startOrderCollection(streamSid: string): Promise<{ prompt: string; field: string } | null> {
+    const session = this.activeCalls.get(streamSid);
+    if (!session) {
+      logger.warn(`No active call session found for streamSid: ${streamSid}`);
+      return null;
+    }
+
+    const prompt = this.orderCollectionService.getNextPrompt(streamSid);
+    if (prompt) {
+      logger.info(`Order collection started for call ${session.call.id}`);
+    }
+    return prompt;
+  }
+
+  async processOrderInput(
+    streamSid: string,
+    input: string,
+    isAgent: boolean = false,
+  ): Promise<{
+    response: string;
+    orderCreated?: boolean;
+    orderId?: string;
+    orderNumber?: string;
+  }> {
+    const session = this.activeCalls.get(streamSid);
+    if (!session) {
+      return { response: 'No active call session found.' };
+    }
+
+    const result = await this.orderCollectionService.processInput(streamSid, input, isAgent);
+
+    if (result.orderCreated) {
+      logger.info(`Order ${result.orderNumber} created from call ${session.call.id}`);
+    }
+
+    return result;
+  }
+
+  async getOrderCollectionState(streamSid: string) {
+    return this.orderCollectionService.getState(streamSid);
+  }
+
+  async endOrderCollection(streamSid: string): Promise<void> {
+    this.orderCollectionService.cleanupSession(streamSid);
+    logger.info(`Order collection ended for streamSid: ${streamSid}`);
+  }
+
+  async createOrderFromCall(
+    streamSid: string,
+    teamId?: string,
+    campaignId?: string,
+  ): Promise<{
+    success: boolean;
+    order?: any;
+    error?: string;
+  }> {
+    const session = this.activeCalls.get(streamSid);
+    if (!session) {
+      return { success: false, error: 'No active call session' };
+    }
+
+    const result = await this.orderCollectionService.createOrderFromCall(
+      streamSid,
+      session.call.id,
+      teamId || session.teamId,
+      campaignId || session.campaignId,
+    );
+
+    return result;
   }
 
   isCallActive(streamSid: string): boolean {

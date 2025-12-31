@@ -33,6 +33,7 @@ model Call {
   agentSessions    AgentSession[]
   callQueue        CallQueue?
   transferLogs     TransferLog[]
+  orders           Order[]
 }
 
 model Recording {
@@ -114,6 +115,7 @@ model Campaign {
   contacts         Contact[]
   callLogs         CallLog[]
   analytics        CampaignAnalytics?
+  orders           Order[]
   teamId           String?
   team             Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
 }
@@ -194,6 +196,8 @@ model Team {
   productFaqs      ProductFAQ[]
   agents           Agent[]
   callQueues       CallQueue[]
+  orders           Order[]
+  customers        Customer[]
 }
 
 model TeamMember {
@@ -424,4 +428,100 @@ model TransferLog {
   createdAt  DateTime @default(now())
 
   @@index([callId])
+}
+
+// Order Management Models
+
+model Customer {
+  id               String              @id @default(uuid())
+  teamId           String?
+  team             Team?               @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  phone            String?
+  email            String?
+  address          String?
+  name             String?
+  previousOrders   Int                 @default(0)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  // Relations
+  orders           Order[]
+  preferences      CustomerPreference?
+
+  @@index([teamId])
+  @@index([phone])
+  @@index([email])
+}
+
+model CustomerPreference {
+  id                   String   @id @default(uuid())
+  customerId           String   @unique
+  customer             Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  favoriteItems        String?  // JSON string array
+  dietaryRestrictions  String?  // JSON string array
+  allergies            String?  // JSON string array
+  deliveryNotes        String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Order {
+  id               String       @id @default(uuid())
+  orderNumber      String       @unique // Human-readable order ID like "ORD-2024-001"
+  teamId           String?
+  team             Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  campaignId       String?
+  campaign         Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  callId           String?
+  call             Call?        @relation(fields: [callId], references: [id], onDelete: SetNull)
+  customerId       String?
+  customer         Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  status           String       @default("pending") // pending, confirmed, processing, ready, delivered, cancelled
+  items            OrderItem[]
+  totalAmount      Float        @default(0)
+  orderTime        DateTime     @default(now())
+  deliveryAddress  String?
+  phone            String?
+  email            String?
+  notes            String?
+  cancelReason     String?
+  specialInstructions String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  // Relations
+  analytics        OrderAnalytics?
+
+  @@index([teamId])
+  @@index([customerId])
+  @@index([orderNumber])
+  @@index([status])
+  @@index([orderTime])
+}
+
+model OrderItem {
+  id                  String   @id @default(uuid())
+  orderId             String
+  order               Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId           String?
+  productName         String
+  quantity            Int      @default(1)
+  unitPrice           Float
+  specialInstructions String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([orderId])
+}
+
+model OrderAnalytics {
+  id              String   @id @default(uuid())
+  orderId         String   @unique
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  topProduct      String?  // Most frequently ordered item by this customer
+  orderFrequency  Int      @default(0)
+  averageOrderValue Float  @default(0)
+  totalSpent      Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
