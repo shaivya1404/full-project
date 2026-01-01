@@ -1,20 +1,20 @@
 import React from 'react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   Cell
 } from 'recharts';
-import { 
-  CreditCard, 
-  Smartphone, 
-  Building2, 
-  Wallet, 
-  Link as LinkIcon, 
+import {
+  CreditCard,
+  Smartphone,
+  Building2,
+  Wallet,
+  Link as LinkIcon,
   Banknote,
   TrendingUp,
   Clock,
@@ -105,25 +105,25 @@ export const PaymentMethodAnalytics: React.FC<PaymentMethodAnalyticsProps> = ({ 
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="method" 
-                  axisLine={false} 
+                <XAxis
+                  dataKey="method"
+                  axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12, fill: '#64748b' }}
                 />
-                <YAxis 
-                  axisLine={false} 
+                <YAxis
+                  axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12, fill: '#64748b' }}
-                  tickFormatter={(val) => `₹${val/1000}k`}
+                  tickFormatter={(val) => `₹${val / 1000}k`}
                 />
-                <Tooltip 
+                <Tooltip
                   cursor={{ fill: '#f8fafc' }}
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                  formatter={(val: number) => [formatCurrency(val, 'INR'), 'Revenue']}
+                  formatter={(val: number | undefined) => [formatCurrency(val || 0, 'INR'), 'Revenue']}
                 />
                 <Bar dataKey="revenue" radius={[6, 6, 0, 0]}>
-                  {data.map((entry, index) => (
+                  {data.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Bar>
@@ -164,16 +164,16 @@ export const PaymentMethodAnalytics: React.FC<PaymentMethodAnalyticsProps> = ({ 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <h3 className="font-bold text-gray-900 mb-6">Success Rate Comparison</h3>
           <div className="space-y-6">
-            {data.map((item, i) => (
+            {data.map((item) => (
               <div key={item.method}>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium text-gray-700">{item.method}</span>
                   <span className="text-sm font-bold text-gray-900">{item.successRate}%</span>
                 </div>
                 <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="h-full rounded-full transition-all duration-1000"
-                    style={{ 
+                    style={{
                       width: `${item.successRate}%`,
                       backgroundColor: item.successRate > 95 ? '#10b981' : item.successRate > 85 ? '#3b82f6' : '#f59e0b'
                     }}

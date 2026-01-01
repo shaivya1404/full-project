@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
-import { 
-  FileText, 
-  Download, 
-  Send, 
-  Plus, 
-  Trash2, 
-  Mail, 
-  Smartphone,
-  Check,
+import {
+  FileText,
+  Plus,
+  Trash2,
   Eye,
   Settings,
-  X
+  X,
+  Check,
+  Mail,
+  Smartphone
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 import type { Payment, OrderItem } from '../../types';
@@ -34,7 +32,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
   const [taxRate, setTaxRate] = useState(18);
   const [discount, setDiscount] = useState(0);
   const [notes, setNotes] = useState('Thank you for your business!');
-  const [invoiceNumber, setInvoiceNumber] = useState(`INV-${Date.now().toString().slice(-6)}`);
+  const [invoiceNumber, setInvoiceNumber] = useState(`INV - ${Date.now().toString().slice(-6)} `);
   const [dueDate, setDueDate] = useState(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
 
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
@@ -133,7 +131,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
           <div className="mb-8">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Line Items</h3>
-              <button 
+              <button
                 onClick={handleAddItem}
                 className="flex items-center text-xs font-bold text-blue-600 hover:underline"
               >
@@ -183,7 +181,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
                         {formatCurrency(item.total, payment.currency)}
                       </td>
                       <td className="py-4 text-center">
-                        <button 
+                        <button
                           onClick={() => handleRemoveItem(item.id)}
                           className="p-1 text-gray-300 hover:text-red-500"
                         >
@@ -215,7 +213,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
               <div className="flex justify-between items-center text-sm text-gray-500">
                 <div className="flex items-center">
                   <span>Tax ({taxRate}%)</span>
-                  <button 
+                  <button
                     onClick={() => setTaxRate(taxRate === 18 ? 12 : taxRate === 12 ? 5 : 18)}
                     className="ml-2 p-1 hover:bg-gray-100 rounded"
                   >

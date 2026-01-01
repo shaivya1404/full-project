@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
-import { 
-  Plus, 
-  Download, 
-  Filter, 
+import { useState } from 'react';
+import {
+  Plus,
+  Download,
   Search,
   FileText,
   TrendingUp,
@@ -14,7 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { getInvoices, downloadInvoicePDF, sendInvoiceEmail, sendInvoiceSMS } from '../services/api';
 import { InvoicesTable } from '../components/payments/InvoicesTable';
-import { formatCurrency } from '../utils/formatters';
+
 
 export const InvoicesPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -43,7 +42,7 @@ export const InvoicesPage: React.FC = () => {
   };
 
   const handleSend = (invoice: any, method: 'email' | 'sms') => {
-    const sendFn = method === 'email' 
+    const sendFn = method === 'email'
       ? () => sendInvoiceEmail(invoice.id, invoice.customerEmail)
       : () => sendInvoiceSMS(invoice.id, invoice.customerPhone);
 
@@ -120,11 +119,10 @@ export const InvoicesPage: React.FC = () => {
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold capitalize whitespace-nowrap transition-all border ${
-                statusFilter === status
-                  ? 'bg-blue-600 border-blue-600 text-white'
-                  : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-              }`}
+              className={`px-4 py-2 rounded-xl text-xs font-bold capitalize whitespace-nowrap transition-all border ${statusFilter === status
+                ? 'bg-blue-600 border-blue-600 text-white'
+                : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}
             >
               {status}
             </button>
@@ -133,7 +131,7 @@ export const InvoicesPage: React.FC = () => {
       </div>
 
       {/* Invoices Table */}
-      <InvoicesTable 
+      <InvoicesTable
         invoices={invoicesData?.data || []}
         isLoading={isLoading}
         onViewDetails={(inv) => toast.success(`Viewing invoice ${inv.invoiceNumber}`)}

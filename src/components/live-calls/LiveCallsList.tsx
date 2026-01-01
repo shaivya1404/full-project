@@ -1,24 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  Phone, 
-  User, 
-  Clock, 
-  Headphones, 
-  ArrowRight, 
-  PhoneOff,
-  AlertTriangle,
-  Volume2,
-  Activity,
-  Search,
+import {
   Filter,
-  RotateCcw
+  RotateCcw,
+  Phone,
+  User,
+  Clock,
+  Activity,
+  Headphones,
+  ArrowRight,
+  AlertTriangle,
 } from 'lucide-react';
 import type { LiveCall } from '../../types';
 import { Button } from '../Button';
 import { Badge } from '../Badge';
 import { useAuthStore } from '../../store/authStore';
-import { getLiveCalls, getCallAlerts } from '../../services/api';
+import { getLiveCalls } from '../../services/api';
 import { formatDuration } from '../../utils/formatters';
 import { LiveCallFilters } from './LiveCallFilters';
 import { CallAlertNotifications } from './CallAlertNotifications';
@@ -45,7 +42,7 @@ export const LiveCallsList = () => {
   const [filters, setFilters] = useState<FilterState>({});
   const [showFilters, setShowFilters] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
-  
+
   const { user } = useAuthStore();
   const teamId = user?.id || '';
 
@@ -110,7 +107,7 @@ export const LiveCallsList = () => {
     })
     .sort((a, b) => {
       let aValue: any, bValue: any;
-      
+
       switch (sortField) {
         case 'duration':
           aValue = a.duration;
@@ -132,7 +129,7 @@ export const LiveCallsList = () => {
         default:
           return 0;
       }
-      
+
       if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
       return 0;
@@ -180,7 +177,7 @@ export const LiveCallsList = () => {
             {calls.length} active call{calls.length !== 1 ? 's' : ''}
           </p>
         </div>
-        
+
         <div className="flex items-center space-x-3">
           <Button
             variant="outline"
@@ -191,7 +188,7 @@ export const LiveCallsList = () => {
             <Filter size={16} />
             <span>Filters</span>
           </Button>
-          
+
           <Button
             variant="outline"
             size="sm"
@@ -289,9 +286,8 @@ export const LiveCallsList = () => {
               {filteredAndSortedCalls.map((call) => (
                 <tr
                   key={call.id}
-                  className={`hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${
-                    selectedCallId === call.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                  }`}
+                  className={`hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedCallId === call.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                    }`}
                   onClick={() => setSelectedCallId(call.id)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -314,7 +310,7 @@ export const LiveCallsList = () => {
                       </div>
                     </div>
                   </td>
-                  
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
                       <User className="h-4 w-4 text-gray-400" />
@@ -323,7 +319,7 @@ export const LiveCallsList = () => {
                       </span>
                     </div>
                   </td>
-                  
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
                       <Clock className="h-4 w-4 text-gray-400" />
@@ -332,7 +328,7 @@ export const LiveCallsList = () => {
                       </span>
                     </div>
                   </td>
-                  
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
                       <div className={`w-2 h-2 rounded-full ${getStatusColor(call.status)}`}></div>
@@ -341,7 +337,7 @@ export const LiveCallsList = () => {
                       </span>
                     </div>
                   </td>
-                  
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     {call.sentiment && (
                       <Badge
@@ -352,7 +348,7 @@ export const LiveCallsList = () => {
                       </Badge>
                     )}
                   </td>
-                  
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
                       <Activity className={`h-4 w-4 ${getQualityColor(call.callQuality)}`} />
@@ -361,7 +357,7 @@ export const LiveCallsList = () => {
                       </span>
                     </div>
                   </td>
-                  
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
                       <Link to={`/dashboard/calls/${call.callId}/monitor`}>
@@ -370,7 +366,7 @@ export const LiveCallsList = () => {
                           Monitor
                         </Button>
                       </Link>
-                      
+
                       <Link to={`/dashboard/calls/${call.callId}/monitor`}>
                         <Button size="sm" variant="outline">
                           <ArrowRight size={16} className="mr-1" />
@@ -383,7 +379,7 @@ export const LiveCallsList = () => {
               ))}
             </tbody>
           </table>
-          
+
           {filteredAndSortedCalls.length === 0 && (
             <div className="text-center py-12">
               <Phone className="mx-auto h-12 w-12 text-gray-400" />
@@ -391,8 +387,8 @@ export const LiveCallsList = () => {
                 No active calls
               </h3>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {Object.keys(filters).length > 0 
-                  ? 'No calls match your current filters.' 
+                {Object.keys(filters).length > 0
+                  ? 'No calls match your current filters.'
                   : 'All agents are currently idle.'}
               </p>
             </div>

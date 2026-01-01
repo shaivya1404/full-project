@@ -1,15 +1,12 @@
+
 import { useState } from 'react';
-import { 
-  Search, 
-  Filter, 
-  MoreVertical, 
-  Trash2, 
-  Edit, 
-  Phone, 
-  Mail, 
-  CheckCircle2, 
-  XCircle, 
-  Clock,
+import {
+  Search,
+  Filter,
+  MoreVertical,
+  Trash2,
+  Phone,
+  Mail,
   RefreshCw,
   UserPlus
 } from 'lucide-react';
@@ -42,18 +39,18 @@ export const ContactManagement = ({
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
 
   const filteredContacts = contacts.filter((contact) => {
-    const matchesSearch = 
+    const matchesSearch =
       contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.phone.includes(searchTerm) ||
       (contact.email?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
-    
+
     const matchesStatus = statusFilter === 'all' || contact.status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
   const toggleSelect = (id: string) => {
-    setSelectedContacts((prev) => 
+    setSelectedContacts((prev) =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
@@ -126,18 +123,18 @@ export const ContactManagement = ({
             {selectedContacts.length} contacts selected
           </span>
           <div className="flex gap-2">
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="text-blue-700 dark:text-blue-300"
               onClick={() => onBulkUpdate(selectedContacts, { status: 'pending' })}
             >
               <RefreshCw size={16} className="mr-2" />
               Retry
             </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="text-red-600 dark:text-red-400"
               onClick={() => onBulkDelete(selectedContacts)}
             >
@@ -228,7 +225,7 @@ export const ContactManagement = ({
                         >
                           <MoreVertical size={18} />
                         </button>
-                        
+
                         {menuOpen === contact.id && (
                           <>
                             <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(null)} />

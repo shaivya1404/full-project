@@ -1,28 +1,16 @@
-import React, { useState } from 'react';
-import { 
-  ShoppingCart, 
-  Plus, 
-  Filter,
-  Search,
-  Download,
-  Eye,
-  CheckCircle,
-  XCircle,
-  RefreshCw,
-  Trash2,
-  FileText
+import { useState } from 'react';
+import {
+  Plus,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { 
-  getOrders, 
-  confirmOrder, 
+import {
+  getOrders,
+  confirmOrder,
   cancelOrder,
   updateOrderStatus,
-  searchOrders
 } from '../services/api';
 import type { Order } from '../types';
-import { useAuthStore } from '../store/authStore';
 import { OrdersTable } from '../components/orders/OrdersTable';
 import { OrderDetailPanel } from '../components/orders/OrderDetailPanel';
 import { AddOrderModal } from '../components/orders/AddOrderModal';
@@ -39,7 +27,7 @@ export const OrdersPage: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
-  
+
   const [filters, setFilters] = useState({
     search: '',
     status: [] as string[],
@@ -50,7 +38,7 @@ export const OrdersPage: React.FC = () => {
   });
 
   const queryClient = useQueryClient();
-  const { user } = useAuthStore();
+  // const { user } = useAuthStore();
   const teamId = 'team-123';
 
   const { data: ordersData, isLoading } = useQuery({
@@ -99,7 +87,7 @@ export const OrdersPage: React.FC = () => {
   });
 
   const updateOrderStatusMutation = useMutation({
-    mutationFn: ({ orderId, status, note }: { orderId: string; status: Order['status']; note?: string }) => 
+    mutationFn: ({ orderId, status, note }: { orderId: string; status: Order['status']; note?: string }) =>
       updateOrderStatus(orderId, status, note),
     onSuccess: (updatedOrder) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -125,14 +113,14 @@ export const OrdersPage: React.FC = () => {
     updateOrderStatusMutation.mutate({ orderId, status, note });
   };
 
-  const handleAddOrder = (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'orderNumber'>) => {
+  const handleAddOrder = () => {
     // Add order logic would go here - for now show success
     toast.success('Order created successfully');
     setShowAddModal(false);
     queryClient.invalidateQueries({ queryKey: ['orders'] });
   };
 
-  const handleEditOrder = (orderData: Partial<Omit<Order, 'id' | 'createdAt' | 'updatedAt'>>) => {
+  const handleEditOrder = () => {
     if (selectedOrder) {
       // Edit order logic would go here - for now show success
       toast.success('Order updated successfully');
@@ -153,7 +141,7 @@ export const OrdersPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Orders Management</h1>
           <p className="text-sm text-gray-600">Manage customer orders and track fulfillment</p>
         </div>
-        
+
         <button
           onClick={() => setShowAddModal(true)}
           className="px-4 py-2 bg-blue-500 text-white rounded-lg flex items-center gap-2 hover:bg-blue-600 transition-colors"
@@ -169,11 +157,10 @@ export const OrdersPage: React.FC = () => {
           <button
             key={tab}
             onClick={() => setActiveTab(tab as any)}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-              activeTab === tab
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === tab
                 ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-            }`}
+              }`}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1).replace('-', ' ')}
           </button>
@@ -248,7 +235,7 @@ export const OrdersPage: React.FC = () => {
           onAdd={handleAddOrder}
         />
       )}
-      
+
       {showEditModal && selectedOrder && (
         <EditOrderModal
           order={selectedOrder}
@@ -259,7 +246,7 @@ export const OrdersPage: React.FC = () => {
           onEdit={handleEditOrder}
         />
       )}
-      
+
       {showCancelDialog && selectedOrder && (
         <CancelOrderDialog
           order={selectedOrder}

@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  ArrowLeft, 
-  BarChart2, 
-  Users, 
-  Settings, 
-  Calendar, 
+import {
+  ArrowLeft,
+  BarChart2,
+  Users,
+  Settings,
+  Calendar,
   MessageSquare,
   Play,
   Pause,
@@ -14,9 +14,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-import { 
-  getCampaignById, 
-  updateCampaign, 
+import {
+  getCampaignById,
+  updateCampaign,
   getCampaignAnalytics,
   getCampaignCallTrends,
   getCampaignContactStatus,
@@ -29,11 +29,11 @@ import {
   pauseCampaign,
   resumeCampaign
 } from '../services/api';
-import { 
-  CampaignAnalytics, 
-  ContactManagement, 
-  CampaignConfiguration, 
-  CampaignScheduler, 
+import {
+  CampaignAnalytics,
+  ContactManagement,
+  CampaignConfiguration,
+  CampaignScheduler,
   PromptEditor,
   ContactListUpload
 } from '../components/campaigns';
@@ -93,7 +93,7 @@ export const CampaignDetailPage = () => {
   });
 
   const pauseResumeMutation = useMutation({
-    mutationFn: () => 
+    mutationFn: () =>
       campaign?.status === 'active' ? pauseCampaign(id!) : resumeCampaign(id!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaign', id] });
@@ -115,7 +115,7 @@ export const CampaignDetailPage = () => {
   });
 
   const updateContactMutation = useMutation({
-    mutationFn: ({ contactId, data }: { contactId: string; data: Partial<CampaignContact> }) => 
+    mutationFn: ({ contactId, data }: { contactId: string; data: Partial<CampaignContact> }) =>
       updateContact(contactId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaign-contacts', id] });
@@ -164,7 +164,7 @@ export const CampaignDetailPage = () => {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-4">
-            <button 
+            <button
               onClick={() => navigate('/dashboard/campaigns')}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
             >
@@ -182,8 +182,8 @@ export const CampaignDetailPage = () => {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant={campaign.status === 'active' ? 'ghost' : 'primary'} 
+            <Button
+              variant={campaign.status === 'active' ? 'ghost' : 'primary'}
               onClick={() => pauseResumeMutation.mutate()}
               isLoading={pauseResumeMutation.isPending}
             >
@@ -205,11 +205,10 @@ export const CampaignDetailPage = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 py-4 border-b-2 transition-colors ${
-                  activeTab === tab.id
+                className={`flex items - center gap - 2 py - 4 border - b - 2 transition - colors ${activeTab === tab.id
                     ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
+                  } `}
               >
                 <tab.icon size={18} />
                 <span className="font-medium">{tab.label}</span>
@@ -220,8 +219,8 @@ export const CampaignDetailPage = () => {
 
         <div className="pb-12">
           {activeTab === 'analytics' && analytics && (
-            <CampaignAnalytics 
-              analytics={analytics} 
+            <CampaignAnalytics
+              analytics={analytics}
               callTrends={trends || []}
               contactStatus={contactStatuses || []}
               onExport={(format) => toast.success(`Exporting as ${format}...`)}
@@ -230,7 +229,7 @@ export const CampaignDetailPage = () => {
           )}
 
           {activeTab === 'contacts' && (
-            <ContactManagement 
+            <ContactManagement
               contacts={contactsData?.data || []}
               loading={isLoadingContacts}
               onUpdate={(contactId, data) => updateContactMutation.mutate({ contactId, data })}
@@ -242,22 +241,22 @@ export const CampaignDetailPage = () => {
           )}
 
           {activeTab === 'config' && (
-            <CampaignConfiguration 
-              campaign={campaign} 
+            <CampaignConfiguration
+              campaign={campaign}
               onUpdate={(data) => updateMutation.mutate(data)}
               loading={updateMutation.isPending}
             />
           )}
 
           {activeTab === 'scheduler' && (
-            <CampaignScheduler 
-              campaign={campaign} 
+            <CampaignScheduler
+              campaign={campaign}
               onStartManual={() => toast.success('Campaign manually triggered')}
             />
           )}
 
           {activeTab === 'prompt' && (
-            <PromptEditor 
+            <PromptEditor
               initialPrompt={campaign.prompt}
               onSave={(prompt) => updateMutation.mutate({ prompt })}
               loading={updateMutation.isPending}
@@ -265,7 +264,7 @@ export const CampaignDetailPage = () => {
           )}
         </div>
 
-        <ContactListUpload 
+        <ContactListUpload
           isOpen={isUploadModalOpen}
           onClose={() => setIsUploadModalOpen(false)}
           onImport={(file) => uploadMutation.mutate(file)}

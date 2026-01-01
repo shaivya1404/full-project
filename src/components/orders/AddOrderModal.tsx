@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, ShoppingCart, User, MapPin, CreditCard } from 'lucide-react';
+import { X, Plus, ShoppingCart, User, MapPin } from 'lucide-react';
 import { Modal } from '../Modal';
 import { Button } from '../Button';
 import type { Order, OrderItem } from '../../types';
@@ -21,12 +21,12 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({ onClose, onAdd }) 
   ]);
 
   const handleAddItem = () => {
-    setItems([...items, { 
-      id: Date.now().toString(), 
-      name: '', 
-      quantity: 1, 
-      price: 0, 
-      total: 0 
+    setItems([...items, {
+      id: Date.now().toString(),
+      name: '',
+      quantity: 1,
+      price: 0,
+      total: 0
     }]);
   };
 
@@ -37,9 +37,9 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({ onClose, onAdd }) 
   const handleItemChange = (id: string, field: keyof OrderItem, value: string | number) => {
     setItems(items.map(item => {
       if (item.id === id) {
-        const updatedItem = { 
-          ...item, 
-          [field]: field === 'quantity' || field === 'price' ? Number(value) : value 
+        const updatedItem = {
+          ...item,
+          [field]: field === 'quantity' || field === 'price' ? Number(value) : value
         };
         updatedItem.total = updatedItem.quantity * updatedItem.price;
         return updatedItem;
@@ -72,7 +72,7 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({ onClose, onAdd }) 
       paymentMethod: 'card',
       notes: notes || undefined,
       teamId: 'team-123',
-      orderNumber: `ORD-${Date.now()}`
+
     };
 
     onAdd(orderData);
@@ -87,7 +87,7 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({ onClose, onAdd }) 
             <User className="h-5 w-5" />
             Customer Information
           </h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
@@ -100,7 +100,7 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({ onClose, onAdd }) 
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <input
@@ -111,7 +111,7 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({ onClose, onAdd }) 
                 placeholder="john@example.com"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
               <input
@@ -131,7 +131,7 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({ onClose, onAdd }) 
             <MapPin className="h-5 w-5" />
             Addresses
           </h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Shipping Address</label>
@@ -142,7 +142,7 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({ onClose, onAdd }) 
                 placeholder="123 Main St, City, State 12345"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Billing Address</label>
               <textarea
@@ -167,9 +167,9 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({ onClose, onAdd }) 
               Add Item
             </Button>
           </div>
-          
+
           <div className="space-y-3">
-            {items.map((item, index) => (
+            {items.map((item) => (
               <div key={item.id} className="flex gap-3 items-start p-3 border border-gray-200 rounded-lg">
                 <div className="flex-1">
                   <input
@@ -199,7 +199,7 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({ onClose, onAdd }) 
                     />
                   </div>
                 </div>
-                
+
                 {items.length > 1 && (
                   <button
                     onClick={() => handleRemoveItem(item.id)}
@@ -208,7 +208,7 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({ onClose, onAdd }) 
                     <X className="h-4 w-4" />
                   </button>
                 )}
-                
+
                 <div className="text-right min-w-[80px]">
                   <p className="text-sm font-medium">
                     ${item.total.toFixed(2)}
@@ -255,12 +255,12 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({ onClose, onAdd }) 
           />
         </div>
       </div>
-      
+
       <div className="flex justify-end gap-3 p-6 border-t">
         <Button onClick={onClose} variant="outline">
           Cancel
         </Button>
-        <Button 
+        <Button
           onClick={handleSubmit}
           disabled={!customerName || items.some(item => !item.name || item.price <= 0)}
         >

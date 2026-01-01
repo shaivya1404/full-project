@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Wifi, Signal, Activity, AlertTriangle } from 'lucide-react';
 import type { CallQualityMetrics } from '../../types';
 import { Card } from '../Card';
-import { formatPercentage } from '../../utils/formatters';
+
 
 interface CallQualityIndicatorProps {
   quality: CallQualityMetrics;
@@ -26,12 +26,12 @@ export const CallQualityIndicator = ({ quality }: CallQualityIndicatorProps) => 
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / duration, 1);
         const current = start + (end - start) * progress;
-        
+
         setAnimatedQuality(prev => ({
           ...prev,
           [key]: current
         }));
-        
+
         if (progress < 1) {
           requestAnimationFrame(animate);
         }

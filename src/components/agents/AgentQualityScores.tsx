@@ -6,7 +6,7 @@ type AgentQualityScoresProps = {
   loading?: boolean;
 };
 
-export const AgentQualityScores = ({ data, loading }: AgentQualityScoresProps) => {
+export const AgentQualityScores = ({ }: AgentQualityScoresProps) => {
   const chartData = [
     { month: 'Jan', score: 85 },
     { month: 'Feb', score: 88 },
@@ -71,27 +71,27 @@ export const AgentQualityScores = ({ data, loading }: AgentQualityScoresProps) =
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
-                <XAxis 
-                  dataKey="month" 
-                  axisLine={false} 
-                  tickLine={false} 
+                <XAxis
+                  dataKey="month"
+                  axisLine={false}
+                  tickLine={false}
                   tick={{ fontSize: 12, fill: '#9CA3AF' }}
                 />
-                <YAxis 
-                  domain={[0, 100]} 
-                  axisLine={false} 
-                  tickLine={false} 
+                <YAxis
+                  domain={[0, 100]}
+                  axisLine={false}
+                  tickLine={false}
                   tick={{ fontSize: 12, fill: '#9CA3AF' }}
                 />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px', color: '#F3F4F6' }}
                   itemStyle={{ color: '#3B82F6' }}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="score" 
-                  stroke="#3B82F6" 
-                  strokeWidth={3} 
+                <Line
+                  type="monotone"
+                  dataKey="score"
+                  stroke="#3B82F6"
+                  strokeWidth={3}
                   dot={{ r: 4, fill: '#3B82F6', strokeWidth: 2, stroke: '#fff' }}
                   activeDot={{ r: 6 }}
                 />

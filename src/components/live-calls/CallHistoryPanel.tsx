@@ -73,15 +73,15 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
   // Calculate summary statistics
   const totalCalls = calls.length;
   const completedCalls = calls.filter(call => call.status === 'completed').length;
-  const avgDuration = totalCalls > 0 
-    ? calls.reduce((sum, call) => sum + call.duration, 0) / totalCalls 
+  const avgDuration = totalCalls > 0
+    ? calls.reduce((sum, call) => sum + call.duration, 0) / totalCalls
     : 0;
   const positiveSentimentCalls = calls.filter(call => call.sentiment === 'positive').length;
   const satisfactionRate = totalCalls > 0 ? (positiveSentimentCalls / totalCalls) * 100 : 0;
 
   return (
     <>
-      <Modal isOpen={true} onClose={onClose} size="2xl">
+      <Modal isOpen={true} onClose={onClose} size="xl">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
@@ -121,7 +121,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                     Total Calls
                   </div>
                 </div>
-                
+
                 <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <div className="text-2xl font-bold text-green-600">
                     {completedCalls}
@@ -130,7 +130,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                     Completed
                   </div>
                 </div>
-                
+
                 <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <div className="text-2xl font-bold text-blue-600">
                     {formatDuration(avgDuration)}
@@ -139,7 +139,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                     Avg Duration
                   </div>
                 </div>
-                
+
                 <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <div className="text-2xl font-bold text-purple-600">
                     {Math.round(satisfactionRate)}%
@@ -155,7 +155,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                   Recent Calls
                 </h3>
-                
+
                 {calls.length === 0 ? (
                   <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <Phone className="mx-auto h-12 w-12 text-gray-400" />
@@ -178,7 +178,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                             <div className="flex-shrink-0">
                               <Phone className="h-5 w-5 text-gray-400" />
                             </div>
-                            
+
                             <div className="flex-1">
                               <div className="flex items-center space-x-3">
                                 <span className="font-medium text-gray-900 dark:text-white">
@@ -193,7 +193,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                                   </Badge>
                                 )}
                               </div>
-                              
+
                               <div className="flex items-center space-x-4 mt-1 text-sm text-gray-500 dark:text-gray-400">
                                 <span>Agent: {call.agent}</span>
                                 <span>Duration: {formatDuration(call.duration)}</span>
@@ -201,7 +201,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                               </div>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center space-x-2">
                             {call.recordingUrl && (
                               <>
@@ -213,7 +213,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                                   <Play size={14} className="mr-1" />
                                   Play
                                 </Button>
-                                
+
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -224,7 +224,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                                 </Button>
                               </>
                             )}
-                            
+
                             <Button
                               variant="outline"
                               size="sm"
@@ -235,7 +235,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                             </Button>
                           </div>
                         </div>
-                        
+
                         {/* Notes Preview */}
                         {call.notes && (
                           <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded text-sm">
@@ -243,8 +243,8 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                               Notes:
                             </div>
                             <div className="text-gray-600 dark:text-gray-400">
-                              {call.notes.length > 100 
-                                ? `${call.notes.substring(0, 100)}...` 
+                              {call.notes.length > 100
+                                ? `${call.notes.substring(0, 100)}...`
                                 : call.notes}
                             </div>
                           </div>
@@ -281,7 +281,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                     {selectedCall.id.slice(-8)}
                   </div>
                 </div>
-                
+
                 <div>
                   <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Date & Time
@@ -290,7 +290,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                     {new Date(selectedCall.startTime).toLocaleString()}
                   </div>
                 </div>
-                
+
                 <div>
                   <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Agent
@@ -299,7 +299,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                     {selectedCall.agent}
                   </div>
                 </div>
-                
+
                 <div>
                   <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Duration
@@ -308,7 +308,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                     {formatDuration(selectedCall.duration)}
                   </div>
                 </div>
-                
+
                 <div>
                   <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Status
@@ -317,7 +317,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                     {selectedCall.status}
                   </Badge>
                 </div>
-                
+
                 <div>
                   <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Sentiment
@@ -366,7 +366,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                 >
                   Close
                 </Button>
-                
+
                 {selectedCall.recordingUrl && (
                   <>
                     <Button
@@ -376,7 +376,7 @@ export const CallHistoryPanel = ({ customerId, onClose }: CallHistoryPanelProps)
                       <Play size={16} className="mr-2" />
                       Play Recording
                     </Button>
-                    
+
                     <Button
                       onClick={() => handleDownloadRecording(selectedCall)}
                     >

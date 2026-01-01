@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/DashboardLayout';
-import { 
-  Mail, 
-  Phone, 
-  Calendar, 
+import {
+  Mail,
+  Phone,
+  Calendar,
   ChevronLeft,
   Award,
   ShieldCheck,
@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Badge } from '../components/Badge';
-import { useAgent, useAgentStatus, useUpdateAgentStatus, useAgentSkills, useAgentSchedule, useAgentPerformance, useAgentActivityLog, useAgentQueue, useAgentCertifications, useAddAgentSkill } from '../api/agents';
+import { useAgent, useAgentStatus, useUpdateAgentStatus, useAgentSkills, useAgentSchedule, useAgentPerformance, useAgentActivityLog, useAgentQueue, useAddAgentSkill } from '../api/agents';
 import { AgentAvailabilityWidget } from '../components/agents/AgentAvailabilityWidget';
 import { AgentSkillsPanel } from '../components/agents/AgentSkillsPanel';
 import { AgentPerformanceCard } from '../components/agents/AgentPerformanceCard';
@@ -30,12 +30,12 @@ export const AgentDetailPage = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'skills' | 'schedule' | 'activity' | 'team'>('overview');
 
   const { data: agent, isLoading: isAgentLoading } = useAgent(id);
-  const { data: status, isLoading: isStatusLoading } = useAgentStatus(id!);
-  const { data: skills, isLoading: isSkillsLoading } = useAgentSkills(id!);
-  const { data: schedule, isLoading: isScheduleLoading } = useAgentSchedule(id!);
+  useAgentStatus(id!);
+  const { data: skills } = useAgentSkills(id!);
+  const { data: schedule } = useAgentSchedule(id!);
   const { data: performance, isLoading: isPerfLoading } = useAgentPerformance(id!);
-  const { data: activityLog, isLoading: isActivityLoading } = useAgentActivityLog(id!);
-  const { data: queue, isLoading: isQueueLoading } = useAgentQueue(id!);
+  const { data: activityLog } = useAgentActivityLog(id!);
+  const { data: queue } = useAgentQueue(id!);
 
   const updateStatusMutation = useUpdateAgentStatus();
   const addSkillMutation = useAddAgentSkill();
@@ -102,7 +102,7 @@ export const AgentDetailPage = () => {
               </div>
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">{agent.firstName} {agent.lastName}</h2>
               <p className="text-gray-500 dark:text-gray-400 capitalize">{agent.role.replace('_', ' ')}</p>
-              
+
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <Badge variant={agent.status === 'online' ? 'success' : 'neutral'}>
                   {agent.status.charAt(0).toUpperCase() + agent.status.slice(1)}
@@ -167,51 +167,46 @@ export const AgentDetailPage = () => {
           <div className="flex border-b border-gray-200 dark:border-gray-700">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'overview'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'overview'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
             >
               Overview
             </button>
             <button
               onClick={() => setActiveTab('skills')}
-              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'skills'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'skills'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
             >
               Skills & Training
             </button>
             <button
               onClick={() => setActiveTab('schedule')}
-              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'schedule'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'schedule'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
             >
               Schedule
             </button>
             <button
               onClick={() => setActiveTab('activity')}
-              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'activity'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'activity'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
             >
               Activity Log
             </button>
             <button
               onClick={() => setActiveTab('team')}
-              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'team'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'team'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
             >
               Team
             </button>
@@ -238,37 +233,32 @@ export const AgentDetailPage = () => {
                 agentId={agent.id}
                 skills={skills || []}
                 onAddSkill={handleAddSkill}
-                onRemoveSkill={(id) => toast.success('Skill removed')}
-                onUpdateSkill={(id, data) => toast.success('Skill updated')}
+                onRemoveSkill={() => toast.success('Skill removed')}
+                onUpdateSkill={() => toast.success('Skill updated')}
               />
               <AgentCertificationsPanel
                 certifications={[]}
-                onAdd={() => {}}
-                onRemove={() => {}}
+                onRemove={() => { }}
               />
             </div>
           )}
 
           {activeTab === 'schedule' && (
             <AgentSchedulePanel
-              agentId={agent.id}
               schedule={schedule || []}
-              onAddShift={(data) => toast.success('Shift added')}
-              onRemoveShift={(id) => toast.success('Shift removed')}
+              onRemoveShift={() => toast.success('Shift removed')}
             />
           )}
 
           {activeTab === 'activity' && (
             <AgentActivityLog
               activities={activityLog || []}
-              loading={isActivityLoading}
             />
           )}
 
           {activeTab === 'team' && (
             <AgentTeamPanel
               agent={agent}
-              onAssignTeam={() => {}}
             />
           )}
         </div>

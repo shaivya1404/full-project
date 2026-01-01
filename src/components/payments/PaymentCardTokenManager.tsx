@@ -1,13 +1,11 @@
 import React from 'react';
-import { 
-  CreditCard, 
-  Trash2, 
-  ShieldCheck, 
-  Plus, 
+import {
+  CreditCard,
+  Trash2,
+  Plus,
   Star,
   CheckCircle2,
-  Lock,
-  ChevronRight
+  Lock
 } from 'lucide-react';
 
 type SavedCard = {
@@ -50,19 +48,18 @@ export const PaymentCardTokenManager: React.FC<PaymentCardTokenManagerProps> = (
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {cards.map((card) => (
-          <div 
+          <div
             key={card.id}
-            className={`relative group bg-white p-5 rounded-2xl border-2 transition-all ${
-              card.isPrimary ? 'border-blue-600 shadow-xl shadow-blue-50' : 'border-gray-100 hover:border-gray-200'
-            }`}
+            className={`relative group bg - white p - 5 rounded - 2xl border - 2 transition - all ${card.isPrimary ? 'border-blue-600 shadow-xl shadow-blue-50' : 'border-gray-100 hover:border-gray-200'
+              } `}
           >
             <div className="flex justify-between items-start mb-6">
-              <div className={`p-2 rounded-lg ${card.isPrimary ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
+              <div className={`p - 2 rounded - lg ${card.isPrimary ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'} `}>
                 <CreditCard className="w-6 h-6" />
               </div>
               <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 {!card.isPrimary && (
-                  <button 
+                  <button
                     onClick={() => onSetPrimary(card.id)}
                     className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                     title="Set as Primary"
@@ -70,7 +67,7 @@ export const PaymentCardTokenManager: React.FC<PaymentCardTokenManagerProps> = (
                     <Star className="w-4 h-4" />
                   </button>
                 )}
-                <button 
+                <button
                   onClick={() => onDelete(card.id)}
                   className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   title="Delete Card"

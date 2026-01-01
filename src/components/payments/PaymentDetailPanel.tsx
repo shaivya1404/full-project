@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { 
-  X, 
-  Download, 
-  RotateCcw, 
-  Send, 
-  Shield, 
-  Clock, 
-  FileText, 
+import {
+  X,
+  RotateCcw,
+  Send,
+  Shield,
+  Clock,
+  FileText,
   Info,
   CreditCard,
   Smartphone,
@@ -113,11 +112,10 @@ export const PaymentDetailPanel: React.FC<PaymentDetailPanelProps> = ({
         </div>
         <div className="text-right">
           <div className="text-sm text-gray-500 mb-1">Status</div>
-          <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-            payment.status === 'completed' ? 'bg-green-100 text-green-800' : 
-            payment.status === 'failed' ? 'bg-red-100 text-red-800' : 
-            'bg-blue-100 text-blue-800'
-          }`}>
+          <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${payment.status === 'completed' ? 'bg-green-100 text-green-800' :
+            payment.status === 'failed' ? 'bg-red-100 text-red-800' :
+              'bg-blue-100 text-blue-800'
+            }`}>
             {payment.status.toUpperCase()}
           </div>
         </div>
@@ -130,11 +128,10 @@ export const PaymentDetailPanel: React.FC<PaymentDetailPanelProps> = ({
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`py-4 px-1 border-b-2 font-medium text-sm capitalize ${
-                activeTab === tab
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm capitalize ${activeTab === tab
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               {tab}
             </button>
@@ -228,50 +225,62 @@ export const PaymentDetailPanel: React.FC<PaymentDetailPanelProps> = ({
         {activeTab === 'timeline' && (
           <div className="flow-root">
             <ul className="-mb-8">
-              {[
-                { status: 'created', time: payment.createdAt, title: 'Payment Created', desc: 'Transaction initiated by customer' },
-                payment.status === 'processing' && { status: 'processing', time: new Date().toISOString(), title: 'Processing', desc: 'Waiting for gateway confirmation' },
-                payment.completedAt && { status: 'completed', time: payment.completedAt, title: 'Payment Successful', desc: 'Funds received successfully' },
-                payment.status === 'failed' && { status: 'failed', time: payment.updatedAt, title: 'Payment Failed', desc: payment.failureReason || 'Gateway rejected the transaction' },
-                ...refunds.map(r => ({
-                  status: 'refund',
-                  time: r.createdAt,
-                  title: `Refund ${r.status}`,
-                  desc: `${formatCurrency(r.amount, payment.currency)} - ${r.reason}`
-                }))
-              ].filter(Boolean).sort((a, b) => new Date(b!.time).getTime() - new Date(a!.time).getTime()).map((event, idx, arr) => (
-                <li key={idx}>
-                  <div className="relative pb-8">
-                    {idx !== arr.length - 1 && (
-                      <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
-                    )}
-                    <div className="relative flex space-x-3">
-                      <div>
-                        <span className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${
-                          event!.status === 'completed' ? 'bg-green-500' :
-                          event!.status === 'failed' ? 'bg-red-500' :
-                          event!.status === 'refund' ? 'bg-purple-500' :
-                          'bg-blue-500'
-                        }`}>
-                          {event!.status === 'completed' ? <CheckCircle2 className="w-5 h-5 text-white" /> :
-                           event!.status === 'failed' ? <AlertTriangle className="w-5 h-5 text-white" /> :
-                           <Clock className="w-5 h-5 text-white" />}
-                        </span>
-                      </div>
-                      <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
+              {(() => {
+                interface TimelineEvent {
+                  status: string;
+                  time: string;
+                  title: string;
+                  desc: string;
+                }
+
+                const events: (TimelineEvent | false | undefined | "")[] = [
+                  { status: 'created', time: payment.createdAt, title: 'Payment Created', desc: 'Transaction initiated by customer' },
+                  payment.status === 'processing' && { status: 'processing', time: new Date().toISOString(), title: 'Processing', desc: 'Waiting for gateway confirmation' },
+                  payment.completedAt && { status: 'completed', time: payment.completedAt, title: 'Payment Successful', desc: 'Funds received successfully' },
+                  payment.status === 'failed' && { status: 'failed', time: payment.updatedAt, title: 'Payment Failed', desc: payment.failureReason || 'Gateway rejected the transaction' },
+                  ...refunds.map(r => ({
+                    status: 'refund',
+                    time: r.createdAt,
+                    title: `Refund ${r.status}`,
+                    desc: `${formatCurrency(r.amount, payment.currency)} - ${r.reason}`
+                  }))
+                ];
+
+                const validEvents = events.filter((e): e is TimelineEvent => !!e).sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+
+                return validEvents.map((event, idx) => (
+                  <li key={idx}>
+                    <div className="relative pb-8">
+                      {idx !== validEvents.length - 1 && (
+                        <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
+                      )}
+                      <div className="relative flex space-x-3">
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{event!.title}</p>
-                          <p className="text-sm text-gray-500">{event!.desc}</p>
+                          <span className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${event.status === 'completed' ? 'bg-green-500' :
+                            event.status === 'failed' ? 'bg-red-500' :
+                              event.status === 'refund' ? 'bg-purple-500' :
+                                'bg-blue-500'
+                            }`}>
+                            {event.status === 'completed' ? <CheckCircle2 className="w-5 h-5 text-white" /> :
+                              event.status === 'failed' ? <AlertTriangle className="w-5 h-5 text-white" /> :
+                                <Clock className="w-5 h-5 text-white" />}
+                          </span>
                         </div>
-                        <div className="text-right text-xs whitespace-nowrap text-gray-500">
-                          {formatRelativeTime(event!.time)}
-                          <div className="mt-1">{new Date(event!.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{event.title}</p>
+                            <p className="text-sm text-gray-500">{event.desc}</p>
+                          </div>
+                          <div className="text-right text-xs whitespace-nowrap text-gray-500">
+                            {formatRelativeTime(event.time)}
+                            <div className="mt-1">{new Date(event.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                ));
+              })()}
             </ul>
           </div>
         )}
@@ -298,8 +307,8 @@ export const PaymentDetailPanel: React.FC<PaymentDetailPanelProps> = ({
                     <div className="text-sm text-gray-700">{check}</div>
                   </div>
                 )) || (
-                  <div className="text-sm text-gray-500 text-center py-4">No risk indicators detected.</div>
-                )}
+                    <div className="text-sm text-gray-500 text-center py-4">No risk indicators detected.</div>
+                  )}
               </div>
             </div>
 
@@ -319,9 +328,8 @@ export const PaymentDetailPanel: React.FC<PaymentDetailPanelProps> = ({
                   <div key={refund.id} className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                     <div className="bg-gray-50 px-4 py-3 flex justify-between items-center border-b border-gray-200">
                       <span className="text-sm font-bold text-gray-900">{refund.id}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        refund.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${refund.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>
                         {refund.status.toUpperCase()}
                       </span>
                     </div>

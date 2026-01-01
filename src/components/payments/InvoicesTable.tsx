@@ -1,16 +1,13 @@
 import React from 'react';
-import { 
-  Eye, 
-  Download, 
-  Send, 
-  Mail, 
+import {
+  Eye,
+  Download,
+  Send,
+  Mail,
   Smartphone,
-  MoreHorizontal,
   ChevronLeft,
   ChevronRight,
   FileText,
-  Search,
-  Filter,
   CheckCircle,
   Clock,
   AlertTriangle,
@@ -140,7 +137,7 @@ export const InvoicesTable: React.FC<InvoicesTableProps> = ({
             {invoices.map((invoice) => (
               <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div 
+                  <div
                     className="text-sm font-bold text-blue-600 hover:underline cursor-pointer flex items-center"
                     onClick={() => onViewDetails(invoice)}
                   >
@@ -187,14 +184,14 @@ export const InvoicesTable: React.FC<InvoicesTableProps> = ({
                         <Send className="w-5 h-5" />
                       </button>
                       <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-white border border-gray-100 shadow-xl rounded-lg p-1 z-10 min-w-[120px]">
-                        <button 
+                        <button
                           onClick={() => onSend(invoice, 'email')}
                           className="w-full flex items-center px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 rounded-md"
                         >
                           <Mail className="w-3 h-3 mr-2" />
                           Email PDF
                         </button>
-                        <button 
+                        <button
                           onClick={() => onSend(invoice, 'sms')}
                           className="w-full flex items-center px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 rounded-md"
                         >
@@ -248,18 +245,17 @@ export const InvoicesTable: React.FC<InvoicesTableProps> = ({
               >
                 <ChevronLeft className="h-5 w-5" aria-hidden="true" />
               </button>
-              
+
               {[...Array(Math.min(5, totalPages))].map((_, i) => {
                 const pageNum = i + 1;
                 return (
                   <button
                     key={pageNum}
                     onClick={() => onPageChange(pageNum)}
-                    className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                      currentPage === pageNum
+                    className={`relative inline - flex items - center px - 4 py - 2 border text - sm font - medium ${currentPage === pageNum
                         ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
                         : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                    }`}
+                      } `}
                   >
                     {pageNum}
                   </button>

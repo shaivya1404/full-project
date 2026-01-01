@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { 
-  X, 
-  Link as LinkIcon, 
-  Copy, 
-  QrCode, 
-  Send, 
-  CheckCircle2, 
+import {
+  X,
+  Link as LinkIcon,
+  Copy,
+  QrCode,
+  Send,
+  CheckCircle2,
   Smartphone,
   Calendar,
   BarChart2,
@@ -26,7 +26,6 @@ type PaymentLinkDialogProps = {
 
 export const PaymentLinkDialog: React.FC<PaymentLinkDialogProps> = ({
   orderId,
-  amount,
   currentLink,
   onGenerate,
   onCancel,
@@ -84,9 +83,8 @@ export const PaymentLinkDialog: React.FC<PaymentLinkDialogProps> = ({
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">Payment URL</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                      currentLink.status === 'pending' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${currentLink.status === 'pending' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                      }`}>
                       {currentLink.status}
                     </span>
                   </div>
@@ -96,9 +94,8 @@ export const PaymentLinkDialog: React.FC<PaymentLinkDialogProps> = ({
                     </div>
                     <button
                       onClick={handleCopy}
-                      className={`p-3 rounded-lg transition-all ${
-                        copied ? 'bg-green-500 text-white' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50'
-                      }`}
+                      className={`p-3 rounded-lg transition-all ${copied ? 'bg-green-500 text-white' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50'
+                        }`}
                     >
                       {copied ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
                     </button>

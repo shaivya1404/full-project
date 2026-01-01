@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, ShoppingCart, User, MapPin, CreditCard, Clock, CheckCircle, Package, Truck } from 'lucide-react';
+import { X, ShoppingCart, User, MapPin, CreditCard, Clock, Package } from 'lucide-react';
 import type { Order } from '../../types';
 import { Badge } from '../Badge';
 import { Button } from '../Button';
@@ -92,7 +92,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({
                 <p className="text-sm text-gray-500">{order.id.slice(0, 8)}</p>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wider">Status</p>
@@ -253,20 +253,18 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({
                 {order.timeline.map((event, index) => (
                   <div key={index} className="flex gap-3">
                     <div className="flex-shrink-0">
-                      <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                        event.status === 'current' ? 'bg-blue-100' :
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center ${event.status === 'current' ? 'bg-blue-100' :
                         event.status === 'completed' ? 'bg-green-100' :
-                        event.status === 'failed' ? 'bg-red-100' : 'bg-gray-100'
-                      }`}>
-                        <div className={`h-3 w-3 rounded-full ${
-                          event.status === 'current' ? 'bg-blue-500' :
+                          event.status === 'failed' ? 'bg-red-100' : 'bg-gray-100'
+                        }`}>
+                        <div className={`h-3 w-3 rounded-full ${event.status === 'current' ? 'bg-blue-500' :
                           event.status === 'completed' ? 'bg-green-500' :
-                          event.status === 'failed' ? 'bg-red-500' : 'bg-gray-400'
-                        }`} />
+                            event.status === 'failed' ? 'bg-red-500' : 'bg-gray-400'
+                          }`} />
                       </div>
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">{event.label}</p>
+                      <p className="text-sm font-medium text-gray-900">{event.note || event.status}</p>
                       <p className="text-xs text-gray-500">
                         {new Date(event.timestamp).toLocaleString()}
                       </p>
@@ -312,7 +310,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({
             Edit Order
           </Button>
         </div>
-        
+
         {canConfirm && (
           <Button
             onClick={onConfirm}
@@ -322,7 +320,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({
             {isConfirming ? 'Confirming...' : 'Confirm Order'}
           </Button>
         )}
-        
+
         {canUpdateToProcessing && (
           <Button
             onClick={() => onUpdateStatus(order.id, 'processing', 'Order moved to processing')}
@@ -332,7 +330,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({
             {isUpdating ? 'Updating...' : 'Start Processing'}
           </Button>
         )}
-        
+
         {canUpdateToReady && (
           <Button
             onClick={() => onUpdateStatus(order.id, 'ready', 'Order is ready for delivery')}
@@ -342,7 +340,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({
             {isUpdating ? 'Updating...' : 'Mark as Ready'}
           </Button>
         )}
-        
+
         {canMarkAsDelivered && (
           <Button
             onClick={() => onUpdateStatus(order.id, 'delivered', 'Order delivered successfully')}
@@ -352,7 +350,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({
             {isUpdating ? 'Updating...' : 'Mark as Delivered'}
           </Button>
         )}
-        
+
         {canCancel && (
           <Button
             onClick={onCancel}

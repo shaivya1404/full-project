@@ -9,7 +9,7 @@ import { ProductFAQsSection } from '../components/knowledge/ProductFAQsSection';
 import { useQuery } from '@tanstack/react-query';
 import { getProducts, getProductFAQs, createProduct, updateProduct, deleteProduct, importProductsCSV, createProductFAQ, updateProductFAQ, deleteProductFAQ } from '../services/api';
 import { useState } from 'react';
-import type { Product, ProductFAQ } from '../types';
+import type { Product } from '../types';
 import toast from 'react-hot-toast';
 import { Button } from '../components/Button';
 import { Plus, Upload, BookOpen, Package } from 'lucide-react';
@@ -116,7 +116,7 @@ export const KnowledgeBasePage = () => {
     try {
       const result = await importProductsCSV(TEAM_ID, file);
       if (result.failed > 0) {
-        toast.warning(`Imported ${result.imported} products, ${result.failed} failed`);
+        toast.error(`Imported ${result.imported} products, ${result.failed} failed`);
       } else {
         toast.success(`Successfully imported ${result.imported} products`);
       }

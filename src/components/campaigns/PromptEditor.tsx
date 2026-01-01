@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Save, RefreshCw, Wand2, Copy, Sparkles } from 'lucide-react';
+import { Save, Wand2, Copy, Sparkles } from 'lucide-react';
 import { Button } from '../index';
 import { Card } from '../Card';
 
@@ -60,17 +60,17 @@ export const PromptEditor = ({
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">System Prompt Editor</h3>
               <div className="flex gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => handlePromptChange('')}
                   disabled={!prompt}
                 >
                   Clear
                 </Button>
-                <Button 
-                  variant="primary" 
-                  size="sm" 
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={() => {
                     onSave(prompt);
                     setIsDirty(false);
@@ -131,8 +131,8 @@ export const PromptEditor = ({
         <div className="space-y-4">
           <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider px-1">Templates</h3>
           {templates.map((template, idx) => (
-            <Card 
-              key={idx} 
+            <Card
+              key={idx}
               className="p-4 hover:border-blue-300 dark:hover:border-blue-700 cursor-pointer transition-colors"
               onClick={() => useTemplate(template.prompt)}
             >

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, ShoppingCart, TrendingUp, Package, Clock, DollarSign } from 'lucide-react';
+import { BarChart3, Clock, DollarSign, ShoppingCart } from 'lucide-react';
 
 export const OrderAnalytics: React.FC = () => {
   // Mock analytics data - in real app, this would come from API
@@ -144,12 +144,11 @@ export const OrderAnalytics: React.FC = () => {
                     ${order.amount.toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      order.status === 'processing' ? 'bg-yellow-100 text-yellow-800' :
+                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${order.status === 'processing' ? 'bg-yellow-100 text-yellow-800' :
                       order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                      order.status === 'ready' ? 'bg-green-100 text-green-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
+                        order.status === 'ready' ? 'bg-green-100 text-green-800' :
+                          'bg-gray-100 text-gray-800'
+                      }`}>
                       {order.status}
                     </span>
                   </td>

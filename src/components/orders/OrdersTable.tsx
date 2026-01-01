@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, CheckCircle, XCircle, RefreshCw, ShoppingCart, Circle } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, RefreshCw, ShoppingCart } from 'lucide-react';
 import type { Order } from '../../types';
 import { Badge } from '../Badge';
 
@@ -59,6 +59,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   onConfirm,
   onCancel,
   onEdit,
+  onUpdateStatus,
   currentPage,
   totalPages,
   onPageChange
@@ -122,9 +123,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               <tr
                 key={order.id}
                 onClick={() => onRowClick(order)}
-                className={`hover:bg-gray-50 cursor-pointer transition-colors ${
-                  selectedOrder?.id === order.id ? 'bg-blue-50' : ''
-                }`}
+                className={`hover:bg-gray-50 cursor-pointer transition-colors ${selectedOrder?.id === order.id ? 'bg-blue-50' : ''
+                  }`}
               >
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">#{order.orderNumber}</div>
@@ -192,7 +192,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                     >
                       <Eye className="h-4 w-4" />
                     </button>
-                    
+
                     {order.status === 'pending' && (
                       <>
                         <button
@@ -217,7 +217,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         </button>
                       </>
                     )}
-                    
+
                     {order.status === 'confirmed' && (
                       <button
                         onClick={(e) => {

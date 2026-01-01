@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Modal } from '../Modal';
 import { Button } from '../Button';
 import type { Order } from '../../types';
@@ -59,7 +59,7 @@ export const CancelOrderDialog: React.FC<CancelOrderDialogProps> = ({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Reason for cancellation *
           </label>
-          
+
           <div className="space-y-2 mb-3">
             {commonReasons.map((option) => (
               <label key={option} className="flex items-center">
@@ -95,12 +95,12 @@ export const CancelOrderDialog: React.FC<CancelOrderDialogProps> = ({
           </div>
         </div>
       </div>
-      
+
       <div className="flex justify-end gap-3 p-6 border-t">
         <Button onClick={onClose} variant="outline">
           Keep Order
         </Button>
-        <Button 
+        <Button
           onClick={handleSubmit}
           disabled={!selectedReason || (selectedReason === 'Other' && !reason.trim()) || isCancelling}
           variant="destructive"

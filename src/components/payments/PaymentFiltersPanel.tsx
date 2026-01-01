@@ -1,8 +1,7 @@
 import React from 'react';
-import { 
-  X, 
-  Search, 
-  Filter, 
+import {
+  Search,
+  Filter,
   Calendar,
   ChevronDown,
   RotateCcw
@@ -30,7 +29,7 @@ export const PaymentFiltersPanel: React.FC<PaymentFiltersPanelProps> = ({
 }) => {
   const statuses = ['pending', 'processing', 'completed', 'failed', 'cancelled'];
   const methods = ['card', 'upi', 'net_banking', 'wallet', 'link', 'cod'];
-  const refundStatuses = ['none', 'pending', 'completed', 'failed'];
+  // const refundStatuses = ['none', 'pending', 'completed', 'failed'];
 
   const handleToggleStatus = (status: string) => {
     const newStatus = filters.status.includes(status)
@@ -60,7 +59,7 @@ export const PaymentFiltersPanel: React.FC<PaymentFiltersPanelProps> = ({
           />
         </div>
         <div className="flex items-center space-x-3">
-          <button 
+          <button
             onClick={onReset}
             className="flex items-center px-4 py-3 text-sm font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
           >
@@ -74,10 +73,10 @@ export const PaymentFiltersPanel: React.FC<PaymentFiltersPanelProps> = ({
               <ChevronDown className="w-4 h-4 ml-2" />
             </button>
             <div className="absolute right-0 top-full mt-2 hidden group-hover:block bg-white border border-gray-100 shadow-2xl rounded-2xl p-2 z-20 min-w-[200px]">
-              <button onClick={() => onFilterChange({...filters, dateRange: {start: new Date().toISOString(), end: new Date().toISOString()}})} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Today</button>
+              <button onClick={() => onFilterChange({ ...filters, dateRange: { start: new Date().toISOString(), end: new Date().toISOString() } })} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Today</button>
               <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">Last 7 Days</button>
-              <button onClick={() => onFilterChange({...filters, status: ['failed']})} className="w-full text-left px-4 py-2 text-sm text-red-600 font-bold hover:bg-red-50 rounded-lg">Failed Payments</button>
-              <button onClick={() => onFilterChange({...filters, refundStatus: ['pending']})} className="w-full text-left px-4 py-2 text-sm text-purple-600 font-bold hover:bg-purple-50 rounded-lg">Pending Refunds</button>
+              <button onClick={() => onFilterChange({ ...filters, status: ['failed'] })} className="w-full text-left px-4 py-2 text-sm text-red-600 font-bold hover:bg-red-50 rounded-lg">Failed Payments</button>
+              <button onClick={() => onFilterChange({ ...filters, refundStatus: ['pending'] })} className="w-full text-left px-4 py-2 text-sm text-purple-600 font-bold hover:bg-purple-50 rounded-lg">Pending Refunds</button>
             </div>
           </div>
         </div>
@@ -91,11 +90,10 @@ export const PaymentFiltersPanel: React.FC<PaymentFiltersPanelProps> = ({
               <button
                 key={s}
                 onClick={() => handleToggleStatus(s)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all border ${
-                  filters.status.includes(s)
+                className={`px - 3 py - 1.5 rounded - lg text - xs font - bold capitalize transition - all border ${filters.status.includes(s)
                     ? 'bg-blue-600 border-blue-600 text-white shadow-md'
                     : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                }`}
+                  } `}
               >
                 {s}
               </button>
@@ -110,11 +108,10 @@ export const PaymentFiltersPanel: React.FC<PaymentFiltersPanelProps> = ({
               <button
                 key={m}
                 onClick={() => handleToggleMethod(m)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all border ${
-                  filters.method.includes(m)
+                className={`px - 3 py - 1.5 rounded - lg text - xs font - bold capitalize transition - all border ${filters.method.includes(m)
                     ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
                     : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                }`}
+                  } `}
               >
                 {m.replace('_', ' ')}
               </button>

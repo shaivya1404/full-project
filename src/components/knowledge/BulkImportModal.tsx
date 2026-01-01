@@ -1,6 +1,8 @@
-import { Modal, Button } from '../index';
+import { Modal } from '../Modal';
+import { Button } from '../Button';
+import { Select } from '../Select';
 import { useState, useEffect } from 'react';
-import { Upload, FileText, Check, X, AlertCircle } from 'lucide-react';
+import { Upload, FileText, X, AlertCircle, Check } from 'lucide-react';
 
 type BulkImportModalProps = {
   isOpen: boolean;
@@ -188,40 +190,29 @@ export const BulkImportModal = ({
                   </h3>
                   <div className="grid grid-cols-2 gap-4">
                     <Select
-                      label="Name *"
+                      label="Product Name Column"
                       value={mapping.name}
-                      onChange={(e) => setMapping({ ...mapping, name: e.target.value })}
-                      options={[
-                        { value: '', label: 'Select column...' },
-                        ...availableHeaders.map(h => ({ value: h, label: h })),
-                      ]}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMapping({ ...mapping, name: e.target.value })}
+                      options={availableHeaders.map(h => ({ value: h, label: h }))}
+                      required
                     />
                     <Select
-                      label="Category"
+                      label="Category Column"
                       value={mapping.category}
-                      onChange={(e) => setMapping({ ...mapping, category: e.target.value })}
-                      options={[
-                        { value: '', label: 'Select column...' },
-                        ...availableHeaders.map(h => ({ value: h, label: h })),
-                      ]}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMapping({ ...mapping, category: e.target.value })}
+                      options={availableHeaders.map(h => ({ value: h, label: h }))}
                     />
                     <Select
-                      label="Description"
+                      label="Description Column"
                       value={mapping.description}
-                      onChange={(e) => setMapping({ ...mapping, description: e.target.value })}
-                      options={[
-                        { value: '', label: 'Select column...' },
-                        ...availableHeaders.map(h => ({ value: h, label: h })),
-                      ]}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMapping({ ...mapping, description: e.target.value })}
+                      options={availableHeaders.map(h => ({ value: h, label: h }))}
                     />
                     <Select
-                      label="Price"
+                      label="Price Column"
                       value={mapping.price}
-                      onChange={(e) => setMapping({ ...mapping, price: e.target.value })}
-                      options={[
-                        { value: '', label: 'Select column...' },
-                        ...availableHeaders.map(h => ({ value: h, label: h })),
-                      ]}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMapping({ ...mapping, price: e.target.value })}
+                      options={availableHeaders.map(h => ({ value: h, label: h }))}
                     />
                   </div>
                 </div>

@@ -1,32 +1,29 @@
 import React from 'react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  LineChart, 
-  Line, 
-  PieChart, 
-  Pie, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
   Cell,
   AreaChart,
   Area
 } from 'recharts';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  RefreshCcw, 
-  CheckCircle, 
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  RefreshCcw,
+  CheckCircle,
   AlertCircle,
   Calendar,
-  Filter,
   Download
 } from 'lucide-react';
-import { formatCurrency, formatNumber } from '../../utils/formatters';
+import { formatCurrency } from '../../utils/formatters';
 import type { PaymentAnalytics } from '../../types';
 
 type PaymentAnalyticsDashboardProps = {
@@ -47,33 +44,33 @@ export const PaymentAnalyticsDashboard: React.FC<PaymentAnalyticsDashboardProps>
   onExport,
 }) => {
   const stats = [
-    { 
-      label: 'Total Revenue', 
-      value: formatCurrency(analytics.totalRevenue, 'INR'), 
+    {
+      label: 'Total Revenue',
+      value: formatCurrency(analytics.totalRevenue, 'INR'),
       icon: <DollarSign className="w-5 h-5 text-blue-600" />,
       change: '+12.5%',
       isPositive: true,
       bg: 'bg-blue-50'
     },
-    { 
-      label: 'Success Rate', 
-      value: `${analytics.successRate}%`, 
+    {
+      label: 'Success Rate',
+      value: `${analytics.successRate}%`,
       icon: <CheckCircle className="w-5 h-5 text-green-600" />,
       change: '+2.1%',
       isPositive: true,
       bg: 'bg-green-50'
     },
-    { 
-      label: 'Refund Rate', 
-      value: `${analytics.refundRate}%`, 
+    {
+      label: 'Refund Rate',
+      value: `${analytics.refundRate}%`,
       icon: <RefreshCcw className="w-5 h-5 text-purple-600" />,
       change: '-0.4%',
       isPositive: true,
       bg: 'bg-purple-50'
     },
-    { 
-      label: 'Failed Payments', 
-      value: analytics.failedPayments, 
+    {
+      label: 'Failed Payments',
+      value: analytics.failedPayments,
       icon: <AlertCircle className="w-5 h-5 text-red-600" />,
       change: '+5',
       isPositive: false,
@@ -95,7 +92,7 @@ export const PaymentAnalyticsDashboard: React.FC<PaymentAnalyticsDashboardProps>
               <option>Custom Range</option>
             </select>
           </div>
-          <button 
+          <button
             onClick={onExport}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors"
           >
@@ -140,35 +137,35 @@ export const PaymentAnalyticsDashboard: React.FC<PaymentAnalyticsDashboardProps>
               <AreaChart data={revenueTrend}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="date" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                <XAxis
+                  dataKey="date"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#94a3b8' }}
                   dy={10}
                 />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 12, fill: '#94a3b8' }} 
-                  tickFormatter={(val) => `₹${val/1000}k`}
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#94a3b8' }}
+                  tickFormatter={(val) => `₹${val / 1000}k`}
                 />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                  formatter={(val: number) => [formatCurrency(val, 'INR'), 'Revenue']}
+                  formatter={(val: number | undefined) => [formatCurrency(val || 0, 'INR'), 'Revenue']}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="amount" 
-                  stroke="#3b82f6" 
+                <Area
+                  type="monotone"
+                  dataKey="amount"
+                  stroke="#3b82f6"
                   strokeWidth={3}
-                  fillOpacity={1} 
-                  fill="url(#colorRevenue)" 
+                  fillOpacity={1}
+                  fill="url(#colorRevenue)"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -190,7 +187,7 @@ export const PaymentAnalyticsDashboard: React.FC<PaymentAnalyticsDashboardProps>
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {methodDistribution.map((entry, index) => (
+                  {methodDistribution.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -219,28 +216,28 @@ export const PaymentAnalyticsDashboard: React.FC<PaymentAnalyticsDashboardProps>
               <BarChart data={statusDistribution} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis type="number" hide />
-                <YAxis 
-                  dataKey="status" 
-                  type="category" 
-                  axisLine={false} 
+                <YAxis
+                  dataKey="status"
+                  type="category"
+                  axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12, fill: '#64748b', fontWeight: 'bold' }}
                   width={100}
                 />
-                <Tooltip 
+                <Tooltip
                   cursor={{ fill: 'transparent' }}
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                 />
                 <Bar dataKey="count" radius={[0, 4, 4, 0]}>
                   {statusDistribution.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
+                    <Cell
+                      key={`cell-${index}`}
                       fill={
                         entry.status === 'Completed' ? '#10b981' :
-                        entry.status === 'Processing' ? '#3b82f6' :
-                        entry.status === 'Failed' ? '#ef4444' :
-                        '#94a3b8'
-                      } 
+                          entry.status === 'Processing' ? '#3b82f6' :
+                            entry.status === 'Failed' ? '#ef4444' :
+                              '#94a3b8'
+                      }
                     />
                   ))}
                 </Bar>
@@ -266,8 +263,8 @@ export const PaymentAnalyticsDashboard: React.FC<PaymentAnalyticsDashboardProps>
                   <span className="text-gray-500">{failure.count} occurrences</span>
                 </div>
                 <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                  <div 
-                    className="bg-red-500 h-full rounded-full" 
+                  <div
+                    className="bg-red-500 h-full rounded-full"
                     style={{ width: `${failure.percentage}%` }}
                   ></div>
                 </div>

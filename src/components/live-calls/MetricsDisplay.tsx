@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, Clock, MessageSquare, Wifi, Mic, MicOff } from 'lucide-react';
+import { Activity, Clock, MessageSquare, Wifi, Mic } from 'lucide-react';
 import type { CallMetrics } from '../../types';
 import { Card } from '../Card';
 import { formatDuration } from '../../utils/formatters';
@@ -28,12 +28,12 @@ export const MetricsDisplay = ({ metrics }: MetricsDisplayProps) => {
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / duration, 1);
         const current = start + (end - start) * progress;
-        
+
         setAnimatedValues(prev => ({
           ...prev,
           [key]: current
         }));
-        
+
         if (progress < 1) {
           requestAnimationFrame(animate);
         }
@@ -113,14 +113,14 @@ export const MetricsDisplay = ({ metrics }: MetricsDisplayProps) => {
               {Math.round(getTalkRatio())}% talk
             </span>
           </div>
-          
+
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
             <div
               className="bg-blue-500 h-2 rounded-full transition-all duration-500"
               style={{ width: `${getTalkRatio()}%` }}
             />
           </div>
-          
+
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
             <span>Talk: {formatDuration(animatedValues.talkTime)}</span>
             <span>Silence: {formatDuration(animatedValues.silenceTime)}</span>
@@ -149,13 +149,12 @@ export const MetricsDisplay = ({ metrics }: MetricsDisplayProps) => {
               {Math.round(animatedValues.networkQuality)}%
             </span>
           </div>
-          
+
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
             <div
-              className={`h-2 rounded-full transition-all duration-500 ${
-                animatedValues.networkQuality >= 80 ? 'bg-green-500' :
-                animatedValues.networkQuality >= 60 ? 'bg-yellow-500' : 'bg-red-500'
-              }`}
+              className={`h-2 rounded-full transition-all duration-500 ${animatedValues.networkQuality >= 80 ? 'bg-green-500' :
+                  animatedValues.networkQuality >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                }`}
               style={{ width: `${animatedValues.networkQuality}%` }}
             />
           </div>
@@ -172,13 +171,12 @@ export const MetricsDisplay = ({ metrics }: MetricsDisplayProps) => {
               {Math.round(animatedValues.audioQuality)}%
             </span>
           </div>
-          
+
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
             <div
-              className={`h-2 rounded-full transition-all duration-500 ${
-                animatedValues.audioQuality >= 80 ? 'bg-green-500' :
-                animatedValues.audioQuality >= 60 ? 'bg-yellow-500' : 'bg-red-500'
-              }`}
+              className={`h-2 rounded-full transition-all duration-500 ${animatedValues.audioQuality >= 80 ? 'bg-green-500' :
+                  animatedValues.audioQuality >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                }`}
               style={{ width: `${animatedValues.audioQuality}%` }}
             />
           </div>
@@ -198,10 +196,9 @@ export const MetricsDisplay = ({ metrics }: MetricsDisplayProps) => {
         <div className="flex items-center justify-between text-sm">
           <span className="text-gray-600 dark:text-gray-400">Overall Quality</span>
           <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${
-              (animatedValues.audioQuality + animatedValues.networkQuality) / 2 >= 80 ? 'bg-green-500' :
-              (animatedValues.audioQuality + animatedValues.networkQuality) / 2 >= 60 ? 'bg-yellow-500' : 'bg-red-500'
-            } animate-pulse`}></div>
+            <div className={`w-3 h-3 rounded-full ${(animatedValues.audioQuality + animatedValues.networkQuality) / 2 >= 80 ? 'bg-green-500' :
+                (animatedValues.audioQuality + animatedValues.networkQuality) / 2 >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+              } animate-pulse`}></div>
             <span className="font-medium text-gray-900 dark:text-white">
               {Math.round((animatedValues.audioQuality + animatedValues.networkQuality) / 2)}%
             </span>

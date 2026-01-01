@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShoppingCart, User, MapPin, Package } from 'lucide-react';
+import { User, MapPin, Package } from 'lucide-react';
 import { Modal } from '../Modal';
 import { Button } from '../Button';
 import type { Order, OrderItem } from '../../types';
@@ -30,9 +30,9 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ order, onClose, 
   const handleItemChange = (id: string, field: keyof OrderItem, value: string | number) => {
     setItems(items.map(item => {
       if (item.id === id) {
-        const updatedItem = { 
-          ...item, 
-          [field]: field === 'quantity' || field === 'price' ? Number(value) : value 
+        const updatedItem = {
+          ...item,
+          [field]: field === 'quantity' || field === 'price' ? Number(value) : value
         };
         updatedItem.total = updatedItem.quantity * updatedItem.price;
         return updatedItem;
@@ -109,7 +109,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ order, onClose, 
             <MapPin className="h-5 w-5" />
             Addresses
           </h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Shipping Address</label>
@@ -120,7 +120,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ order, onClose, 
                 placeholder="123 Main St, City, State 12345"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Billing Address</label>
               <textarea
@@ -139,9 +139,9 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ order, onClose, 
             <Package className="h-5 w-5" />
             Order Items
           </h3>
-          
+
           <div className="space-y-3">
-            {items.map((item, index) => (
+            {items.map((item) => (
               <div key={item.id} className="flex gap-3 items-start p-3 border border-gray-200 rounded-lg">
                 <div className="flex-1">
                   <input
@@ -171,7 +171,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ order, onClose, 
                     />
                   </div>
                 </div>
-                
+
                 <div className="text-right min-w-[80px]">
                   <p className="text-sm font-medium">
                     ${item.total.toFixed(2)}
@@ -245,12 +245,12 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ order, onClose, 
           />
         </div>
       </div>
-      
+
       <div className="flex justify-end gap-3 p-6 border-t">
         <Button onClick={onClose} variant="outline">
           Cancel
         </Button>
-        <Button 
+        <Button
           onClick={handleSubmit}
           disabled={items.some(item => !item.name || item.price <= 0 || item.quantity <= 0)}
         >

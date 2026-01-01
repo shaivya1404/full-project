@@ -11,14 +11,14 @@ interface TranscriptViewerProps {
   autoScroll?: boolean;
 }
 
-export const TranscriptViewer = ({ 
-  transcript, 
-  callId, 
-  autoScroll = true 
+export const TranscriptViewer = ({
+  transcript,
+  callId,
+  autoScroll = true
 }: TranscriptViewerProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(autoScroll);
-  const [expandedLines, setExpandedLines] = useState<Set<string>>(new Set());
+
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -32,10 +32,10 @@ export const TranscriptViewer = ({
   // Handle manual scroll
   const handleScroll = () => {
     if (!containerRef.current) return;
-    
+
     const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
     const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
-    
+
     setAutoScrollEnabled(isNearBottom);
   };
 
@@ -80,7 +80,7 @@ export const TranscriptViewer = ({
     const transcriptText = transcript
       .map(line => `[${formatDuration(line.timestamp)}] ${line.speaker.toUpperCase()}: ${line.text}`)
       .join('\n');
-    
+
     try {
       await navigator.clipboard.writeText(transcriptText);
       // Could show a toast notification here
@@ -93,7 +93,7 @@ export const TranscriptViewer = ({
     const transcriptText = transcript
       .map(line => `[${formatDuration(line.timestamp)}] ${line.speaker.toUpperCase()}: ${line.text}`)
       .join('\n');
-    
+
     const blob = new Blob([transcriptText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -110,10 +110,10 @@ export const TranscriptViewer = ({
 
   const highlightSearchTerm = (text: string, term: string) => {
     if (!term) return text;
-    
+
     const regex = new RegExp(`(${term})`, 'gi');
     const parts = text.split(regex);
-    
+
     return parts.map((part, index) =>
       regex.test(part) ? (
         <mark key={index} className="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">
@@ -213,13 +213,13 @@ export const TranscriptViewer = ({
                       {line.speaker}
                     </span>
                   </div>
-                  
+
                   {line.confidence && (
                     <span className="text-xs text-gray-500 dark:text-gray-400">
                       {Math.round(line.confidence * 100)}% confidence
                     </span>
                   )}
-                  
+
                   {line.sentiment && (
                     <span className={`text-xs ${getSentimentColor(line.sentiment)}`}>
                       {line.sentiment}
@@ -244,7 +244,7 @@ export const TranscriptViewer = ({
             </div>
           ))
         )}
-        
+
         {/* Auto-scroll indicator */}
         {!autoScrollEnabled && (
           <div className="text-center py-2">
@@ -259,7 +259,7 @@ export const TranscriptViewer = ({
             </Button>
           </div>
         )}
-        
+
         <div ref={transcriptEndRef} />
       </div>
 

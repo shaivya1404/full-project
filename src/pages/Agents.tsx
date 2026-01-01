@@ -26,7 +26,7 @@ export const AgentsPage = () => {
   // Get current user's team ID (mocked for now or from store)
   const teamId = 'team-123'; // In a real app, this would come from user profile
 
-  const { data, isLoading, isError, refetch } = useAgents(teamId, limit, (page - 1) * limit, {
+  const { data, isLoading, refetch } = useAgents(teamId, limit, (page - 1) * limit, {
     search,
     status: filters.status,
     role: filters.role,

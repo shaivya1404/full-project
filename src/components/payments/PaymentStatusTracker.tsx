@@ -1,13 +1,12 @@
 import React from 'react';
-import { 
-  CheckCircle2, 
-  Circle, 
-  Clock, 
-  AlertCircle,
+import {
+  CheckCircle2,
+  Info,
+  Package,
   CreditCard,
   ShieldCheck,
-  Package,
-  ArrowRight
+  Clock,
+  AlertCircle
 } from 'lucide-react';
 import type { Payment } from '../../types';
 
@@ -39,11 +38,10 @@ export const PaymentStatusTracker: React.FC<PaymentStatusTrackerProps> = ({ paym
           <Clock className="w-5 h-5 mr-2 text-blue-600" />
           Live Payment Status
         </h3>
-        <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${
-          payment.status === 'completed' ? 'bg-green-100 text-green-700' :
+        <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${payment.status === 'completed' ? 'bg-green-100 text-green-700' :
           payment.status === 'failed' ? 'bg-red-100 text-red-700' :
-          'bg-blue-100 text-blue-700 animate-pulse'
-        }`}>
+            'bg-blue-100 text-blue-700 animate-pulse'
+          }`}>
           {payment.status}
         </span>
       </div>
@@ -51,10 +49,9 @@ export const PaymentStatusTracker: React.FC<PaymentStatusTrackerProps> = ({ paym
       <div className="relative">
         {/* Progress Line */}
         <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-100 -translate-y-1/2 rounded-full overflow-hidden">
-          <div 
-            className={`h-full transition-all duration-1000 ease-out ${
-              payment.status === 'failed' ? 'bg-red-500' : 'bg-blue-600'
-            }`}
+          <div
+            className={`h-full transition-all duration-1000 ease-out ${payment.status === 'failed' ? 'bg-red-500' : 'bg-blue-600'
+              }`}
             style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
           ></div>
         </div>
@@ -67,20 +64,18 @@ export const PaymentStatusTracker: React.FC<PaymentStatusTrackerProps> = ({ paym
 
             return (
               <div key={step.id} className="flex flex-col items-center relative z-10 group">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-500 border-4 ${
-                  isCompleted ? 'bg-blue-600 border-white text-white shadow-lg shadow-blue-200' :
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-500 border-4 ${isCompleted ? 'bg-blue-600 border-white text-white shadow-lg shadow-blue-200' :
                   isCurrent ? 'bg-white border-blue-600 text-blue-600 animate-bounce' :
-                  isFailed ? 'bg-red-600 border-white text-white shadow-lg shadow-red-200' :
-                  'bg-white border-gray-100 text-gray-400'
-                }`}>
-                  {isCompleted ? <CheckCircle2 className="w-6 h-6" /> : 
-                   isFailed ? <AlertCircle className="w-6 h-6" /> :
-                   step.icon}
+                    isFailed ? 'bg-red-600 border-white text-white shadow-lg shadow-red-200' :
+                      'bg-white border-gray-100 text-gray-400'
+                  }`}>
+                  {isCompleted ? <CheckCircle2 className="w-6 h-6" /> :
+                    isFailed ? <AlertCircle className="w-6 h-6" /> :
+                      step.icon}
                 </div>
                 <div className="absolute top-16 whitespace-nowrap text-center">
-                  <div className={`text-xs font-black uppercase tracking-wider transition-colors duration-500 ${
-                    isCompleted || isCurrent ? 'text-gray-900' : isFailed ? 'text-red-600' : 'text-gray-400'
-                  }`}>
+                  <div className={`text-xs font-black uppercase tracking-wider transition-colors duration-500 ${isCompleted || isCurrent ? 'text-gray-900' : isFailed ? 'text-red-600' : 'text-gray-400'
+                    }`}>
                     {step.label}
                   </div>
                   {isCurrent && (
@@ -104,11 +99,11 @@ export const PaymentStatusTracker: React.FC<PaymentStatusTrackerProps> = ({ paym
           <div>
             <h4 className="text-sm font-bold text-gray-900">Current Status Detail</h4>
             <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-              {payment.status === 'completed' 
+              {payment.status === 'completed'
                 ? 'Payment has been successfully authorized and funds have been captured. A confirmation email has been sent to the customer.'
                 : payment.status === 'failed'
-                ? `Transaction failed: ${payment.failureReason || 'General gateway error'}. The customer may need to retry with a different payment method.`
-                : 'The transaction is currently being processed by the payment gateway. We are waiting for final authorization.'
+                  ? `Transaction failed: ${payment.failureReason || 'General gateway error'}. The customer may need to retry with a different payment method.`
+                  : 'The transaction is currently being processed by the payment gateway. We are waiting for final authorization.'
               }
             </p>
           </div>

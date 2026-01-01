@@ -1,28 +1,25 @@
 import React from 'react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
+import {
   PieChart,
   Pie,
   Cell,
   LineChart,
-  Line
+  Line,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  XAxis,
+  YAxis
 } from 'recharts';
-import { 
-  RotateCcw, 
-  TrendingUp, 
-  Clock, 
+import {
+  RotateCcw,
+  TrendingUp,
   AlertCircle,
   FileText,
-  ArrowUpRight,
-  ArrowDownRight
+  TrendingDown,
+  Clock
 } from 'lucide-react';
-import { formatCurrency, formatPercentage } from '../../utils/formatters';
+import { formatCurrency } from '../../utils/formatters';
 
 type RefundAnalyticsProps = {
   totalRefunds: number;
@@ -53,7 +50,7 @@ export const RefundAnalytics: React.FC<RefundAnalyticsProps> = ({
           </div>
           <div className="text-3xl font-black text-gray-900">{totalRefunds}</div>
           <div className="flex items-center mt-1 text-red-600 text-xs font-bold">
-            <ArrowUpRight className="w-3 h-3 mr-1" />
+            <TrendingUp className="w-3 h-3 mr-1" />
             12% from last month
           </div>
         </div>
@@ -65,7 +62,7 @@ export const RefundAnalytics: React.FC<RefundAnalyticsProps> = ({
           </div>
           <div className="text-3xl font-black text-gray-900">{formatCurrency(refundAmount, 'INR')}</div>
           <div className="flex items-center mt-1 text-green-600 text-xs font-bold">
-            <ArrowDownRight className="w-3 h-3 mr-1" />
+            <TrendingDown className="w-3 h-3 mr-1" />
             5% from last month
           </div>
         </div>
@@ -88,7 +85,7 @@ export const RefundAnalytics: React.FC<RefundAnalyticsProps> = ({
           </div>
           <div className="text-3xl font-black text-gray-900">{avgProcessingTime}d</div>
           <div className="flex items-center mt-1 text-green-600 text-xs font-bold">
-            <ArrowDownRight className="w-3 h-3 mr-1" />
+            <TrendingDown className="w-3 h-3 mr-1" />
             -1.5 days improved
           </div>
         </div>
@@ -102,25 +99,25 @@ export const RefundAnalytics: React.FC<RefundAnalyticsProps> = ({
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={refundTrend}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="date" 
-                  axisLine={false} 
+                <XAxis
+                  dataKey="date"
+                  axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12, fill: '#64748b' }}
                 />
-                <YAxis 
-                  axisLine={false} 
+                <YAxis
+                  axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12, fill: '#64748b' }}
                 />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="count" 
-                  stroke="#ef4444" 
-                  strokeWidth={3} 
+                <Line
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#ef4444"
+                  strokeWidth={3}
                   dot={{ r: 4, fill: '#ef4444', strokeWidth: 2, stroke: '#fff' }}
                   activeDot={{ r: 6 }}
                 />
@@ -145,7 +142,7 @@ export const RefundAnalytics: React.FC<RefundAnalyticsProps> = ({
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    {reasonBreakdown.map((entry, index) => (
+                    {reasonBreakdown.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -176,8 +173,8 @@ export const RefundAnalytics: React.FC<RefundAnalyticsProps> = ({
           <div>
             <h3 className="text-lg font-bold text-red-900">Fraud Prevention Insight</h3>
             <p className="text-sm text-red-700 mt-1 leading-relaxed">
-              We've noticed a 25% spike in "Product Not Received" refund requests from customers using prepaid cards. 
-              <strong> 12 of these customers</strong> have been flagged for potential refund abuse. 
+              We've noticed a 25% spike in "Product Not Received" refund requests from customers using prepaid cards.
+              <strong> 12 of these customers</strong> have been flagged for potential refund abuse.
               We recommend enforcing stricter courier verification for these high-risk zones.
             </p>
             <button className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 transition-colors">

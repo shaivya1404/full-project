@@ -1,12 +1,10 @@
 import React from 'react';
-import { 
-  X, 
-  Download, 
-  Printer, 
-  Mail, 
-  Share2,
-  CheckCircle2,
-  Receipt as ReceiptIcon
+import {
+  X,
+  Download,
+  Printer,
+  Mail,
+  CheckCircle2
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 import type { Payment } from '../../types';
@@ -33,7 +31,7 @@ export const PaymentReceiptView: React.FC<PaymentReceiptViewProps> = ({
           <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-white/20 rounded-full transition-colors">
             <X className="w-6 h-6" />
           </button>
-          
+
           <div className="inline-flex items-center justify-center w-20 h-20 bg-white/20 rounded-full mb-4 backdrop-blur-md">
             <CheckCircle2 className="w-12 h-12" />
           </div>

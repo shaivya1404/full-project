@@ -1,28 +1,26 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Filter } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
-import { 
-  CampaignsTable, 
-  CreateCampaignModal 
+import {
+  CampaignsTable,
+  CreateCampaignModal
 } from '../components/campaigns';
 import { Button, Input, Select, DashboardLayout } from '../components';
-import { 
-  getCampaigns, 
-  createCampaign, 
-  deleteCampaign, 
-  pauseCampaign, 
-  resumeCampaign 
+import {
+  getCampaigns,
+  createCampaign,
+  deleteCampaign,
+  pauseCampaign,
+  resumeCampaign
 } from '../services/api';
-import { useAuthStore } from '../store/authStore';
 import type { Campaign } from '../types';
 
 export const CampaignsPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user } = useAuthStore();
   const teamId = 'team-1'; // In a real app, get this from auth or context
 
   const [page, setPage] = useState(1);
@@ -35,10 +33,10 @@ export const CampaignsPage = () => {
   // Queries
   const { data, isLoading } = useQuery({
     queryKey: ['campaigns', teamId, page, limit, search, typeFilter, statusFilter],
-    queryFn: () => getCampaigns(teamId, limit, (page - 1) * limit, { 
-      search, 
-      type: typeFilter || undefined, 
-      status: statusFilter || undefined 
+    queryFn: () => getCampaigns(teamId, limit, (page - 1) * limit, {
+      search,
+      type: typeFilter || undefined,
+      status: statusFilter || undefined
     }),
   });
 
@@ -67,7 +65,7 @@ export const CampaignsPage = () => {
   });
 
   const pauseResumeMutation = useMutation({
-    mutationFn: (campaign: Campaign) => 
+    mutationFn: (campaign: Campaign) =>
       campaign.status === 'active' ? pauseCampaign(campaign.id) : resumeCampaign(campaign.id),
     onSuccess: (_, campaign) => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
@@ -87,7 +85,7 @@ export const CampaignsPage = () => {
   };
 
   const handleDelete = (campaign: Campaign) => {
-    if (confirm(`Are you sure you want to delete the campaign "${campaign.name}"?`)) {
+    if (confirm(`Are you sure you want to delete the campaign "${campaign.name}" ? `)) {
       deleteMutation.mutate(campaign.id);
     }
   };

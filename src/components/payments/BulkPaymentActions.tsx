@@ -1,13 +1,9 @@
 import React from 'react';
-import { 
-  CheckCircle, 
-  XCircle, 
-  RotateCcw, 
-  Download, 
-  Send,
-  MoreHorizontal,
-  ChevronDown,
-  Trash2
+import {
+  CheckCircle,
+  RotateCcw,
+  Download,
+  Send
 } from 'lucide-react';
 
 type BulkPaymentActionsProps = {
@@ -34,28 +30,28 @@ export const BulkPaymentActions: React.FC<BulkPaymentActionsProps> = ({
         </div>
 
         <div className="flex items-center space-x-2">
-          <button 
+          <button
             onClick={() => onAction('complete')}
             className="flex items-center px-3 py-2 text-sm font-bold hover:bg-white/10 rounded-xl transition-colors text-green-400"
           >
             <CheckCircle className="w-4 h-4 mr-2" />
             Complete
           </button>
-          <button 
+          <button
             onClick={() => onAction('refund')}
             className="flex items-center px-3 py-2 text-sm font-bold hover:bg-white/10 rounded-xl transition-colors text-purple-400"
           >
             <RotateCcw className="w-4 h-4 mr-2" />
             Bulk Refund
           </button>
-          <button 
+          <button
             onClick={() => onAction('export')}
             className="flex items-center px-3 py-2 text-sm font-bold hover:bg-white/10 rounded-xl transition-colors text-blue-400"
           >
             <Download className="w-4 h-4 mr-2" />
             Export
           </button>
-          <button 
+          <button
             onClick={() => onAction('receipt')}
             className="flex items-center px-3 py-2 text-sm font-bold hover:bg-white/10 rounded-xl transition-colors text-gray-300"
           >
@@ -65,7 +61,7 @@ export const BulkPaymentActions: React.FC<BulkPaymentActionsProps> = ({
         </div>
 
         <div className="flex items-center border-l border-white/10 pl-6 space-x-4">
-          <button 
+          <button
             onClick={onClearSelection}
             className="text-sm font-bold text-gray-400 hover:text-white transition-colors"
           >

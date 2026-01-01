@@ -53,8 +53,8 @@ export const CallMonitoringPanel = () => {
   const [showCallHistory, setShowCallHistory] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
-  
-  const intervalRef = useRef<NodeJS.Timeout>();
+
+  const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!callId) return;
@@ -201,7 +201,7 @@ export const CallMonitoringPanel = () => {
               <ArrowLeft size={16} />
             </Button>
           </Link>
-          
+
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               Call Monitoring
@@ -309,8 +309,8 @@ export const CallMonitoringPanel = () => {
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
               Audio Controls
             </h3>
-            
-            <AudioPlayer 
+
+            <AudioPlayer
               callId={callId!}
               playing={audioPlaying}
               muted={muted}
@@ -352,9 +352,9 @@ export const CallMonitoringPanel = () => {
 
           {/* Sentiment */}
           {call.sentiment && (
-            <SentimentIndicator 
-              sentiment={call.sentiment} 
-              score={call.sentimentScore || 0} 
+            <SentimentIndicator
+              sentiment={call.sentiment}
+              score={call.sentimentScore || 0}
             />
           )}
         </div>
@@ -362,7 +362,7 @@ export const CallMonitoringPanel = () => {
         {/* Middle Column - Transcript */}
         <div className="lg:col-span-2">
           <Card className="h-96">
-            <TranscriptViewer 
+            <TranscriptViewer
               transcript={transcript}
               callId={callId!}
             />
@@ -407,7 +407,7 @@ export const CallMonitoringPanel = () => {
 
       {/* Call History Panel */}
       {showCallHistory && (
-        <CallHistoryPanel 
+        <CallHistoryPanel
           customerId={call.callerId}
           onClose={() => setShowCallHistory(false)}
         />

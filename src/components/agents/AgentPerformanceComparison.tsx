@@ -1,6 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Users, X } from 'lucide-react';
-import { Button } from '../Button';
+
 
 type AgentPerformanceComparisonProps = {
   agents: any[];
@@ -41,7 +41,7 @@ export const AgentPerformanceComparison = ({ agents, onClose }: AgentPerformance
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.1} />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} />
                 <YAxis axisLine={false} tickLine={false} />
-                <Tooltip 
+                <Tooltip
                   cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
                   contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px', color: '#fff' }}
                 />
@@ -59,7 +59,7 @@ export const AgentPerformanceComparison = ({ agents, onClose }: AgentPerformance
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.1} />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} />
                 <YAxis axisLine={false} tickLine={false} />
-                <Tooltip 
+                <Tooltip
                   cursor={{ fill: 'rgba(139, 92, 246, 0.1)' }}
                   contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px', color: '#fff' }}
                 />

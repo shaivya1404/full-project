@@ -4,7 +4,7 @@ import clsx from 'clsx';
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
-  options: { value: string; label: string }[];
+  options?: { value: string; label: string }[];
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
@@ -31,11 +31,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           )}
           {...props}
         >
-          {options.map((option) => (
+          {options ? options.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
-          ))}
+          )) : props.children}
         </select>
         {error && (
           <p className="mt-1 text-sm text-red-600 dark:text-red-400">
