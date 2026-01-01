@@ -1,12 +1,14 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { CallRepository } from '../db/repositories/callRepository';
 import { AnalyticsService } from '../services/analyticsService';
+import { CallAnalyticsService } from '../services/callAnalyticsService';
 import { logger } from '../utils/logger';
 
 const router = Router();
 
 let callRepository: CallRepository;
 let analyticsService: AnalyticsService;
+let callAnalyticsService: CallAnalyticsService;
 
 const getRepository = () => {
   if (!callRepository) {
@@ -20,6 +22,13 @@ const getAnalyticsService = () => {
     analyticsService = new AnalyticsService();
   }
   return analyticsService;
+};
+
+const getCallAnalyticsService = () => {
+  if (!callAnalyticsService) {
+    callAnalyticsService = new CallAnalyticsService();
+  }
+  return callAnalyticsService;
 };
 
 interface ErrorResponse {
@@ -72,6 +81,57 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     });
   } catch (error) {
     logger.error('Error fetching analytics', error);
+    next(error);
+  }
+});
+
+// GET /api/analytics/calls - Get comprehensive call analytics
+router.get('/calls', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const filters: { teamId?: string; startDate?: Date; endDate?: Date; campaignId?: string } = {};
+
+    if (req.query.teamId && typeof req.query.teamId === 'string') {
+      filters.teamId = req.query.teamId;
+    }
+
+    if (req.query.startDate && typeof req.query.startDate === 'string') {
+      const date = new Date(req.query.startDate);
+      if (!isNaN(date.getTime())) {
+        filters.startDate = date;
+      } else {
+        return res.status(400).json({
+          message: 'Invalid startDate format. Use YYYY-MM-DD',
+          code: 'INVALID_DATE',
+        } as ErrorResponse);
+      }
+    }
+
+    if (req.query.endDate && typeof req.query.endDate === 'string') {
+      const date = new Date(req.query.endDate);
+      if (!isNaN(date.getTime())) {
+        filters.endDate = date;
+      } else {
+        return res.status(400).json({
+          message: 'Invalid endDate format. Use YYYY-MM-DD',
+          code: 'INVALID_DATE',
+        } as ErrorResponse);
+      }
+    }
+
+    if (req.query.campaignId && typeof req.query.campaignId === 'string') {
+      filters.campaignId = req.query.campaignId;
+    }
+
+    const service = getCallAnalyticsService();
+    const analytics = await service.getCallAnalytics(filters);
+
+    res.status(200).json({
+      success: true,
+      data: analytics,
+      message: 'Call analytics retrieved successfully',
+    });
+  } catch (error) {
+    logger.error('Error fetching call analytics', error);
     next(error);
   }
 });
