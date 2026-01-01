@@ -510,6 +510,42 @@ export interface OrderItem {
   total: number;
 }
 
+export interface Order {
+  id: string;
+  orderNumber: string;
+  customerId: string;
+  customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  billingAddress?: string;
+  shippingAddress?: string;
+  items: OrderItem[];
+  subtotal: number;
+  taxAmount: number;
+  shippingCost: number;
+  discountAmount?: number;
+  totalAmount: number;
+  currency: string;
+  status: 'pending' | 'confirmed' | 'processing' | 'ready' | 'delivered' | 'cancelled';
+  paymentStatus: 'pending' | 'processing' | 'paid' | 'failed';
+  paymentMethod?: string;
+  notes?: string;
+  internalNotes?: string;
+  timeline?: Array<{
+    status: string;
+    timestamp: string;
+    note?: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+  estimatedDelivery?: string;
+  deliveredAt?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
+  teamId: string;
+  teamName?: string;
+}
+
 export interface Payment {
   id: string;
   orderId: string;
@@ -635,6 +671,13 @@ export interface PaymentLog {
 
 export interface PaymentsResponse {
   data: Payment[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface OrdersResponse {
+  data: Order[];
   total: number;
   limit: number;
   offset: number;
