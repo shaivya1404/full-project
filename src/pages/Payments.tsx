@@ -29,6 +29,7 @@ import { PaymentCardTokenManager } from '../components/payments/PaymentCardToken
 import { InvoiceGenerator } from '../components/payments/InvoiceGenerator';
 import { PaymentLinkDialog } from '../components/payments/PaymentLinkDialog';
 import type { Payment } from '../types';
+import { DashboardLayout, Button } from '../components';
 
 export const PaymentsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'all' | 'analytics' | 'methods' | 'refunds' | 'fraud' | 'cards'>('all');
@@ -148,24 +149,25 @@ export const PaymentsPage: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto pb-24">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Payments Dashboard</h1>
-          <p className="text-gray-500 mt-1 font-medium">Monitor, process, and manage all your transactions in one place.</p>
+    <DashboardLayout>
+      <div className="p-6 space-y-6 max-w-[1600px] mx-auto pb-24">
+        {/* Page Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Payments Dashboard</h1>
+            <p className="text-gray-500 mt-1 font-medium dark:text-gray-400">Monitor, process, and manage all your transactions in one place.</p>
+          </div>
+          <div className="flex space-x-3">
+            <Button className="flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-all shadow-sm dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700">
+              <Download className="w-4 h-4 mr-2" />
+              Export Data
+            </Button>
+            <Button className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100">
+              <Plus className="w-4 h-4 mr-2" />
+              New Payment
+            </Button>
+          </div>
         </div>
-        <div className="flex space-x-3">
-          <button className="flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-all shadow-sm">
-            <Download className="w-4 h-4 mr-2" />
-            Export Data
-          </button>
-          <button className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100">
-            <Plus className="w-4 h-4 mr-2" />
-            New Payment
-          </button>
-        </div>
-      </div>
 
       {/* Tabs */}
       <div className="bg-white p-1 rounded-2xl shadow-sm border border-gray-100 inline-flex">
@@ -340,7 +342,8 @@ export const PaymentsPage: React.FC = () => {
         onAction={(action) => toast.success(`Performing ${action} on selected items`)}
         onClearSelection={() => setSelectedCount(0)}
       />
-    </div>
+      </div>
+    </DashboardLayout>
   );
 };
 
