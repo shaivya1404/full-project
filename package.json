@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node dist/server.js",
     "dev": "nodemon src/server.ts",
-    "build": "tsc",
+    "build": "prisma generate && tsc",
+    "postinstall": "prisma generate",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write .",
     "test": "jest",
@@ -30,6 +31,8 @@
   },
   "homepage": "https://github.com/shaivya1404/backend#readme",
   "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "prisma": "^5.22.0",
     "@types/form-data": "^2.2.1",
     "@types/multer": "^2.0.0",
     "axios": "^1.13.2",

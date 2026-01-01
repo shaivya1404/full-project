@@ -32,7 +32,7 @@ const initiatePaymentSchema = z.object({
       phone: z.string().optional(),
     })
     .optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 const confirmPaymentSchema = z.object({
@@ -40,7 +40,7 @@ const confirmPaymentSchema = z.object({
   transactionId: z.string(),
   status: z.enum(['completed', 'failed']),
   failureReason: z.string().optional(),
-  gatewayResponse: z.record(z.any()).optional(),
+  gatewayResponse: z.record(z.string(), z.any()).optional(),
 });
 
 const refundPaymentSchema = z.object({

@@ -186,7 +186,7 @@ export class PaymentAnalyticsService {
 
         if (!customerStats.has(payment.customerId)) {
           customerStats.set(payment.customerId, {
-            name: payment.customer?.name,
+            name: undefined,
             totalPayments: 0,
             totalSpent: 0,
           });
@@ -230,10 +230,10 @@ export class PaymentAnalyticsService {
       // Filter by date range if specified
       const filteredFailures = filters.startDate || filters.endDate
         ? failedPayments.filter((payment) => {
-            if (filters.startDate && payment.timestamp < filters.startDate) return false;
-            if (filters.endDate && payment.timestamp > filters.endDate) return false;
-            return true;
-          })
+          if (filters.startDate && payment.timestamp < filters.startDate) return false;
+          if (filters.endDate && payment.timestamp > filters.endDate) return false;
+          return true;
+        })
         : failedPayments;
 
       // Group by failure reason
@@ -272,7 +272,7 @@ export class PaymentAnalyticsService {
         method: payment.method,
         reason: payment.failureReason,
         timestamp: payment.timestamp,
-        customerName: payment.customer?.name,
+        customerName: undefined,
       }));
 
       return {
@@ -334,7 +334,7 @@ export class PaymentAnalyticsService {
           refundAmount: payment.refundAmount,
           reason: payment.metadata ? JSON.parse(payment.metadata).refundReason : 'Not specified',
           refundDate: payment.updatedAt,
-          customerName: payment.customer?.name,
+          customerName: undefined,
         }));
 
       return {
