@@ -9,6 +9,8 @@ import {
   confirmOrder,
   cancelOrder,
   updateOrderStatus,
+  createOrder,
+  updateOrder,
 } from '../services/api';
 import type { Order } from '../types';
 import { OrdersTable } from '../components/orders/OrdersTable';
@@ -18,6 +20,7 @@ import { EditOrderModal } from '../components/orders/EditOrderModal';
 import { OrderFiltersPanel } from '../components/orders/OrderFiltersPanel';
 import { OrderAnalytics } from '../components/orders/OrderAnalytics';
 import { CancelOrderDialog } from '../components/orders/CancelOrderDialog';
+import { DashboardLayout, Button } from '../components';
 
 export const OrdersPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'confirmed' | 'processing' | 'ready' | 'delivered' | 'cancelled' | 'analytics'>('all');
@@ -101,6 +104,33 @@ export const OrdersPage: React.FC = () => {
     }
   });
 
+  const createOrderMutation = useMutation({
+    mutationFn: (orderData: any) => createOrder(orderData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      toast.success('Order created successfully');
+      setShowAddModal(false);
+    },
+    onError: () => {
+      toast.error('Failed to create order');
+    }
+  });
+
+  const updateOrderMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => updateOrder(id, data),
+    onSuccess: (updatedOrder) => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      toast.success('Order updated successfully');
+      setShowEditModal(false);
+      if (selectedOrder?.id === updatedOrder.id) {
+        setSelectedOrder(updatedOrder);
+      }
+    },
+    onError: () => {
+      toast.error('Failed to update order');
+    }
+  });
+
   const handleConfirmOrder = (orderId: string) => {
     confirmOrderMutation.mutate(orderId);
   };
@@ -113,19 +143,13 @@ export const OrdersPage: React.FC = () => {
     updateOrderStatusMutation.mutate({ orderId, status, note });
   };
 
-  const handleAddOrder = () => {
-    // Add order logic would go here - for now show success
-    toast.success('Order created successfully');
-    setShowAddModal(false);
-    queryClient.invalidateQueries({ queryKey: ['orders'] });
+  const handleAddOrder = (orderData: any) => {
+    createOrderMutation.mutate(orderData);
   };
 
-  const handleEditOrder = () => {
+  const handleEditOrder = (orderData: any) => {
     if (selectedOrder) {
-      // Edit order logic would go here - for now show success
-      toast.success('Order updated successfully');
-      setShowEditModal(false);
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      updateOrderMutation.mutate({ id: selectedOrder.id, data: orderData });
     }
   };
 
@@ -134,22 +158,23 @@ export const OrdersPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Orders Management</h1>
-          <p className="text-sm text-gray-600">Manage customer orders and track fulfillment</p>
-        </div>
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Orders Management</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Manage customer orders and track fulfillment</p>
+          </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg flex items-center gap-2 hover:bg-blue-600 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          New Order
-        </button>
-      </div>
+          <Button
+            onClick={() => setShowAddModal(true)}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg flex items-center gap-2 hover:bg-blue-600 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            New Order
+          </Button>
+        </div>
 
       {/* Tabs */}
       <div className="flex space-x-1 border-b border-gray-200">
@@ -260,6 +285,7 @@ export const OrdersPage: React.FC = () => {
           isCancelling={cancelOrderMutation.isPending}
         />
       )}
-    </div>
+      </div>
+    </DashboardLayout>
   );
 };

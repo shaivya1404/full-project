@@ -23,6 +23,13 @@ export * from './bot-analytics';
 export * from './knowledge';
 export * from './campaigns';
 
+// Orders components
+export * from './orders';
+
+// Payments components
+export * from './payments';
+
 // Team components
 export * from './team';
 export * from './agents';
+export * from './live-calls';
