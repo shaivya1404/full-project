@@ -481,6 +481,77 @@ export class PaymentRepository {
     }
   }
 
+  async searchInvoices(
+    limit: number,
+    offset: number,
+    filters: {
+      teamId?: string;
+      orderId?: string;
+      paymentId?: string;
+      status?: string;
+      startDate?: Date;
+      endDate?: Date;
+    }
+  ): Promise<{ invoices: any[]; total: number }> {
+    try {
+      const where: any = {};
+
+      if (filters.teamId) {
+        where.payment = {
+          teamId: filters.teamId,
+        };
+      }
+
+      if (filters.orderId) {
+        where.orderId = filters.orderId;
+      }
+
+      if (filters.paymentId) {
+        where.paymentId = filters.paymentId;
+      }
+
+      if (filters.status) {
+        where.status = filters.status;
+      }
+
+      if (filters.startDate || filters.endDate) {
+        where.createdAt = {};
+        if (filters.startDate) {
+          where.createdAt.gte = filters.startDate;
+        }
+        if (filters.endDate) {
+          where.createdAt.lte = filters.endDate;
+        }
+      }
+
+      const [invoices, total] = await Promise.all([
+        this.prisma.invoice.findMany({
+          where,
+          take: limit,
+          skip: offset,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            payment: true,
+            order: true,
+          },
+        }),
+        this.prisma.invoice.count({ where }),
+      ]);
+
+      return {
+        invoices: invoices.map(invoice => ({
+          ...invoice,
+          items: JSON.parse(invoice.items),
+          taxDetails: invoice.taxDetails ? JSON.parse(invoice.taxDetails) : null,
+        })),
+        total,
+      };
+    } catch (error) {
+      logger.error('Error searching invoices', error);
+      throw error;
+    }
+  }
+
   // Payment Analytics Operations
 
   async getPaymentAnalytics(teamId: string): Promise<PaymentAnalytics | null> {

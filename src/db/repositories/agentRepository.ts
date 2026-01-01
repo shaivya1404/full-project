@@ -145,4 +145,91 @@ export class AgentRepository {
       return agent.sessions.length < agent.maxConcurrentCalls;
     });
   }
+
+  async deleteAgent(id: string): Promise<void> {
+    await this.prisma.agent.delete({
+      where: { id },
+    });
+  }
+
+  async getAgentPerformance(agentId: string): Promise<{
+    totalCalls: number;
+    averageDuration: number;
+    totalDuration: number;
+    activeSessions: number;
+    completedSessions: number;
+  }> {
+    const sessions = await this.prisma.agentSession.findMany({
+      where: { agentId },
+      include: {
+        call: true,
+      },
+    });
+
+    const activeSessions = sessions.filter(s => !s.endTime).length;
+    const completedSessions = sessions.filter(s => !!s.endTime).length;
+    
+    const totalDuration = sessions.reduce((sum, session) => {
+      if (session.call && session.call.duration) {
+        return sum + session.call.duration;
+      }
+      return sum;
+    }, 0);
+
+    const averageDuration = completedSessions > 0 ? totalDuration / completedSessions : 0;
+
+    return {
+      totalCalls: sessions.length,
+      averageDuration,
+      totalDuration,
+      activeSessions,
+      completedSessions,
+    };
+  }
+
+  async getAgentSchedule(agentId: string): Promise<{
+    agentId: string;
+    schedule: any;
+    timezone?: string;
+  }> {
+    const agent = await this.getAgentById(agentId);
+    if (!agent) {
+      throw new Error('Agent not found');
+    }
+
+    // For now, return a placeholder schedule
+    // In a real implementation, this would come from a Schedule table
+    return {
+      agentId,
+      schedule: {
+        monday: { start: '09:00', end: '17:00', available: true },
+        tuesday: { start: '09:00', end: '17:00', available: true },
+        wednesday: { start: '09:00', end: '17:00', available: true },
+        thursday: { start: '09:00', end: '17:00', available: true },
+        friday: { start: '09:00', end: '17:00', available: true },
+        saturday: { start: null, end: null, available: false },
+        sunday: { start: null, end: null, available: false },
+      },
+      timezone: 'UTC',
+    };
+  }
+
+  async updateAgentSchedule(agentId: string, schedule: any): Promise<{
+    agentId: string;
+    schedule: any;
+    timezone?: string;
+  }> {
+    const agent = await this.getAgentById(agentId);
+    if (!agent) {
+      throw new Error('Agent not found');
+    }
+
+    // In a real implementation, this would save to a Schedule table
+    // For now, just return the schedule
+    return {
+      agentId,
+      schedule: schedule.schedule || schedule,
+      timezone: schedule.timezone || 'UTC',
+    };
+  }
 }

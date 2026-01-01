@@ -428,11 +428,37 @@ router.post('/links/:id/resend', async (req: Request, res: Response) => {
   }
 });
 
+// Fraud Detection Endpoints
+
+/**
+ * POST /api/payments/fraud-check
+ * Perform fraud detection check
+ */
+router.post('/fraud-check', async (req: Request, res: Response) => {
+  try {
+    const validatedData = fraudCheckSchema.parse(req.body);
+
+    const result = await fraudDetectionService.checkFraud(validatedData);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    logger.error('Error performing fraud check', error);
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ success: false, error: 'Validation error', details: error.issues });
+    } else {
+      res.status(500).json({ success: false, error: error.message || 'Failed to perform fraud check' });
+    }
+  }
+});
+
 // Invoice Endpoints
 
 /**
- * POST /api/invoices
- * Create a new invoice
+ * POST /api/payments/invoices
+ * Create a new invoice (frontend compatibility)
  */
 router.post('/invoices', async (req: Request, res: Response) => {
   try {
@@ -455,7 +481,39 @@ router.post('/invoices', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/invoices/:id
+ * GET /api/payments/invoices
+ * List invoices with filters
+ */
+router.get('/invoices', async (req: Request, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 20;
+    const offset = parseInt(req.query.offset as string) || 0;
+
+    const filters: any = {};
+    if (req.query.teamId) filters.teamId = req.query.teamId as string;
+    if (req.query.orderId) filters.orderId = req.query.orderId as string;
+    if (req.query.paymentId) filters.paymentId = req.query.paymentId as string;
+    if (req.query.status) filters.status = req.query.status as string;
+    if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
+    if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
+
+    const result = await invoiceService.searchInvoices(limit, offset, filters);
+
+    res.json({
+      success: true,
+      data: result.invoices,
+      total: result.total,
+      limit,
+      offset,
+    });
+  } catch (error: any) {
+    logger.error('Error listing invoices', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to list invoices' });
+  }
+});
+
+/**
+ * GET /api/payments/invoices/:id
  * Get invoice details
  */
 router.get('/invoices/:id', async (req: Request, res: Response) => {

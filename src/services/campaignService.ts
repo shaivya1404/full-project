@@ -41,6 +41,15 @@ export class CampaignService {
     return this.campaignRepository.updateCampaign(id, { status });
   }
 
+  async updateCampaign(id: string, data: Partial<Campaign>): Promise<Campaign> {
+    return this.campaignRepository.updateCampaign(id, data);
+  }
+
+  async deleteCampaign(id: string): Promise<void> {
+    await this.campaignRepository.deleteCampaign(id);
+    logger.info(`Campaign ${id} deleted`);
+  }
+
   async getCampaignProgress(campaignId: string): Promise<{
     totalContacts: number;
     completedCalls: number;
@@ -122,5 +131,80 @@ export class CampaignService {
     }
   ): Promise<CallLog> {
     return this.campaignRepository.updateCallLog(callLogId, data);
+  }
+
+  async getCampaignAnalytics(campaignId: string): Promise<{
+    totalContacts: number;
+    totalCalls: number;
+    completedCalls: number;
+    successfulCalls: number;
+    failedCalls: number;
+    averageDuration: number;
+    successRate: number;
+    conversionRate: number;
+    callsByDay: { date: string; calls: number }[];
+  }> {
+    const progress = await this.getCampaignProgress(campaignId);
+    const callLogs = await this.getCallLogsForCampaign(campaignId);
+
+    // Calculate average duration
+    const totalDuration = callLogs.reduce((sum, log) => sum + (log.duration || 0), 0);
+    const averageDuration = callLogs.length > 0 ? totalDuration / callLogs.length : 0;
+
+    // Calculate conversion rate (successful calls / total calls)
+    const conversionRate = callLogs.length > 0 ? progress.successfulCalls / callLogs.length : 0;
+
+    // Group calls by day
+    const callsByDay: { [key: string]: number } = {};
+    callLogs.forEach((log) => {
+      const date = new Date(log.createdAt).toISOString().split('T')[0];
+      callsByDay[date] = (callsByDay[date] || 0) + 1;
+    });
+
+    const callsByDayArray = Object.entries(callsByDay).map(([date, calls]) => ({
+      date,
+      calls,
+    }));
+
+    return {
+      totalContacts: progress.totalContacts,
+      totalCalls: callLogs.length,
+      completedCalls: progress.completedCalls,
+      successfulCalls: progress.successfulCalls,
+      failedCalls: progress.failedCalls,
+      averageDuration,
+      successRate: progress.successRate,
+      conversionRate,
+      callsByDay: callsByDayArray,
+    };
+  }
+
+  async addContactsToCampaign(
+    campaignId: string,
+    contacts: Array<{ name: string; phone: string; email?: string; metadata?: any }>
+  ): Promise<{ added: number; failed: number; errors: string[] }> {
+    let added = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (const contact of contacts) {
+      try {
+        await this.campaignRepository.createContact({
+          campaignId,
+          name: contact.name,
+          phone: contact.phone,
+          email: contact.email,
+          metadata: contact.metadata ? JSON.stringify(contact.metadata) : undefined,
+        });
+        added++;
+      } catch (error) {
+        failed++;
+        errors.push(`Failed to add contact ${contact.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    logger.info(`Added ${added} contacts to campaign ${campaignId}, ${failed} failed`);
+
+    return { added, failed, errors };
   }
 }
