@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Settings, Users, BarChart3, Users as TeamUsers, User, ChevronDown, ChevronRight, BookOpen, Megaphone, PhoneCall, Headset } from 'lucide-react';
+import { Home, Settings, Users, BarChart3, Users as TeamUsers, User, ChevronDown, ChevronRight, BookOpen, Megaphone, PhoneCall, Headset, CreditCard, Receipt } from 'lucide-react';
 import clsx from 'clsx';
 import { useState } from 'react';
 
@@ -27,6 +27,8 @@ const navItems: NavItem[] = [
   { label: 'Agents', href: '/dashboard/agents', icon: <Headset size={20} /> },
   { label: 'Campaigns', href: '/dashboard/campaigns', icon: <Megaphone size={20} /> },
   { label: 'Live Calls', href: '/dashboard/live-calls', icon: <PhoneCall size={20} /> },
+  { label: 'Payments', href: '/dashboard/payments', icon: <CreditCard size={20} /> },
+  { label: 'Invoices', href: '/dashboard/invoices', icon: <Receipt size={20} /> },
   { label: 'Knowledge Base', href: '/dashboard/knowledge-base', icon: <BookOpen size={20} /> },
   { label: 'Analytics', href: '/dashboard/analytics', icon: <BarChart3 size={20} /> },
   { label: 'Settings', href: '/dashboard/settings', icon: <Settings size={20} /> },

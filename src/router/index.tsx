@@ -18,6 +18,9 @@ import {
   CallMonitor,
   AgentsPage,
   AgentDetailPage,
+  PaymentsPage,
+  PaymentDetailPage,
+  InvoicesPage,
 } from '../pages';
 import { ProtectedRoute } from '../components';
 
@@ -97,6 +100,42 @@ export const AppRouter = () => {
           element={
             <ProtectedRoute>
               <AgentDetailPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/payments"
+          element={
+            <ProtectedRoute>
+              <PaymentsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/payments/:id"
+          element={
+            <ProtectedRoute>
+              <PaymentDetailPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/invoices"
+          element={
+            <ProtectedRoute>
+              <InvoicesPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/invoices/:id"
+          element={
+            <ProtectedRoute>
+              <PaymentDetailPage /> {/* Reusing PaymentDetail for Invoice detail as requested or appropriate */}
             </ProtectedRoute>
           }
         />
