@@ -491,4 +491,26 @@ export class InvoiceService {
       throw error;
     }
   }
+
+  // Search invoices
+  async searchInvoices(
+    limit: number,
+    offset: number,
+    filters: {
+      teamId?: string;
+      orderId?: string;
+      paymentId?: string;
+      status?: string;
+      startDate?: Date;
+      endDate?: Date;
+    }
+  ): Promise<{ invoices: any[]; total: number }> {
+    try {
+      const result = await this.paymentRepository.searchInvoices(limit, offset, filters);
+      return result;
+    } catch (error) {
+      logger.error('Error searching invoices', error);
+      throw error;
+    }
+  }
 }

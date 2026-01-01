@@ -186,6 +186,53 @@ router.patch('/:id', authMiddleware, async (req: Request, res: Response, next: N
   }
 });
 
+// PUT /api/products/:id - Update product (alias for PATCH for frontend compatibility)
+router.put('/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { name, description, category, price, details, faqs } = req.body;
+    const user = (req as any).user;
+
+    const { productRepository: repo } = getServices();
+    
+    const existing = await repo.findProductById(id);
+    if (!existing) {
+      return res.status(404).json({
+        message: 'Product not found',
+        code: 'NOT_FOUND',
+      } as ErrorResponse);
+    }
+
+    // Check team access
+    if (existing.teamId !== user?.teamId) {
+      return res.status(403).json({
+        message: 'Access denied',
+        code: 'FORBIDDEN',
+      } as ErrorResponse);
+    }
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (category !== undefined) updateData.category = category;
+    if (price !== undefined) updateData.price = price;
+    if (details !== undefined) updateData.details = details;
+    if (faqs !== undefined) updateData.faqs = faqs;
+
+    const product = await repo.updateProduct(id, updateData);
+
+    logger.info(`Updated product: ${product.id}`);
+
+    res.status(200).json({
+      message: 'Product updated successfully',
+      data: product,
+    });
+  } catch (error) {
+    logger.error('Error updating product', error);
+    next(error);
+  }
+});
+
 // DELETE /api/products/:id - Delete product
 router.delete('/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -254,6 +301,140 @@ router.get('/:id/faqs', authMiddleware, async (req: Request, res: Response, next
     });
   } catch (error) {
     logger.error('Error fetching product FAQs', error);
+    next(error);
+  }
+});
+
+// POST /api/products/:id/faqs - Add FAQ to product
+router.post('/:id/faqs', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { question, answer, category } = req.body;
+    const user = (req as any).user;
+
+    if (!question || !answer) {
+      return res.status(400).json({
+        message: 'Question and answer are required',
+        code: 'VALIDATION_ERROR',
+      } as ErrorResponse);
+    }
+
+    const { productRepository: repo } = getServices();
+    
+    const product = await repo.findProductById(id);
+    if (!product) {
+      return res.status(404).json({
+        message: 'Product not found',
+        code: 'NOT_FOUND',
+      } as ErrorResponse);
+    }
+
+    // Check team access
+    if (product.teamId !== user?.teamId) {
+      return res.status(403).json({
+        message: 'Access denied',
+        code: 'FORBIDDEN',
+      } as ErrorResponse);
+    }
+
+    const faq = await repo.createProductFAQ({
+      question,
+      answer,
+      category,
+      relevantProductId: id,
+      teamId: user.teamId,
+    });
+
+    logger.info(`Created FAQ ${faq.id} for product ${id}`);
+
+    res.status(201).json({
+      message: 'FAQ created successfully',
+      data: faq,
+    });
+  } catch (error) {
+    logger.error('Error creating FAQ for product', error);
+    next(error);
+  }
+});
+
+// PUT /api/products/faqs/:id - Update FAQ (frontend compatibility)
+router.put('/faqs/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { question, answer, category, relevantProductId } = req.body;
+    const user = (req as any).user;
+
+    const { productRepository: repo } = getServices();
+    
+    const existing = await repo.findProductFAQById(id);
+    if (!existing) {
+      return res.status(404).json({
+        message: 'FAQ not found',
+        code: 'NOT_FOUND',
+      } as ErrorResponse);
+    }
+
+    // Check team access
+    if (existing.teamId !== user?.teamId) {
+      return res.status(403).json({
+        message: 'Access denied',
+        code: 'FORBIDDEN',
+      } as ErrorResponse);
+    }
+
+    const updateData: any = {};
+    if (question !== undefined) updateData.question = question;
+    if (answer !== undefined) updateData.answer = answer;
+    if (category !== undefined) updateData.category = category;
+    if (relevantProductId !== undefined) updateData.relevantProductId = relevantProductId;
+
+    const faq = await repo.updateProductFAQ(id, updateData);
+
+    logger.info(`Updated FAQ: ${faq.id}`);
+
+    res.status(200).json({
+      message: 'FAQ updated successfully',
+      data: faq,
+    });
+  } catch (error) {
+    logger.error('Error updating FAQ', error);
+    next(error);
+  }
+});
+
+// DELETE /api/products/faqs/:id - Delete FAQ (frontend compatibility)
+router.delete('/faqs/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const user = (req as any).user;
+
+    const { productRepository: repo } = getServices();
+    
+    const existing = await repo.findProductFAQById(id);
+    if (!existing) {
+      return res.status(404).json({
+        message: 'FAQ not found',
+        code: 'NOT_FOUND',
+      } as ErrorResponse);
+    }
+
+    // Check team access
+    if (existing.teamId !== user?.teamId) {
+      return res.status(403).json({
+        message: 'Access denied',
+        code: 'FORBIDDEN',
+      } as ErrorResponse);
+    }
+
+    await repo.deleteProductFAQ(id);
+
+    logger.info(`Deleted FAQ: ${id}`);
+
+    res.status(200).json({
+      message: 'FAQ deleted successfully',
+    });
+  } catch (error) {
+    logger.error('Error deleting FAQ', error);
     next(error);
   }
 });

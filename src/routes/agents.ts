@@ -37,6 +37,21 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+// GET /api/agents/:id - Get specific agent
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const repo = getRepository();
+    const agent = await repo.getAgentById(req.params.id);
+    if (!agent) {
+      return res.status(404).json({ message: 'Agent not found' });
+    }
+    res.status(200).json({ data: agent });
+  } catch (error) {
+    logger.error('Error getting agent', error);
+    next(error);
+  }
+});
+
 // PATCH /api/agents/:id - Update agent status/availability
 router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -45,6 +60,34 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
     res.status(200).json({ data: agent });
   } catch (error) {
     logger.error('Error updating agent', error);
+    next(error);
+  }
+});
+
+// PUT /api/agents/:id - Update agent (frontend compatibility)
+router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const repo = getRepository();
+    const agent = await repo.updateAgent(req.params.id, req.body);
+    res.status(200).json({ data: agent });
+  } catch (error) {
+    logger.error('Error updating agent', error);
+    next(error);
+  }
+});
+
+// DELETE /api/agents/:id - Delete agent
+router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const repo = getRepository();
+    const agent = await repo.getAgentById(req.params.id);
+    if (!agent) {
+      return res.status(404).json({ message: 'Agent not found' });
+    }
+    await repo.deleteAgent(req.params.id);
+    res.status(200).json({ message: 'Agent deleted successfully' });
+  } catch (error) {
+    logger.error('Error deleting agent', error);
     next(error);
   }
 });
@@ -103,6 +146,60 @@ router.post('/:id/decline-transfer', async (req: Request, res: Response, next: N
     res.status(200).json({ message: 'Transfer declined' });
   } catch (error) {
     logger.error('Error declining transfer', error);
+    next(error);
+  }
+});
+
+// GET /api/agents/:id/performance - Get agent performance metrics
+router.get('/:id/performance', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const repo = getRepository();
+    const agent = await repo.getAgentById(req.params.id);
+    if (!agent) {
+      return res.status(404).json({ message: 'Agent not found' });
+    }
+
+    const performance = await repo.getAgentPerformance(req.params.id);
+    res.status(200).json({ data: performance });
+  } catch (error) {
+    logger.error('Error getting agent performance', error);
+    next(error);
+  }
+});
+
+// GET /api/agents/:id/schedule - Get agent schedule
+router.get('/:id/schedule', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const repo = getRepository();
+    const agent = await repo.getAgentById(req.params.id);
+    if (!agent) {
+      return res.status(404).json({ message: 'Agent not found' });
+    }
+
+    const schedule = await repo.getAgentSchedule(req.params.id);
+    res.status(200).json({ data: schedule });
+  } catch (error) {
+    logger.error('Error getting agent schedule', error);
+    next(error);
+  }
+});
+
+// PUT /api/agents/:id/schedule - Update agent schedule
+router.put('/:id/schedule', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const repo = getRepository();
+    const agent = await repo.getAgentById(req.params.id);
+    if (!agent) {
+      return res.status(404).json({ message: 'Agent not found' });
+    }
+
+    const schedule = await repo.updateAgentSchedule(req.params.id, req.body);
+    res.status(200).json({ 
+      message: 'Schedule updated successfully',
+      data: schedule 
+    });
+  } catch (error) {
+    logger.error('Error updating agent schedule', error);
     next(error);
   }
 });
