@@ -15,6 +15,7 @@ export { LiveCalls } from './LiveCalls';
 export { CallMonitor } from './CallMonitor';
 export { AgentsPage } from './Agents';
 export { AgentDetailPage } from './AgentDetail';
+export { OrdersPage } from './Orders';
 export { PaymentsPage } from './Payments';
 export { PaymentDetailPage } from './PaymentDetail';
 export { InvoicesPage } from './Invoices';

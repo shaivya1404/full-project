@@ -18,6 +18,7 @@ import {
   CallMonitor,
   AgentsPage,
   AgentDetailPage,
+  OrdersPage,
   PaymentsPage,
   PaymentDetailPage,
   InvoicesPage,
@@ -100,6 +101,15 @@ export const AppRouter = () => {
           element={
             <ProtectedRoute>
               <AgentDetailPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/orders"
+          element={
+            <ProtectedRoute>
+              <OrdersPage />
             </ProtectedRoute>
           }
         />

@@ -124,7 +124,7 @@ export const InviteBadge = ({ status, className }: { status: InviteStatus; class
   );
 };
 
-type BadgeVariant = 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info' | 'destructive';
+type BadgeVariant = 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info' | 'destructive' | 'neutral';
 
 interface BadgeProps {
   children: React.ReactNode;
@@ -141,6 +141,7 @@ const variantConfig: Record<BadgeVariant, string> = {
   error: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
   info: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300',
   destructive: 'bg-red-500 text-white dark:bg-red-600',
+  neutral: 'bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200',
 };
 
 export const Badge = ({ children, variant = 'default', className }: BadgeProps) => {

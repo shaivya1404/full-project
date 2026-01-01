@@ -50,6 +50,9 @@ import type {
   AgentActivityLogEntry,
   Certification,
   AgentsResponse,
+  Order,
+  OrderItem,
+  OrdersResponse,
   Payment,
   PaymentsResponse,
   PaymentLink,
@@ -949,6 +952,83 @@ export const getAgents = async (
   if (filters?.search) params.append('search', filters.search);
 
   const response = await client.get<AgentsResponse>(`/agents?${params.toString()}`);
+  return response.data;
+};
+
+/**
+ * Order Management Services
+ */
+
+export const getOrders = async (
+  teamId: string,
+  limit: number,
+  offset: number,
+  filters?: { 
+    status?: string; 
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    minAmount?: string;
+    maxAmount?: string;
+  }
+): Promise<OrdersResponse> => {
+  const params = new URLSearchParams();
+  params.append('teamId', teamId);
+  params.append('limit', limit.toString());
+  params.append('offset', offset.toString());
+  
+  if (filters?.status) params.append('status', filters.status);
+  if (filters?.search) params.append('search', filters.search);
+  if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+  if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+  if (filters?.minAmount) params.append('minAmount', filters.minAmount);
+  if (filters?.maxAmount) params.append('maxAmount', filters.maxAmount);
+
+  const response = await client.get<OrdersResponse>(`/orders?${params.toString()}`);
+  return response.data;
+};
+
+export const getOrder = async (id: string): Promise<Order> => {
+  const response = await client.get<Order>(`/orders/${id}`);
+  return response.data;
+};
+
+export const createOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'orderNumber'>): Promise<Order> => {
+  const response = await client.post<Order>('/orders', orderData);
+  return response.data;
+};
+
+export const updateOrder = async (id: string, orderData: Partial<Omit<Order, 'id' | 'createdAt' | 'updatedAt'>>): Promise<Order> => {
+  const response = await client.put<Order>(`/orders/${id}`, orderData);
+  return response.data;
+};
+
+export const deleteOrder = async (id: string): Promise<{ success: boolean }> => {
+  const response = await client.delete<{ success: boolean }>(`/orders/${id}`);
+  return response.data;
+};
+
+export const confirmOrder = async (id: string): Promise<Order> => {
+  const response = await client.post<Order>(`/orders/${id}/confirm`);
+  return response.data;
+};
+
+export const cancelOrder = async (id: string, reason: string): Promise<Order> => {
+  const response = await client.post<Order>(`/orders/${id}/cancel`, { reason });
+  return response.data;
+};
+
+export const updateOrderStatus = async (id: string, status: Order['status'], note?: string): Promise<Order> => {
+  const response = await client.post<Order>(`/orders/${id}/status`, { status, note });
+  return response.data;
+};
+
+export const searchOrders = async (teamId: string, query: string): Promise<Order[]> => {
+  const params = new URLSearchParams();
+  params.append('teamId', teamId);
+  params.append('q', query);
+  
+  const response = await client.get<Order[]>(`/orders/search?${params.toString()}`);
   return response.data;
 };
 

@@ -2,16 +2,11 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { 
-  User, 
   Mail, 
   Phone, 
-  MapPin, 
   Calendar, 
   ChevronLeft,
   Award,
-  Clock,
-  BarChart3,
-  MessageSquare,
   ShieldCheck,
   Settings
 } from 'lucide-react';
@@ -65,7 +60,7 @@ export const AgentDetailPage = () => {
 
   if (isAgentLoading) {
     return (
-      <DashboardLayout title="Agent Details">
+      <DashboardLayout>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
@@ -75,7 +70,7 @@ export const AgentDetailPage = () => {
 
   if (!agent) {
     return (
-      <DashboardLayout title="Agent Details">
+      <DashboardLayout>
         <div className="text-center py-12">
           <p className="text-gray-500">Agent not found.</p>
           <Button onClick={() => navigate('/dashboard/agents')} className="mt-4">
@@ -87,7 +82,7 @@ export const AgentDetailPage = () => {
   }
 
   return (
-    <DashboardLayout title={`Agent: ${agent.firstName} ${agent.lastName}`}>
+    <DashboardLayout>
       <div className="mb-6">
         <button
           onClick={() => navigate('/dashboard/agents')}
