@@ -7,11 +7,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
   AreaChart,
   Area,
-  TooltipProps,
 } from 'recharts';
 import { Card } from '../Card';
 

@@ -10,7 +10,6 @@ type AgentSkillsPanelProps = {
   onAddSkill: (skill: Partial<AgentSkill>) => void;
   onRemoveSkill: (skillId: string) => void;
   onUpdateSkill: (skillId: string, data: Partial<AgentSkill>) => void;
-  loading?: boolean;
 };
 
 export const AgentSkillsPanel = ({
@@ -19,7 +18,6 @@ export const AgentSkillsPanel = ({
   onAddSkill,
   onRemoveSkill,
   onUpdateSkill,
-  loading,
 }: AgentSkillsPanelProps) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newSkill, setNewSkill] = useState({

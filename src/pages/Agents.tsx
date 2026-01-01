@@ -7,7 +7,6 @@ import { EditAgentModal } from '../components/agents/EditAgentModal';
 import { useAgents, useCreateAgent, useUpdateAgent, useDeleteAgent, useUpdateAgentStatus } from '../api/agents';
 import { Users, UserPlus, Download, RefreshCw } from 'lucide-react';
 import { Button } from '../components/Button';
-import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 import type { Agent } from '../types';
 
@@ -25,7 +24,6 @@ export const AgentsPage = () => {
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
 
   // Get current user's team ID (mocked for now or from store)
-  const user = useAuthStore((state) => state.user);
   const teamId = 'team-123'; // In a real app, this would come from user profile
 
   const { data, isLoading, isError, refetch } = useAgents(teamId, limit, (page - 1) * limit, {
@@ -96,7 +94,7 @@ export const AgentsPage = () => {
   };
 
   return (
-    <DashboardLayout title="Agent Management">
+    <DashboardLayout>
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Agents</h1>

@@ -7,10 +7,9 @@ type AgentQueuePanelProps = {
   queue: AgentQueueItem[];
   onAccept: (callId: string) => void;
   onDecline: (callId: string) => void;
-  loading?: boolean;
 };
 
-export const AgentQueuePanel = ({ queue, onAccept, onDecline, loading }: AgentQueuePanelProps) => {
+export const AgentQueuePanel = ({ queue, onAccept, onDecline }: AgentQueuePanelProps) => {
   const formatWaitTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;

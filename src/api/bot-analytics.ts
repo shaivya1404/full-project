@@ -1,10 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { 
-  BotAnalyticsData, 
-  UnansweredQuestion, 
-  PaginatedResponse, 
-  DateRange 
-} from '../types';
+import type { DateRange } from '../types';
 import { getBotAnalytics, getUnansweredQuestions } from '../services/api';
 
 export const useBotAnalytics = (dateRange?: DateRange) => {

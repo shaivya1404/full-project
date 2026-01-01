@@ -1,14 +1,12 @@
-import { Users, UserPlus, Shield, Star } from 'lucide-react';
+import { Users, UserPlus, Shield } from 'lucide-react';
 import type { Agent } from '../../types';
 import { Button } from '../Button';
 
 type AgentTeamPanelProps = {
   agent: Agent;
-  onAssignTeam: (teamId: string) => void;
-  loading?: boolean;
 };
 
-export const AgentTeamPanel = ({ agent, onAssignTeam, loading }: AgentTeamPanelProps) => {
+export const AgentTeamPanel = ({ agent }: AgentTeamPanelProps) => {
   const teamMembers = [
     { id: '1', name: 'Alice Smith', role: 'Supervisor', online: true },
     { id: '2', name: 'Bob Johnson', role: 'Agent', online: true },

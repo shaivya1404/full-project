@@ -1,30 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  CreditCard, 
-  DollarSign, 
-  RefreshCcw, 
-  CheckCircle, 
-  AlertCircle,
-  Plus,
-  Filter,
+import React, { useState } from 'react';
+import {
+  CreditCard,
   Download,
-  Search,
   LayoutDashboard,
   BarChart3,
-  Receipt,
   RotateCcw,
-  ShieldAlert
+  ShieldAlert,
+  Plus
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { 
-  getPayments, 
-  getPaymentAnalytics, 
+import {
+  getPayments,
+  getPaymentAnalytics,
   initiateRefund,
   markAsCompleted,
   downloadInvoicePDF
 } from '../services/api';
-import { useAuthStore } from '../store/authStore';
 import { PaymentsTable } from '../components/payments/PaymentsTable';
 import { PaymentFiltersPanel } from '../components/payments/PaymentFiltersPanel';
 import { PaymentDetailPanel } from '../components/payments/PaymentDetailPanel';
@@ -36,7 +28,7 @@ import { RefundAnalytics } from '../components/payments/RefundAnalytics';
 import { PaymentCardTokenManager } from '../components/payments/PaymentCardTokenManager';
 import { InvoiceGenerator } from '../components/payments/InvoiceGenerator';
 import { PaymentLinkDialog } from '../components/payments/PaymentLinkDialog';
-import type { Payment, PaymentAnalytics } from '../types';
+import type { Payment } from '../types';
 
 export const PaymentsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'all' | 'analytics' | 'methods' | 'refunds' | 'fraud' | 'cards'>('all');
@@ -58,7 +50,6 @@ export const PaymentsPage: React.FC = () => {
   });
 
   const queryClient = useQueryClient();
-  const { user } = useAuthStore();
   const teamId = 'team-123'; // In a real app, this would come from context
 
   const { data: paymentsData, isLoading } = useQuery({
@@ -312,11 +303,11 @@ export const PaymentsPage: React.FC = () => {
           items={[
             { id: '1', name: 'Premium Subscription', quantity: 1, price: selectedPayment.amount, total: selectedPayment.amount }
           ]}
-          onGenerate={(data) => {
+          onGenerate={() => {
             toast.success('Invoice generated successfully');
             setShowInvoiceGenerator(false);
           }}
-          onPreview={(data) => toast.success('Previewing invoice...')}
+          onPreview={() => toast.success('Previewing invoice...')}
           onClose={() => setShowInvoiceGenerator(false)}
         />
       )}
@@ -337,8 +328,8 @@ export const PaymentsPage: React.FC = () => {
             updatedAt: new Date().toISOString()
           }}
           onGenerate={() => toast.success('New link generated')}
-          onCancel={(id) => toast.success('Link cancelled')}
-          onSendSMS={(id, phone) => toast.success(`Link sent to ${phone}`)}
+          onCancel={() => toast.success('Link cancelled')}
+          onSendSMS={() => toast.success('Link sent')}
           onClose={() => setShowLinkDialog(false)}
         />
       )}

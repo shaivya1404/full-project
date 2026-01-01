@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Volume2, VolumeX, Download, Maximize2, RotateCcw } from 'lucide-react';
-import type { LiveCall } from '../../types';
+import { Play, Pause, Volume2, VolumeX, Download, RotateCcw } from 'lucide-react';
 import { Button } from '../Button';
 import { Input } from '../Input';
 import { streamCallAudio } from '../../services/api';

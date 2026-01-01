@@ -3,10 +3,9 @@ import type { AgentActivityLogEntry } from '../../types';
 
 type AgentActivityLogProps = {
   activities: AgentActivityLogEntry[];
-  loading?: boolean;
 };
 
-export const AgentActivityLog = ({ activities, loading }: AgentActivityLogProps) => {
+export const AgentActivityLog = ({ activities }: AgentActivityLogProps) => {
   const getIcon = (type: AgentActivityLogEntry['activityType']) => {
     switch (type) {
       case 'call': return { icon: Phone, color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-900/30' };

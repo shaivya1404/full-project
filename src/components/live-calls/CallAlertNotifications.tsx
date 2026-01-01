@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, X, Clock, Zap, User, Phone, Volume2, VolumeX } from 'lucide-react';
+import { AlertTriangle, X, Clock, Zap, Phone, Volume2, VolumeX } from 'lucide-react';
 import type { CallAlert } from '../../types';
 import { Button } from '../Button';
 import { Badge } from '../Badge';

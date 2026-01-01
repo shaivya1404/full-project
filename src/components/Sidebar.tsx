@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Settings, Users, BarChart3, Users as TeamUsers, User, ChevronDown, ChevronRight, BookOpen, Megaphone, PhoneCall, Headset, CreditCard, Receipt, ShoppingCart } from 'lucide-react';
+import { Home, Settings, Users, BarChart3, Users as TeamUsers, User, ChevronDown, ChevronRight, BookOpen, Megaphone, PhoneCall, Headset, CreditCard, Receipt } from 'lucide-react';
 import clsx from 'clsx';
 import { useState } from 'react';
 

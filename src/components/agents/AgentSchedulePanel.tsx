@@ -3,19 +3,13 @@ import type { AgentSchedule } from '../../types';
 import { Button } from '../Button';
 
 type AgentSchedulePanelProps = {
-  agentId: string;
   schedule: AgentSchedule[];
-  onAddShift: (shift: Partial<AgentSchedule>) => void;
   onRemoveShift: (shiftId: string) => void;
-  loading?: boolean;
 };
 
 export const AgentSchedulePanel = ({
-  agentId,
   schedule,
-  onAddShift,
   onRemoveShift,
-  loading,
 }: AgentSchedulePanelProps) => {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   

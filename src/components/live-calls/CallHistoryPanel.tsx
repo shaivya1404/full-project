@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Clock, Phone, User, FileText, Play, Download, Calendar } from 'lucide-react';
+import { X, Clock, Phone, FileText, Play, Download } from 'lucide-react';
 import type { Call } from '../../types';
 import { Button } from '../Button';
 import { Badge } from '../Badge';
