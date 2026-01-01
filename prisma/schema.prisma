@@ -6,177 +6,177 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model Call {
-  id               String            @id @default(uuid())
-  streamSid        String            @unique
-  callSid          String?           @unique
-  caller           String
-  agent            String?
-  startTime        DateTime          @default(now())
-  endTime          DateTime?
-  duration         Int?
-  status           String            @default("active")
-  notes            String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  recordings       Recording[]
-  transcripts      Transcript[]
-  analytics        Analytics[]
-  metadata         CallMetadata?
-  teamId           String?
-  team             Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  id                   String                @id @default(uuid())
+  streamSid            String                @unique
+  callSid              String?               @unique
+  caller               String
+  agent                String?
+  startTime            DateTime              @default(now())
+  endTime              DateTime?
+  duration             Int?
+  status               String                @default("active")
+  notes                String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  recordings           Recording[]
+  transcripts          Transcript[]
+  analytics            Analytics[]
+  metadata             CallMetadata?
+  teamId               String?
+  team                 Team?                 @relation(fields: [teamId], references: [id], onDelete: SetNull)
   knowledgeBaseSources KnowledgeBaseSource[]
-  agentSessions    AgentSession[]
-  callQueue        CallQueue?
-  transferLogs     TransferLog[]
-  orders           Order[]
+  agentSessions        AgentSession[]
+  callQueue            CallQueue?
+  transferLogs         TransferLog[]
+  orders               Order[]
 }
 
 model Recording {
-  id               String            @id @default(uuid())
-  callId           String
-  call             Call              @relation(fields: [callId], references: [id], onDelete: Cascade)
-  filePath         String
-  fileUrl          String?
-  format           String            @default("wav")
-  codec            String            @default("pcm")
-  sampleRate       Int               @default(8000)
-  channels         Int               @default(1)
-  duration         Float?
-  sizeBytes        Int?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id         String   @id @default(uuid())
+  callId     String
+  call       Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  filePath   String
+  fileUrl    String?
+  format     String   @default("wav")
+  codec      String   @default("pcm")
+  sampleRate Int      @default(8000)
+  channels   Int      @default(1)
+  duration   Float?
+  sizeBytes  Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([callId])
 }
 
 model Transcript {
-  id               String            @id @default(uuid())
-  callId           String
-  call             Call              @relation(fields: [callId], references: [id], onDelete: Cascade)
-  speaker          String
-  text             String
-  confidence       Float?
-  startTime        Float?
-  endTime          Float?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id         String   @id @default(uuid())
+  callId     String
+  call       Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  speaker    String
+  text       String
+  confidence Float?
+  startTime  Float?
+  endTime    Float?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([callId])
 }
 
 model Analytics {
-  id               String            @id @default(uuid())
-  callId           String
-  call             Call              @relation(fields: [callId], references: [id], onDelete: Cascade)
-  sentiment        String?
-  sentimentScore   Float?
-  talkTime         Float?
-  silenceTime      Float?
-  interruptions    Int?
-  averageLatency   Float?
-  metrics          String?
-  snapshotTime     DateTime          @default(now())
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id             String   @id @default(uuid())
+  callId         String
+  call           Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  sentiment      String?
+  sentimentScore Float?
+  talkTime       Float?
+  silenceTime    Float?
+  interruptions  Int?
+  averageLatency Float?
+  metrics        String?
+  snapshotTime   DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([callId])
 }
 
 model CallMetadata {
-  id               String            @id @default(uuid())
-  callId           String            @unique
-  call             Call              @relation(fields: [callId], references: [id], onDelete: Cascade)
-  language         String?
-  region           String?
-  deviceType       String?
-  networkQuality   String?
-  customData       String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id             String   @id @default(uuid())
+  callId         String   @unique
+  call           Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  language       String?
+  region         String?
+  deviceType     String?
+  networkQuality String?
+  customData     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model Campaign {
-  id               String            @id @default(uuid())
-  name             String
-  description      String?
-  status           String            @default("draft")
-  script           String
-  startDate        DateTime?
-  endDate          DateTime?
-  dailyLimit       Int               @default(100)
-  retryAttempts    Int               @default(3)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  contacts         Contact[]
-  callLogs         CallLog[]
-  analytics        CampaignAnalytics?
-  orders           Order[]
-  teamId           String?
-  team             Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  id            String             @id @default(uuid())
+  name          String
+  description   String?
+  status        String             @default("draft")
+  script        String
+  startDate     DateTime?
+  endDate       DateTime?
+  dailyLimit    Int                @default(100)
+  retryAttempts Int                @default(3)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  contacts      Contact[]
+  callLogs      CallLog[]
+  analytics     CampaignAnalytics?
+  orders        Order[]
+  teamId        String?
+  team          Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)
 }
 
 model Contact {
-  id               String            @id @default(uuid())
-  campaignId       String?
-  campaign         Campaign?         @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  phone            String
-  name             String?
-  email            String?
-  isValid          Boolean           @default(false)
-  isDoNotCall      Boolean           @default(false)
-  validationError  String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  callLogs         CallLog[]
+  id              String    @id @default(uuid())
+  campaignId      String?
+  campaign        Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  phone           String
+  name            String?
+  email           String?
+  isValid         Boolean   @default(false)
+  isDoNotCall     Boolean   @default(false)
+  validationError String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  callLogs        CallLog[]
 }
 
 model CallLog {
-  id               String            @id @default(uuid())
-  campaignId       String
-  campaign         Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  contactId        String
-  contact          Contact           @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  duration         Int?
-  result           String            @default("pending")
-  recordingUrl     String?
-  transcript       String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id           String   @id @default(uuid())
+  campaignId   String
+  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contactId    String
+  contact      Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  duration     Int?
+  result       String   @default("pending")
+  recordingUrl String?
+  transcript   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model UnansweredQuestion {
-  id               String            @id @default(uuid())
-  question         String            @unique
-  frequency        Int               @default(1)
-  lastAsked        DateTime          @default(now())
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id        String   @id @default(uuid())
+  question  String   @unique
+  frequency Int      @default(1)
+  lastAsked DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model TopicAnalytics {
-  id               String            @id @default(uuid())
-  topic            String            @unique
-  callCount        Int               @default(0)
-  sentiment        Float?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id        String   @id @default(uuid())
+  topic     String   @unique
+  callCount Int      @default(0)
+  sentiment Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model CampaignAnalytics {
-  id               String            @id @default(uuid())
-  campaignId       String            @unique
-  campaign         Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  successRate      Float             @default(0)
-  roi              Float             @default(0)
-  cost             Float             @default(0)
-  revenue          Float             @default(0)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id          String   @id @default(uuid())
+  campaignId  String   @unique
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  successRate Float    @default(0)
+  roi         Float    @default(0)
+  cost        Float    @default(0)
+  revenue     Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Team {
@@ -203,14 +203,14 @@ model Team {
 }
 
 model TeamMember {
-  id               String            @id @default(uuid())
-  teamId           String
-  team             Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  userId           String
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role             String            @default("member")
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   @default("member")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([teamId, userId])
   @@index([teamId])
@@ -218,48 +218,48 @@ model TeamMember {
 }
 
 model User {
-  id               String            @id @default(uuid())
-  email            String            @unique
-  passwordHash     String
-  firstName        String?
-  lastName         String?
-  isActive         Boolean           @default(true)
-  lastLoginAt      DateTime?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  sessions         Session[]
-  teamMemberships  TeamMember[]
-  apiKeys          ApiKey[]
+  id              String       @id @default(uuid())
+  email           String       @unique
+  passwordHash    String
+  firstName       String?
+  lastName        String?
+  isActive        Boolean      @default(true)
+  lastLoginAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  sessions        Session[]
+  teamMemberships TeamMember[]
+  apiKeys         ApiKey[]
 }
 
 model Session {
-  id               String            @id @default(uuid())
-  userId           String
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accessToken      String            @unique
-  refreshToken     String            @unique
-  accessTokenExpiresAt DateTime
+  id                    String   @id @default(uuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String   @unique
+  refreshToken          String   @unique
+  accessTokenExpiresAt  DateTime
   refreshTokenExpiresAt DateTime
-  ipAddress        String?
-  userAgent        String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  ipAddress             String?
+  userAgent             String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   @@index([userId])
 }
 
 model ApiKey {
-  id               String            @id @default(uuid())
-  key              String            @unique
-  name             String
-  userId           String
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  teamId           String?
-  team             Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  lastUsedAt       DateTime?
-  expiresAt        DateTime?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id         String    @id @default(uuid())
+  key        String    @unique
+  name       String
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId     String?
+  team       Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([key])
   @@index([userId])
@@ -267,17 +267,17 @@ model ApiKey {
 }
 
 model AuditLog {
-  id               String            @id @default(uuid())
-  teamId           String?
-  team             Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  userId           String?
-  action           String
-  resourceType     String
-  resourceId       String?
-  details          String?
-  ipAddress        String?
-  userAgent        String?
-  createdAt        DateTime          @default(now())
+  id           String   @id @default(uuid())
+  teamId       String?
+  team         Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  userId       String?
+  action       String
+  resourceType String
+  resourceId   String?
+  details      String?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
 
   @@index([teamId])
   @@index([userId])
@@ -286,18 +286,18 @@ model AuditLog {
 }
 
 model KnowledgeBase {
-  id          String   @id @default(uuid())
-  teamId      String
-  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  title       String
-  content     String
-  category    String?
-  tags        String?  // JSON string array for tags
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  title     String
+  content   String
+  category  String?
+  tags      String? // JSON string array for tags
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  sources     KnowledgeBaseSource[]
+  sources KnowledgeBaseSource[]
 
   @@index([teamId])
   @@index([category])
@@ -311,8 +311,8 @@ model Product {
   description String
   category    String?
   price       Float?
-  details     String?  // JSON string for flexible product details
-  faqs        String?  // JSON string for product-specific FAQs
+  details     String? // JSON string for flexible product details
+  faqs        String? // JSON string for product-specific FAQs
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -339,7 +339,7 @@ model ProductFAQ {
   updatedAt         DateTime @updatedAt
 
   // Relations
-  sources           KnowledgeBaseSource[]
+  sources KnowledgeBaseSource[]
 
   @@index([teamId])
   @@index([category])
@@ -349,15 +349,15 @@ model ProductFAQ {
 }
 
 model KnowledgeBaseSource {
-  id              String        @id @default(uuid())
+  id              String         @id @default(uuid())
   callId          String
-  call            Call          @relation(fields: [callId], references: [id], onDelete: Cascade)
+  call            Call           @relation(fields: [callId], references: [id], onDelete: Cascade)
   knowledgeBaseId String?
   knowledgeBase   KnowledgeBase? @relation(fields: [knowledgeBaseId], references: [id], onDelete: SetNull)
   productId       String?
   product         Product?       @relation(fields: [productId], references: [id], onDelete: SetNull)
   faqId           String?
-  faq             ProductFAQ?           @relation(fields: [faqId], references: [id], onDelete: SetNull)
+  faq             ProductFAQ?    @relation(fields: [faqId], references: [id], onDelete: SetNull)
   relevanceScore  Float?
   usedAt          DateTime       @default(now())
 
@@ -368,20 +368,20 @@ model KnowledgeBaseSource {
 }
 
 model Agent {
-  id                   String         @id @default(uuid())
-  teamId               String?
-  team                 Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  name                 String
-  email                String         @unique
-  phone                String?
-  role                 String         @default("agent")
-  availabilityStatus   String         @default("offline") // online, offline, busy
-  skills               String?        // JSON string array
-  maxConcurrentCalls   Int            @default(1)
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
-  sessions             AgentSession[]
-  assignedQueues       CallQueue[]
+  id                 String         @id @default(uuid())
+  teamId             String?
+  team               Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  name               String
+  email              String         @unique
+  phone              String?
+  role               String         @default("agent")
+  availabilityStatus String         @default("offline") // online, offline, busy
+  skills             String? // JSON string array
+  maxConcurrentCalls Int            @default(1)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  sessions           AgentSession[]
+  assignedQueues     CallQueue[]
 }
 
 model AgentSession {
@@ -411,7 +411,7 @@ model CallQueue {
   status            String   @default("waiting") // waiting, assigned, completed, abandoned
   assignedAgentId   String?
   assignedAgent     Agent?   @relation(fields: [assignedAgentId], references: [id], onDelete: SetNull)
-  waitTime          Int?     // in seconds
+  waitTime          Int? // in seconds
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -420,14 +420,14 @@ model CallQueue {
 }
 
 model TransferLog {
-  id         String   @id @default(uuid())
-  callId     String
-  call       Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
-  fromBot    Boolean  @default(true)
-  toAgentId  String?
-  timestamp  DateTime @default(now())
-  context    String?  // JSON string for context
-  createdAt  DateTime @default(now())
+  id        String   @id @default(uuid())
+  callId    String
+  call      Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  fromBot   Boolean  @default(true)
+  toAgentId String?
+  timestamp DateTime @default(now())
+  context   String? // JSON string for context
+  createdAt DateTime @default(now())
 
   @@index([callId])
 }
@@ -435,21 +435,21 @@ model TransferLog {
 // Order Management Models
 
 model Customer {
-  id               String              @id @default(uuid())
-  teamId           String?
-  team             Team?               @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  phone            String?
-  email            String?
-  address          String?
-  name             String?
-  previousOrders   Int                 @default(0)
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  id             String   @id @default(uuid())
+  teamId         String?
+  team           Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  phone          String?
+  email          String?
+  address        String?
+  name           String?
+  previousOrders Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relations
-  orders           Order[]
-  preferences      CustomerPreference?
-  payments         Payment[]
+  orders      Order[]
+  preferences CustomerPreference?
+  payments    Payment[]
 
   @@index([teamId])
   @@index([phone])
@@ -457,46 +457,46 @@ model Customer {
 }
 
 model CustomerPreference {
-  id                   String   @id @default(uuid())
-  customerId           String   @unique
-  customer             Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  favoriteItems        String?  // JSON string array
-  dietaryRestrictions  String?  // JSON string array
-  allergies            String?  // JSON string array
-  deliveryNotes        String?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  customerId          String   @unique
+  customer            Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  favoriteItems       String? // JSON string array
+  dietaryRestrictions String? // JSON string array
+  allergies           String? // JSON string array
+  deliveryNotes       String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model Order {
-  id               String       @id @default(uuid())
-  orderNumber      String       @unique // Human-readable order ID like "ORD-2024-001"
-  teamId           String?
-  team             Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  campaignId       String?
-  campaign         Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  callId           String?
-  call             Call?        @relation(fields: [callId], references: [id], onDelete: SetNull)
-  customerId       String?
-  customer         Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  status           String       @default("pending") // pending, confirmed, processing, ready, delivered, cancelled
-  items            OrderItem[]
-  totalAmount      Float        @default(0)
-  orderTime        DateTime     @default(now())
-  deliveryAddress  String?
-  phone            String?
-  email            String?
-  notes            String?
-  cancelReason     String?
+  id                  String      @id @default(uuid())
+  orderNumber         String      @unique // Human-readable order ID like "ORD-2024-001"
+  teamId              String?
+  team                Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  campaignId          String?
+  campaign            Campaign?   @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  callId              String?
+  call                Call?       @relation(fields: [callId], references: [id], onDelete: SetNull)
+  customerId          String?
+  customer            Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  status              String      @default("pending") // pending, confirmed, processing, ready, delivered, cancelled
+  items               OrderItem[]
+  totalAmount         Float       @default(0)
+  orderTime           DateTime    @default(now())
+  deliveryAddress     String?
+  phone               String?
+  email               String?
+  notes               String?
+  cancelReason        String?
   specialInstructions String?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
   // Relations
-  analytics        OrderAnalytics?
-  payments         Payment[]
-  paymentLinks     PaymentLink[]
-  invoices         Invoice[]
+  analytics    OrderAnalytics?
+  payments     Payment[]
+  paymentLinks PaymentLink[]
+  invoices     Invoice[]
 
   @@index([teamId])
   @@index([customerId])
@@ -521,52 +521,52 @@ model OrderItem {
 }
 
 model OrderAnalytics {
-  id              String   @id @default(uuid())
-  orderId         String   @unique
-  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  topProduct      String?  // Most frequently ordered item by this customer
-  orderFrequency  Int      @default(0)
-  averageOrderValue Float  @default(0)
-  totalSpent      Float    @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String   @id @default(uuid())
+  orderId           String   @unique
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  topProduct        String? // Most frequently ordered item by this customer
+  orderFrequency    Int      @default(0)
+  averageOrderValue Float    @default(0)
+  totalSpent        Float    @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 // Payment Management Models
 
 model Payment {
-  id               String       @id @default(uuid())
-  orderId          String?
-  order            Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  customerId       String?
-  customer         Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  teamId           String?
-  team             Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  amount           Float
-  currency         String       @default("INR")
-  method           String       // card, upi, netbanking, wallet, cod, payment_link
-  status           String       @default("pending") // pending, processing, completed, failed, cancelled, refunded
-  transactionId    String?      @unique // Gateway transaction ID
-  gateway          String       @default("razorpay") // razorpay, stripe
-  token            String?      // Payment token (for saved cards)
-  cardLast4        String?      // Last 4 digits (never store full card number)
-  cardBrand        String?      // visa, mastercard, rupay, etc.
-  upiId            String?      // UPI ID for UPI payments
-  failureReason    String?
-  refundAmount     Float?
-  refundStatus     String?
-  refundId         String?
-  metadata         String?      // JSON for additional data
-  timestamp        DateTime     @default(now())
-  expiresAt        DateTime?
-  completedAt      DateTime?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  id            String    @id @default(uuid())
+  orderId       String?
+  order         Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  teamId        String?
+  team          Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  amount        Float
+  currency      String    @default("INR")
+  method        String // card, upi, netbanking, wallet, cod, payment_link
+  status        String    @default("pending") // pending, processing, completed, failed, cancelled, refunded
+  transactionId String?   @unique // Gateway transaction ID
+  gateway       String    @default("razorpay") // razorpay, stripe
+  token         String? // Payment token (for saved cards)
+  cardLast4     String? // Last 4 digits (never store full card number)
+  cardBrand     String? // visa, mastercard, rupay, etc.
+  upiId         String? // UPI ID for UPI payments
+  failureReason String?
+  refundAmount  Float?
+  refundStatus  String?
+  refundId      String?
+  metadata      String? // JSON for additional data
+  timestamp     DateTime  @default(now())
+  expiresAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   // Relations
-  link             PaymentLink?
-  logs             PaymentLog[]
-  invoice          Invoice?
+  link    PaymentLink?
+  logs    PaymentLog[]
+  invoice Invoice?
 
   @@index([teamId])
   @@index([orderId])
@@ -577,20 +577,20 @@ model Payment {
 }
 
 model PaymentLink {
-  id               String       @id @default(uuid())
-  orderId          String?
-  order            Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  paymentId        String       @unique
-  payment          Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  link             String       // Full payment link
-  shortLink        String?      // Shortened link for SMS
-  expiresAt        DateTime
-  clickedAt        DateTime?
-  status           String       @default("pending") // pending, clicked, paid, expired, cancelled
-  sentCount        Int          @default(0) // Number of times sent via SMS
-  sentAt           DateTime?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  id        String    @id @default(uuid())
+  orderId   String?
+  order     Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  paymentId String    @unique
+  payment   Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  link      String // Full payment link
+  shortLink String? // Shortened link for SMS
+  expiresAt DateTime
+  clickedAt DateTime?
+  status    String    @default("pending") // pending, clicked, paid, expired, cancelled
+  sentCount Int       @default(0) // Number of times sent via SMS
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([paymentId])
   @@index([orderId])
@@ -598,16 +598,16 @@ model PaymentLink {
 }
 
 model PaymentLog {
-  id               String       @id @default(uuid())
-  paymentId        String
-  payment          Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  action           String       // initiated, processing, completed, failed, refunded, webhook_received
-  status           String
-  errorMessage     String?
-  metadata         String?      // JSON for additional data
-  timestamp        DateTime     @default(now())
-  ipAddress        String?
-  userAgent        String?
+  id           String   @id @default(uuid())
+  paymentId    String
+  payment      Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  action       String // initiated, processing, completed, failed, refunded, webhook_received
+  status       String
+  errorMessage String?
+  metadata     String? // JSON for additional data
+  timestamp    DateTime @default(now())
+  ipAddress    String?
+  userAgent    String?
 
   @@index([paymentId])
   @@index([action])
@@ -615,28 +615,28 @@ model PaymentLog {
 }
 
 model Invoice {
-  id               String       @id @default(uuid())
-  orderId          String?
-  order            Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  paymentId        String       @unique
-  payment          Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  invoiceNumber    String       @unique // Format: INV-2024-001
-  items            String       // JSON array of invoice items
-  taxAmount        Float        @default(0)
-  taxDetails       String?      // JSON for tax breakdown (GST, etc.)
-  totalAmount      Float
-  currency         String       @default("INR")
-  status           String       @default("generated") // generated, sent, paid, cancelled
-  pdfUrl           String?
-  sentAt           DateTime?
-  sentVia          String?      // email, sms, both
-  billingAddress   String?
-  customerName     String?
-  customerEmail    String?
-  customerPhone    String?
-  notes            String?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  id             String    @id @default(uuid())
+  orderId        String?
+  order          Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  paymentId      String    @unique
+  payment        Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoiceNumber  String    @unique // Format: INV-2024-001
+  items          String // JSON array of invoice items
+  taxAmount      Float     @default(0)
+  taxDetails     String? // JSON for tax breakdown (GST, etc.)
+  totalAmount    Float
+  currency       String    @default("INR")
+  status         String    @default("generated") // generated, sent, paid, cancelled
+  pdfUrl         String?
+  sentAt         DateTime?
+  sentVia        String? // email, sms, both
+  billingAddress String?
+  customerName   String?
+  customerEmail  String?
+  customerPhone  String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([orderId])
   @@index([paymentId])
@@ -645,21 +645,21 @@ model Invoice {
 }
 
 model PaymentAnalytics {
-  id               String       @id @default(uuid())
-  teamId           String       @unique
-  team             Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  totalRevenue     Float        @default(0)
-  totalRefunds     Float        @default(0)
-  successRate      Float        @default(0)
-  refundRate       Float        @default(0)
-  averageAmount    Float        @default(0)
-  methodBreakdown  String?      // JSON: {card: 50, upi: 30, cod: 20}
+  id               String   @id @default(uuid())
+  teamId           String   @unique
+  team             Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  totalRevenue     Float    @default(0)
+  totalRefunds     Float    @default(0)
+  successRate      Float    @default(0)
+  refundRate       Float    @default(0)
+  averageAmount    Float    @default(0)
+  methodBreakdown  String? // JSON: {card: 50, upi: 30, cod: 20}
   topPaymentMethod String?
-  failedPayments   Int          @default(0)
+  failedPayments   Int      @default(0)
   commonFailReason String?
-  lastUpdated      DateTime     @default(now())
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  lastUpdated      DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([teamId])
 }
