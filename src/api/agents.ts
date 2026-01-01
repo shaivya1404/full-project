@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as api from '../services/api';
-import type { Agent, AgentSkill, AgentSchedule, Certification } from '../types';
+import type { Agent, AgentSkill, AgentSchedule } from '../types';
 
 export const useAgents = (teamId: string, limit: number, offset: number, filters?: { status?: string; role?: string; search?: string }) => {
   return useQuery({

@@ -4,8 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { 
   ChevronLeft, 
   ArrowLeft,
-  Calendar,
-  Clock,
   ExternalLink,
   ShieldCheck,
   CreditCard,
@@ -17,8 +15,13 @@ import { getPaymentById, getRefundHistory, getFraudScore } from '../services/api
 import { formatCurrency, formatRelativeTime } from '../utils/formatters';
 import { PaymentStatusTracker } from '../components/payments/PaymentStatusTracker';
 import { FraudDetectionPanel } from '../components/payments/FraudDetectionPanel';
-import { PaymentMethodSelector } from '../components/payments/PaymentMethodSelector';
 import toast from 'react-hot-toast';
+
+type TimelineEvent = {
+  time: string;
+  label: string;
+  status: 'done' | 'current' | 'failed' | 'refund';
+};
 
 export const PaymentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -169,26 +172,28 @@ export const PaymentDetailPage: React.FC = () => {
             <div className="space-y-8">
               {[
                 { time: payment.createdAt, label: 'Transaction Initiated', status: 'done' },
-                payment.status === 'processing' && { time: payment.updatedAt, label: 'Gateway Processing', status: 'current' },
-                payment.completedAt && { time: payment.completedAt, label: 'Payment Authorized & Captured', status: 'done' },
-                payment.status === 'failed' && { time: payment.updatedAt, label: 'Payment Rejected by Gateway', status: 'failed' },
-                ...(refunds || []).map(r => ({ time: r.createdAt, label: `Refund ${r.status}: ${formatCurrency(r.amount, payment.currency)}`, status: 'refund' }))
-              ].filter(Boolean).sort((a, b) => new Date(b!.time).getTime() - new Date(a!.time).getTime()).map((event, i) => (
+                payment.status === 'processing' && { time: payment.updatedAt, label: 'Gateway Processing', status: 'current' as const },
+                payment.completedAt && { time: payment.completedAt, label: 'Payment Authorized & Captured', status: 'done' as const },
+                payment.status === 'failed' && { time: payment.updatedAt, label: 'Payment Rejected by Gateway', status: 'failed' as const },
+                ...(refunds || []).map(r => ({ time: r.createdAt, label: `Refund ${r.status}: ${formatCurrency(r.amount, payment.currency)}`, status: 'refund' as const }))
+              ].filter((item): item is TimelineEvent => item !== null && item !== undefined && typeof item === 'object')
+                .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+                .map((event, i) => (
                 <div key={i} className="flex items-start">
                   <div className="min-w-[140px] pt-1">
-                    <div className="text-sm font-bold text-gray-900">{new Date(event!.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                    <div className="text-xs text-gray-400">{new Date(event!.time).toLocaleDateString()}</div>
+                    <div className="text-sm font-bold text-gray-900">{new Date(event.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    <div className="text-xs text-gray-400">{new Date(event.time).toLocaleDateString()}</div>
                   </div>
                   <div className="relative mx-6">
                     <div className={`w-3 h-3 rounded-full ${
-                      event!.status === 'done' ? 'bg-green-500' :
-                      event!.status === 'current' ? 'bg-blue-500 ring-4 ring-blue-100' :
-                      event!.status === 'failed' ? 'bg-red-500' : 'bg-purple-500'
+                      event.status === 'done' ? 'bg-green-500' :
+                      event.status === 'current' ? 'bg-blue-500 ring-4 ring-blue-100' :
+                      event.status === 'failed' ? 'bg-red-500' : 'bg-purple-500'
                     }`}></div>
                     {i !== 0 && <div className="absolute top-0 left-1.5 w-0.5 h-full -translate-y-full bg-gray-100"></div>}
                   </div>
                   <div className="pt-0.5">
-                    <div className="text-sm font-bold text-gray-900">{event!.label}</div>
+                    <div className="text-sm font-bold text-gray-900">{event.label}</div>
                     <div className="text-xs text-gray-400 mt-1">Transaction verified through secured gateway protocol.</div>
                   </div>
                 </div>

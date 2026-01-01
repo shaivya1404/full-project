@@ -5,12 +5,10 @@ import { Badge } from '../Badge';
 
 type AgentCertificationsPanelProps = {
   certifications: Certification[];
-  onAdd: (cert: Partial<Certification>) => void;
   onRemove: (id: string) => void;
-  loading?: boolean;
 };
 
-export const AgentCertificationsPanel = ({ certifications, onAdd, onRemove, loading }: AgentCertificationsPanelProps) => {
+export const AgentCertificationsPanel = ({ certifications, onRemove }: AgentCertificationsPanelProps) => {
   const getStatusVariant = (status: Certification['status']) => {
     switch (status) {
       case 'active': return 'success';

@@ -1,4 +1,4 @@
-import { Search, Filter, X } from 'lucide-react';
+import { Filter, X } from 'lucide-react';
 import { Button } from '../Button';
 import { Input } from '../Input';
 import { Select } from '../Select';

@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  Phone, 
-  User, 
-  Clock, 
+import {
+  ArrowLeft,
+  Phone,
+  User,
+  Clock,
   Activity,
-  Volume2,
-  VolumeX,
   Pause,
   Play,
   Square,
@@ -20,10 +18,10 @@ import type { LiveCall, TranscriptLine, CallMetrics, CallQualityMetrics } from '
 import { Button } from '../Button';
 import { Badge } from '../Badge';
 import { Card } from '../Card';
-import { 
-  getLiveCallDetails, 
-  getCallMetrics, 
-  getCallTranscript, 
+import {
+  getLiveCallDetails,
+  getCallMetrics,
+  getCallTranscript,
   getCallQuality,
   endCall,
   joinCall,
@@ -31,7 +29,7 @@ import {
   pauseRecording,
   resumeRecording
 } from '../../services/api';
-import { formatDuration, formatRelativeTime } from '../../utils/formatters';
+import { formatDuration } from '../../utils/formatters';
 import { TranscriptViewer } from './TranscriptViewer';
 import { AudioPlayer } from './AudioPlayer';
 import { MetricsDisplay } from './MetricsDisplay';

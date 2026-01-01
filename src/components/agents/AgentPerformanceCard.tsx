@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, Minus, Target, Clock, PhoneCall, Star } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, Clock, PhoneCall, Star } from 'lucide-react';
 import type { AgentPerformanceData } from '../../types';
 
 type AgentPerformanceCardProps = {
