@@ -13,13 +13,19 @@ interface ErrorResponse {
 }
 
 // GET /api/analytics/top-items - Most ordered items
-router.get('/top-items', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/top-items', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orderService = getOrderService();
     const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 10, 1), 50);
 
-    const authReq = req as AuthRequest;
-    const teamId = authReq.teamId || req.headers['x-team-id'] as string;
+    const teamId = (req as any).user?.teamId || (req.query.teamId as string) || req.headers['x-team-id'] as string;
+
+    if (!teamId) {
+      return res.status(400).json({
+        message: 'Team ID is required',
+        code: 'TEAM_REQUIRED',
+      } as ErrorResponse);
+    }
 
     const topItems = await orderService.getTopItems(limit, teamId);
 
@@ -34,19 +40,25 @@ router.get('/top-items', authMiddleware, async (req: Request, res: Response, nex
 });
 
 // GET /api/analytics/order-trends - Order trends by date
-router.get('/order-trends', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/order-trends', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orderService = getOrderService();
     const { startDate, endDate } = req.query;
 
-    const authReq = req as AuthRequest;
-    const teamId = authReq.teamId || req.headers['x-team-id'] as string;
+    const teamId = (req as any).user?.teamId || (req.query.teamId as string) || req.headers['x-team-id'] as string;
 
-    const start = startDate 
-      ? new Date(startDate as string) 
+    if (!teamId) {
+      return res.status(400).json({
+        message: 'Team ID is required',
+        code: 'TEAM_REQUIRED',
+      } as ErrorResponse);
+    }
+
+    const start = startDate
+      ? new Date(startDate as string)
       : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const end = endDate 
-      ? new Date(endDate as string) 
+    const end = endDate
+      ? new Date(endDate as string)
       : new Date();
 
     const trends = await orderService.getOrderTrends(start, end, teamId);
@@ -65,12 +77,18 @@ router.get('/order-trends', authMiddleware, async (req: Request, res: Response, 
 });
 
 // GET /api/analytics/orders - Order statistics
-router.get('/orders', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/orders', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orderService = getOrderService();
-    
-    const authReq = req as AuthRequest;
-    const teamId = authReq.teamId || req.headers['x-team-id'] as string;
+
+    const teamId = (req as any).user?.teamId || (req.query.teamId as string) || req.headers['x-team-id'] as string;
+
+    if (!teamId) {
+      return res.status(400).json({
+        message: 'Team ID is required',
+        code: 'TEAM_REQUIRED',
+      } as ErrorResponse);
+    }
 
     const stats = await orderService.getOrderStats(teamId);
 
@@ -84,13 +102,19 @@ router.get('/orders', authMiddleware, async (req: Request, res: Response, next: 
 });
 
 // GET /api/analytics/frequent-customers - Most frequent customers
-router.get('/frequent-customers', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/frequent-customers', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { limit } = req.query;
     const limitNum = Math.min(Math.max(parseInt(limit as string) || 10, 1), 50);
 
-    const authReq = req as AuthRequest;
-    const teamId = authReq.teamId || req.headers['x-team-id'] as string;
+    const teamId = (req as any).user?.teamId || (req.query.teamId as string) || req.headers['x-team-id'] as string;
+
+    if (!teamId) {
+      return res.status(400).json({
+        message: 'Team ID is required',
+        code: 'TEAM_REQUIRED',
+      } as ErrorResponse);
+    }
 
     const orderService = getOrderService();
     const stats = await orderService.getOrderStats(teamId);

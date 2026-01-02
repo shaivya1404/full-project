@@ -39,7 +39,7 @@ export class ContactService {
   private validateContact(row: any): Contact | null {
     // Extract phone number - try different field names
     let phone = row.phone || row.phone_number || row.mobile || row.contact || row.number;
-    
+
     if (!phone) {
       logger.warn('Contact missing phone number', { row });
       return null;
@@ -47,7 +47,7 @@ export class ContactService {
 
     // Clean phone number
     phone = this.cleanPhoneNumber(phone);
-    
+
     if (!phone) {
       logger.warn('Invalid phone number format', { originalPhone: row.phone || row.phone_number });
       return null;
@@ -65,6 +65,7 @@ export class ContactService {
       isValid: !isDoNotCall,
       isDoNotCall,
       validationError: isDoNotCall ? 'Number is on do-not-call list' : null,
+      metadata: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -73,12 +74,12 @@ export class ContactService {
   private cleanPhoneNumber(phone: string): string | null {
     // Remove all non-digit characters
     const cleaned = phone.replace(/\D/g, '');
-    
+
     // Basic validation - should be 10-15 digits
     if (cleaned.length < 10 || cleaned.length > 15) {
       return null;
     }
-    
+
     return cleaned;
   }
 
@@ -89,13 +90,13 @@ export class ContactService {
       '1234567890', // Example do-not-call number
       '5555555555', // Example do-not-call number
     ];
-    
+
     return doNotCallNumbers.includes(phone);
   }
 
   async uploadContactsFromCSV(campaignId: string, filePath: string): Promise<Contact[]> {
     const contacts = await this.parseCSVFile(filePath);
-    
+
     // Associate contacts with campaign and convert to CreateContactInput format
     const contactsWithCampaign: CreateContactInput[] = contacts.map(contact => ({
       campaignId,
@@ -106,7 +107,7 @@ export class ContactService {
       isDoNotCall: contact.isDoNotCall,
       validationError: contact.validationError || undefined,
     }));
-    
+
     // Save to database
     return this.campaignRepository.createContacts(contactsWithCampaign);
   }
@@ -114,7 +115,7 @@ export class ContactService {
   async validatePhoneNumbers(phones: string[]): Promise<Contact[]> {
     return phones.map(phone => {
       const cleanedPhone = this.cleanPhoneNumber(phone);
-      
+
       if (!cleanedPhone) {
         return {
           id: '',
@@ -125,6 +126,7 @@ export class ContactService {
           isValid: false,
           isDoNotCall: false,
           validationError: 'Invalid phone number format',
+          metadata: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -141,6 +143,7 @@ export class ContactService {
         isValid: !isDoNotCall,
         isDoNotCall,
         validationError: isDoNotCall ? 'Number is on do-not-call list' : null,
+        metadata: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

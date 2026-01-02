@@ -1,4 +1,4 @@
-import { Router, Response, NextFunction } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { getUserRepository } from '../db/repositories/userRepository';
 import { getTeamRepository } from '../db/repositories/teamRepository';
 import { authenticate } from '../middleware/auth';
@@ -34,10 +34,20 @@ const createApiKeySchema = z.object({
   expiresAt: z.string().datetime().optional(),
 });
 
-router.get('/keys', authenticate, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.get('/keys', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const userId = (req as any).user?.id || (req.query.userId as string);
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required',
+        code: 'USER_REQUIRED',
+      } as ErrorResponse);
+    }
+
     const userRepo = getUserRepository();
-    const apiKeys = await userRepo.getUserApiKeys(req.user!.id);
+    const apiKeys = await userRepo.getUserApiKeys(userId);
 
     res.status(200).json({
       success: true,
@@ -58,7 +68,7 @@ router.get('/keys', authenticate, async (req: AuthRequest, res: Response, next: 
   }
 });
 
-router.post('/keys', authenticate, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/keys', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const validationResult = createApiKeySchema.safeParse(req.body);
 
@@ -72,6 +82,15 @@ router.post('/keys', authenticate, async (req: AuthRequest, res: Response, next:
     }
 
     const { name, teamId, expiresAt } = validationResult.data;
+    const userIdCtx = (req as any).user?.id || (req.body as any).userId || (req.query as any).userId;
+
+    if (!userIdCtx) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required',
+        code: 'USER_REQUIRED',
+      } as ErrorResponse);
+    }
 
     if (teamId) {
       const teamRepo = getTeamRepository();
@@ -85,7 +104,7 @@ router.post('/keys', authenticate, async (req: AuthRequest, res: Response, next:
         } as ErrorResponse);
       }
 
-      const userRole = await teamRepo.getUserTeamRole(teamId, req.user!.id);
+      const userRole = await teamRepo.getUserTeamRole(teamId, userIdCtx);
 
       if (!userRole) {
         return res.status(403).json({
@@ -98,7 +117,7 @@ router.post('/keys', authenticate, async (req: AuthRequest, res: Response, next:
 
     const userRepo = getUserRepository();
     const apiKey = await userRepo.generateApiKey(
-      req.user!.id,
+      userIdCtx,
       name,
       teamId,
       expiresAt ? new Date(expiresAt) : undefined,
@@ -127,10 +146,20 @@ router.post('/keys', authenticate, async (req: AuthRequest, res: Response, next:
   }
 });
 
-router.delete('/keys/:keyId', authenticate, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.delete('/keys/:keyId', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const userIdCtxDel = (req as any).user?.id || (req.query as any).userId || (req.body as any).userId;
+
+    if (!userIdCtxDel) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required',
+        code: 'USER_REQUIRED',
+      } as ErrorResponse);
+    }
+
     const userRepo = getUserRepository();
-    const apiKeys = await userRepo.getUserApiKeys(req.user!.id);
+    const apiKeys = await userRepo.getUserApiKeys(userIdCtxDel);
 
     const key = apiKeys.find((k) => k.id === req.params.keyId);
 

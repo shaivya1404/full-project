@@ -30,6 +30,7 @@ export interface CreateContactInput {
   isValid?: boolean;
   isDoNotCall?: boolean;
   validationError?: string;
+  metadata?: string;
 }
 
 export interface CreateCallLogInput {
@@ -109,13 +110,14 @@ export class CampaignRepository {
         isValid: data.isValid || false,
         isDoNotCall: data.isDoNotCall || false,
         validationError: data.validationError,
+        metadata: data.metadata,
       },
     });
   }
 
   async createContacts(data: CreateContactInput[]): Promise<Contact[]> {
     return this.prisma.$transaction(
-      data.map((contact) => 
+      data.map((contact) =>
         this.prisma.contact.create({
           data: {
             campaignId: contact.campaignId,
@@ -125,6 +127,7 @@ export class CampaignRepository {
             isValid: contact.isValid || false,
             isDoNotCall: contact.isDoNotCall || false,
             validationError: contact.validationError,
+            metadata: contact.metadata,
           },
         })
       )
@@ -247,7 +250,7 @@ export class CampaignRepository {
       (log) => log.result === 'pending'
     ).length;
 
-    const successRate = totalContacts > 0 
+    const successRate = totalContacts > 0
       ? (successfulCalls / totalContacts) * 100
       : 0;
 

@@ -269,7 +269,8 @@ export class UserRepository {
 
   generateRefreshToken(userId: string, sessionId: string): string {
     return jwt.sign({ userId, sessionId }, config.JWT_SECRET, {
-      expiresIn: config.JWT_REFRESH_TOKEN_EXPIRY } as any);
+      expiresIn: config.JWT_REFRESH_TOKEN_EXPIRY
+    } as any);
   }
 
   verifyToken(token: string): TokenPayload | null {

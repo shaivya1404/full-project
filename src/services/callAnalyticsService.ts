@@ -1,4 +1,4 @@
-import { Call, Analytics } from '@prisma/client';
+import { Call, Analytics, Order } from '@prisma/client';
 import { CallRepository } from '../db/repositories/callRepository';
 import { logger } from '../utils/logger';
 
@@ -53,6 +53,11 @@ export interface CallAnalyticsFilters {
   campaignId?: string;
 }
 
+type CallWithRelations = Call & {
+  analytics: Analytics[];
+  orders: Order[];
+};
+
 export class CallAnalyticsService {
   private callRepository: CallRepository;
 
@@ -85,7 +90,7 @@ export class CallAnalyticsService {
 
   private async getSummary(filters?: CallAnalyticsFilters): Promise<CallAnalyticsSummary> {
     const calls = await this.filterCalls(filters);
-    
+
     const totalCalls = calls.length;
     const completedCalls = calls.filter(c => c.status === 'completed').length;
     const failedCalls = calls.filter(c => c.status === 'failed').length;
@@ -114,10 +119,8 @@ export class CallAnalyticsService {
         ? sentimentScores.reduce((a, b) => a + b, 0) / sentimentScores.length
         : 0;
 
-    // Calculate conversion rate (calls with orders / completed calls)
-    const callsWithOrders = calls.filter(c => c.orders && c.orders.length > 0).length;
     const conversionRate =
-      completedCalls > 0 ? callsWithOrders / completedCalls : 0;
+      completedCalls > 0 ? (calls as any[]).filter(c => c.orders && c.orders.length > 0).length / completedCalls : 0;
 
     return {
       totalCalls,
@@ -133,7 +136,7 @@ export class CallAnalyticsService {
   private async getTrends(filters?: CallAnalyticsFilters): Promise<CallAnalyticsTrend[]> {
     const calls = await this.filterCalls(filters);
 
-    const groupedByDate: Record<string, Call[]> = {};
+    const groupedByDate: Record<string, CallWithRelations[]> = {};
     calls.forEach(call => {
       const date = call.createdAt.toISOString().slice(0, 10);
       if (!groupedByDate[date]) {
@@ -182,7 +185,7 @@ export class CallAnalyticsService {
     const calls = await this.filterCalls(filters);
 
     // Use status as "reason" for call outcomes
-    const byStatus: Record<string, Call[]> = {};
+    const byStatus: Record<string, CallWithRelations[]> = {};
     calls.forEach(call => {
       if (!byStatus[call.status]) {
         byStatus[call.status] = [];
@@ -191,8 +194,8 @@ export class CallAnalyticsService {
     });
 
     const reasons = Object.entries(byStatus)
-      .map(([status, statusCalls]) => {
-        const callsWithOrders = statusCalls.filter(c => c.orders && c.orders.length > 0).length;
+      .map(([status, statusCalls]: [string, CallWithRelations[]]) => {
+        const callsWithOrders = statusCalls.filter(c => (c as any).orders && (c as any).orders.length > 0).length;
         const conversionRate =
           statusCalls.length > 0 ? callsWithOrders / statusCalls.length : 0;
 
@@ -228,7 +231,7 @@ export class CallAnalyticsService {
     return peakHours;
   }
 
-  private async filterCalls(filters?: CallAnalyticsFilters): Promise<(Call & { analytics: Analytics[]; orders: any[] })[]> {
+  private async filterCalls(filters?: CallAnalyticsFilters): Promise<CallWithRelations[]> {
     const prisma = (this.callRepository as any).prisma;
     const where: Record<string, unknown> = {};
 
@@ -266,7 +269,7 @@ export class CallAnalyticsService {
       },
     });
 
-    return calls as (Call & { analytics: Analytics[]; orders: any[] })[];
+    return calls as CallWithRelations[];
   }
 
   private getAverageSentiment(analytics: Analytics[]): number | null {

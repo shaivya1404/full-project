@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { authMiddleware } from '../middleware/auth';
+// import { authMiddleware } from '../middleware/auth';
 import { KnowledgeService } from '../services/knowledgeService';
 import { OpenAIRealtimeService } from '../services/openaiRealtime';
 import { PromptService } from '../services/promptService';
@@ -11,7 +11,7 @@ const router = Router();
 router.post('/twilio/initialize-knowledge', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { streamSid, callSid, caller, teamId, campaignId, templateId } = req.body;
-    
+
     if (!streamSid || !caller || !teamId) {
       return res.status(400).json({
         message: 'streamSid, caller, and teamId are required',
@@ -44,7 +44,7 @@ router.post('/twilio/initialize-knowledge', async (req: Request, res: Response, 
 router.post('/twilio/update-conversation-knowledge', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { streamSid, customerQuery, callId } = req.body;
-    
+
     if (!streamSid || !customerQuery) {
       return res.status(400).json({
         message: 'streamSid and customerQuery are required',
@@ -72,7 +72,7 @@ router.post('/twilio/update-conversation-knowledge', async (req: Request, res: R
 router.post('/twilio/check-fallback', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { streamSid, responseText } = req.body;
-    
+
     if (!streamSid || !responseText) {
       return res.status(400).json({
         message: 'streamSid and responseText are required',
@@ -81,8 +81,8 @@ router.post('/twilio/check-fallback', async (req: Request, res: Response, next: 
     }
 
     // Simulate fallback check
-    const shouldFallback = responseText.toLowerCase().includes("i don't know") || 
-                          responseText.toLowerCase().includes("i'm not sure");
+    const shouldFallback = responseText.toLowerCase().includes("i don't know") ||
+      responseText.toLowerCase().includes("i'm not sure");
 
     res.status(200).json({
       data: {

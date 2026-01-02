@@ -25,11 +25,11 @@ interface ErrorResponse {
 }
 
 // POST /api/calls/:id/knowledge-context - Get knowledge context for a call
-router.post('/calls/:id/knowledge-context', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/calls/:id/knowledge-context', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { teamId, campaignId, templateId } = req.body;
-    
+
     if (!teamId) {
       return res.status(400).json({
         message: 'Team ID is required',
@@ -57,11 +57,11 @@ router.post('/calls/:id/knowledge-context', authMiddleware, async (req: Request,
 });
 
 // GET /api/calls/:id/knowledge-used - Get knowledge referenced in call
-router.get('/calls/:id/knowledge-used', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/calls/:id/knowledge-used', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { knowledgeService: ks } = getServices();
-    
+
     // This would need to be implemented in the repository
     const knowledgeUsed = await ks.getKnowledgeUsedForCall(id);
 
@@ -75,10 +75,10 @@ router.get('/calls/:id/knowledge-used', authMiddleware, async (req: Request, res
 });
 
 // POST /api/knowledge-base/relevant-search - Search for relevant knowledge
-router.post('/knowledge-base/relevant-search', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/knowledge-base/relevant-search', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { query, teamId, limit } = req.body;
-    
+
     if (!query || !teamId) {
       return res.status(400).json({
         message: 'Query and team ID are required',
@@ -105,11 +105,11 @@ router.post('/knowledge-base/relevant-search', authMiddleware, async (req: Reque
 });
 
 // PATCH /api/campaigns/:id/system-prompt - Update campaign AI prompt
-router.patch('/campaigns/:id/system-prompt', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/campaigns/:id/system-prompt', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { script, templateId } = req.body;
-    
+
     if (!script) {
       return res.status(400).json({
         message: 'Script is required',
@@ -135,11 +135,11 @@ router.patch('/campaigns/:id/system-prompt', authMiddleware, async (req: Request
 });
 
 // GET /api/campaigns/:id/system-prompt - Get campaign prompt
-router.get('/campaigns/:id/system-prompt', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/campaigns/:id/system-prompt', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { promptService: ps } = getServices();
-    
+
     const promptData = await ps.getCampaignPrompt(id);
 
     res.status(200).json({
@@ -152,7 +152,7 @@ router.get('/campaigns/:id/system-prompt', authMiddleware, async (req: Request, 
 });
 
 // GET /api/knowledge-base/templates - Get available prompt templates
-router.get('/knowledge-base/templates', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/knowledge-base/templates', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { promptService: ps } = getServices();
     const templates = ps.getAvailableTemplates();
@@ -167,10 +167,10 @@ router.get('/knowledge-base/templates', authMiddleware, async (req: Request, res
 });
 
 // POST /api/knowledge-base/confidence-score - Calculate confidence score for response
-router.post('/knowledge-base/confidence-score', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/knowledge-base/confidence-score', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { knowledgeContext, responseSources } = req.body;
-    
+
     if (!knowledgeContext || !responseSources) {
       return res.status(400).json({
         message: 'Knowledge context and response sources are required',
@@ -191,10 +191,10 @@ router.post('/knowledge-base/confidence-score', authMiddleware, async (req: Requ
 });
 
 // POST /api/knowledge-base/track-unanswered - Track unanswered question
-router.post('/knowledge-base/track-unanswered', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/knowledge-base/track-unanswered', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { question } = req.body;
-    
+
     if (!question) {
       return res.status(400).json({
         message: 'Question is required',
@@ -215,10 +215,10 @@ router.post('/knowledge-base/track-unanswered', authMiddleware, async (req: Requ
 });
 
 // GET /api/knowledge-base/unanswered-questions - Get unanswered questions
-router.get('/knowledge-base/unanswered-questions', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/knowledge-base/unanswered-questions', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { limit = 20, offset = 0 } = req.query;
-    
+
     // This would need to be implemented in the repository
     const unansweredQuestions = await knowledgeService!.getUnansweredQuestions(
       parseInt(limit as string),
@@ -240,10 +240,10 @@ router.get('/knowledge-base/unanswered-questions', authMiddleware, async (req: R
 });
 
 // GET /api/knowledge-base/analytics - Get knowledge usage analytics
-router.get('/knowledge-base/analytics', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/knowledge-base/analytics', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { teamId, startDate, endDate } = req.query;
-    
+
     if (!teamId || typeof teamId !== 'string') {
       return res.status(400).json({
         message: 'Team ID is required',
@@ -268,11 +268,11 @@ router.get('/knowledge-base/analytics', authMiddleware, async (req: Request, res
 });
 
 // POST /api/calls/:id/initialize-knowledge - Initialize knowledge for call
-router.post('/calls/:id/initialize-knowledge', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/calls/:id/initialize-knowledge', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { teamId, campaignId, templateId } = req.body;
-    
+
     if (!teamId) {
       return res.status(400).json({
         message: 'Team ID is required',

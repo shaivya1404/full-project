@@ -1,3 +1,4 @@
+import { Payment, Customer, Order } from '@prisma/client';
 import { PaymentRepository } from '../db/repositories/paymentRepository';
 import { logger } from '../utils/logger';
 
@@ -7,6 +8,11 @@ export interface PaymentAnalyticsFilters {
   endDate?: Date;
   paymentMethod?: string;
 }
+
+type PaymentWithRelations = Payment & {
+  customer: Customer | null;
+  order: Order | null;
+};
 
 export interface PaymentMetrics {
   totalRevenue: number;
@@ -186,7 +192,7 @@ export class PaymentAnalyticsService {
 
         if (!customerStats.has(payment.customerId)) {
           customerStats.set(payment.customerId, {
-            name: undefined,
+            name: (payment as any).customer?.name,
             totalPayments: 0,
             totalSpent: 0,
           });
@@ -266,13 +272,13 @@ export class PaymentAnalyticsService {
         .sort((a, b) => b.count - a.count);
 
       // Recent failures (last 10)
-      const recentFailures = filteredFailures.slice(0, 10).map((payment) => ({
+      const recentFailures = (filteredFailures as any[]).slice(0, 10).map((payment) => ({
         id: payment.id,
         amount: payment.amount,
         method: payment.method,
         reason: payment.failureReason,
         timestamp: payment.timestamp,
-        customerName: undefined,
+        customerName: payment.customer?.name,
       }));
 
       return {
@@ -328,13 +334,13 @@ export class PaymentAnalyticsService {
       const recentRefunds = refundedPayments
         .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
         .slice(0, 10)
-        .map((payment) => ({
+        .map((payment: any) => ({
           id: payment.id,
           amount: payment.amount,
           refundAmount: payment.refundAmount,
           reason: payment.metadata ? JSON.parse(payment.metadata).refundReason : 'Not specified',
           refundDate: payment.updatedAt,
-          customerName: undefined,
+          customerName: payment.customer?.name,
         }));
 
       return {

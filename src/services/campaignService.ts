@@ -42,7 +42,14 @@ export class CampaignService {
   }
 
   async updateCampaign(id: string, data: Partial<Campaign>): Promise<Campaign> {
-    return this.campaignRepository.updateCampaign(id, data);
+    // Convert nulls to undefined for the repository which expects UpdateCampaignInput
+    const updateData: any = { ...data };
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === null) {
+        updateData[key] = undefined;
+      }
+    });
+    return this.campaignRepository.updateCampaign(id, updateData);
   }
 
   async deleteCampaign(id: string): Promise<void> {

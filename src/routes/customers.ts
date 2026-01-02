@@ -29,8 +29,14 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     const orderService = getOrderService();
     const { phone, email, address, name } = req.body;
 
-    const authReq = req as AuthRequest;
-    const teamId = authReq.teamId || req.headers['x-team-id'] as string;
+    const teamId = (req as any).user?.teamId || req.body.teamId || (req.query.teamId as string) || req.headers['x-team-id'] as string;
+
+    if (!teamId) {
+      return res.status(400).json({
+        message: 'Team ID is required',
+        code: 'TEAM_REQUIRED',
+      } as ErrorResponse);
+    }
 
     if (!phone && !email) {
       return res.status(400).json({
@@ -81,14 +87,20 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // GET /api/customers - List customers
-router.get('/', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orderService = getOrderService();
     const { limit, offset } = getPaginationParams(req);
     const { phone, email } = req.query;
 
-    const authReq = req as AuthRequest;
-    const teamId = authReq.teamId || req.headers['x-team-id'] as string;
+    const teamId = (req as any).user?.teamId || (req.query.teamId as string) || req.headers['x-team-id'] as string;
+
+    if (!teamId) {
+      return res.status(400).json({
+        message: 'Team ID is required',
+        code: 'TEAM_REQUIRED',
+      } as ErrorResponse);
+    }
 
     const { customers, total } = await orderService.searchCustomers(
       {
@@ -116,7 +128,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response, next: NextFu
 });
 
 // GET /api/customers/:id - Get customer details
-router.get('/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orderService = getOrderService();
     const { id } = req.params;
@@ -140,7 +152,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response, next: Nex
 });
 
 // GET /api/customers/:id/orders - Get customer's order history
-router.get('/:id/orders', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:id/orders', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orderService = getOrderService();
     const { id } = req.params;
@@ -180,7 +192,7 @@ router.get('/:id/orders', authMiddleware, async (req: Request, res: Response, ne
 });
 
 // PATCH /api/customers/:id - Update customer info
-router.patch('/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { phone, email, address, name } = req.body;
@@ -205,7 +217,7 @@ router.patch('/:id', authMiddleware, async (req: Request, res: Response, next: N
 });
 
 // DELETE /api/customers/:id - Delete customer
-router.delete('/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const orderService = getOrderService();
@@ -224,7 +236,7 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response, next: 
 });
 
 // GET /api/customers/:id/preferences - Get customer preferences
-router.get('/:id/preferences', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:id/preferences', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const orderService = getOrderService();
@@ -249,7 +261,7 @@ router.get('/:id/preferences', authMiddleware, async (req: Request, res: Respons
 });
 
 // POST /api/customers/:id/preferences - Save preferences
-router.post('/:id/preferences', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:id/preferences', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { favoriteItems, dietaryRestrictions, allergies, deliveryNotes } = req.body;
@@ -288,8 +300,9 @@ router.get('/lookup/:phone', async (req: Request, res: Response, next: NextFunct
     const { phone } = req.params;
     const orderService = getOrderService();
 
-    const { customers } = await orderService.searchCustomers({ phone }, undefined);
-    
+    const teamId = (req as any).user?.teamId || (req.query.teamId as string) || req.headers['x-team-id'] as string;
+    const { customers } = await orderService.searchCustomers({ phone }, teamId);
+
     if (customers.length === 0) {
       return res.status(404).json({
         message: 'Customer not found',

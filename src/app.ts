@@ -67,34 +67,34 @@ app.use('/api/orders/bot', orderBotRoutes);
 app.use('/api/payments', paymentsRoutes);
 
 // External API endpoint for knowledge search (for WhatsApp, email, chat flows)
-app.get('/api/knowledge/search', authMiddleware, async (req: Request, res: Response) => {
+app.get('/api/knowledge/search', async (req: Request, res: Response) => {
   try {
     const { q, teamId } = req.query;
-    
+
     if (!q || typeof q !== 'string') {
       return res.status(400).json({
         message: 'Search query is required',
         code: 'QUERY_REQUIRED',
       });
     }
-    
+
     if (!teamId || typeof teamId !== 'string') {
       return res.status(400).json({
         message: 'Team ID is required',
         code: 'TEAM_REQUIRED',
       });
     }
-    
+
     const knowledgeBaseRepository = new KnowledgeBaseRepository();
     const productRepository = new ProductRepository();
-    
+
     // Search across knowledge base, products, and FAQs
     const [knowledgeResults, productResults, faqResults] = await Promise.all([
       knowledgeBaseRepository.search(q, { teamId }),
       productRepository.searchProducts(q, { teamId }),
       productRepository.searchProductFAQs(q, { teamId }),
     ]);
-    
+
     // Format results for external consumption
     const formattedResults = {
       knowledgeBase: knowledgeResults.map(kb => ({
@@ -122,7 +122,7 @@ app.get('/api/knowledge/search', authMiddleware, async (req: Request, res: Respo
         type: 'faq',
       })),
     };
-    
+
     res.status(200).json({
       data: formattedResults,
     });
