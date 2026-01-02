@@ -111,7 +111,7 @@ router.put('/profile', async (req: Request, res: Response, next: NextFunction) =
   try {
     const validation = profileUpdateSchema.safeParse(req.body);
     if (!validation.success) {
-      throw new HttpError(400, validation.error.errors[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
+      throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
     }
 
     const userId = validation.data.userId || getUserIdFromRequest(req);
@@ -148,7 +148,7 @@ router.post('/change-password', async (req: Request, res: Response, next: NextFu
   try {
     const validation = changePasswordSchema.safeParse(req.body);
     if (!validation.success) {
-      throw new HttpError(400, validation.error.errors[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
+      throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
     }
 
     const userId = validation.data.userId || getUserIdFromRequest(req);
@@ -183,7 +183,7 @@ router.post('/avatar', async (req: Request, res: Response, next: NextFunction) =
   try {
     const validation = avatarSchema.safeParse(req.body);
     if (!validation.success) {
-      throw new HttpError(400, validation.error.errors[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
+      throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
     }
 
     const userId = validation.data.userId || getUserIdFromRequest(req);
@@ -243,7 +243,7 @@ router.post('/api-keys', async (req: Request, res: Response, next: NextFunction)
   try {
     const validation = createUserApiKeySchema.safeParse(req.body);
     if (!validation.success) {
-      throw new HttpError(400, validation.error.errors[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
+      throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
     }
 
     const userId = validation.data.userId || getUserIdFromRequest(req);

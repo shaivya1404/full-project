@@ -20,10 +20,12 @@ interface SuccessResponse<T = unknown> {
   message?: string;
 }
 
-function getZodErrorMessage(error: unknown): string {
-  if (error && typeof error === 'object' && 'errors' in error) {
-    const zodError = error as { errors: Array<{ message?: string }> };
-    return zodError.errors[0]?.message || 'Validation error';
+function getZodErrorMessage(error: any): string {
+  if (error && typeof error === 'object') {
+    const issues = error.issues || error.errors;
+    if (Array.isArray(issues) && issues.length > 0) {
+      return issues[0]?.message || 'Validation error';
+    }
   }
   return 'Validation error';
 }

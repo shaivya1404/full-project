@@ -142,14 +142,14 @@ const formatMember = (member: any) => ({
   id: member.id,
   user: member.user
     ? {
-        id: member.user.id,
-        email: member.user.email,
-        firstName: member.user.firstName,
-        lastName: member.user.lastName,
-        isActive: member.user.isActive,
-        lastLoginAt: member.user.lastLoginAt,
-        createdAt: member.user.createdAt,
-      }
+      id: member.user.id,
+      email: member.user.email,
+      firstName: member.user.firstName,
+      lastName: member.user.lastName,
+      isActive: member.user.isActive,
+      lastLoginAt: member.user.lastLoginAt,
+      createdAt: member.user.createdAt,
+    }
     : null,
   role: member.role,
   joinedAt: member.createdAt,
@@ -206,7 +206,7 @@ router.put('/settings', async (req: Request, res: Response, next: NextFunction) 
     const validation = updateSettingsSchema.safeParse(req.body);
 
     if (!validation.success) {
-      throw new HttpError(400, validation.error.errors[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
+      throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
     }
 
     const { name, description, teamId: bodyTeamId } = validation.data;
@@ -305,7 +305,7 @@ router.post('/members', async (req: Request, res: Response, next: NextFunction) 
     const validation = memberSchema.safeParse(req.body);
 
     if (!validation.success) {
-      throw new HttpError(400, validation.error.errors[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
+      throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
     }
 
     const { teamId: bodyTeamId, userId, role } = validation.data;
@@ -355,7 +355,7 @@ router.post('/members/bulk', async (req: Request, res: Response, next: NextFunct
     const validation = bulkMemberSchema.safeParse(req.body);
 
     if (!validation.success) {
-      throw new HttpError(400, validation.error.errors[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
+      throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
     }
 
     const { members, teamId: bodyTeamId } = validation.data;
@@ -418,7 +418,7 @@ router.post('/members/resend', async (req: Request, res: Response, next: NextFun
     const validation = resendInviteSchema.safeParse(req.body);
 
     if (!validation.success) {
-      throw new HttpError(400, validation.error.errors[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
+      throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
     }
 
     if (!validation.data.memberId && !validation.data.email) {
@@ -448,7 +448,7 @@ router.put('/members/:memberId/role', async (req: Request, res: Response, next: 
     const validation = roleEnum.safeParse(req.body.role);
 
     if (!validation.success) {
-      throw new HttpError(400, validation.error.errors[0]?.message || 'Invalid role supplied', 'VALIDATION_ERROR');
+      throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid role supplied', 'VALIDATION_ERROR');
     }
 
     const { teamId } = await resolveTeamContext(req);
@@ -537,7 +537,7 @@ router.get('/audit-logs', async (req: Request, res: Response, next: NextFunction
     const validation = auditLogQuerySchema.safeParse(req.query);
 
     if (!validation.success) {
-      throw new HttpError(400, validation.error.errors[0]?.message || 'Invalid query params', 'VALIDATION_ERROR');
+      throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid query params', 'VALIDATION_ERROR');
     }
 
     const { teamId: queryTeamId, limit, offset } = validation.data;
@@ -576,7 +576,7 @@ router.get('/audit-logs/export', async (req: Request, res: Response, next: NextF
     const validation = auditLogQuerySchema.safeParse(req.query);
 
     if (!validation.success) {
-      throw new HttpError(400, validation.error.errors[0]?.message || 'Invalid query params', 'VALIDATION_ERROR');
+      throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid query params', 'VALIDATION_ERROR');
     }
 
     const { limit, offset, teamId: queryTeamId } = validation.data;
@@ -655,7 +655,7 @@ router.post('/api-keys', async (req: Request, res: Response, next: NextFunction)
     const validation = createTeamApiKeySchema.safeParse(req.body);
 
     if (!validation.success) {
-      throw new HttpError(400, validation.error.errors[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
+      throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
     }
 
     const { name, expiresAt, userId: bodyUserId, teamId: bodyTeamId } = validation.data;
