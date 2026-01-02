@@ -45,7 +45,7 @@ export const AnalyticsPage = () => {
   useEffect(() => {
     if (!token) return;
 
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://backend-v2wh.onrender.com/api';
     const eventSource = new EventSource(`${baseUrl}/calls/stream?token=${token}`);
 
     eventSource.onmessage = (event) => {

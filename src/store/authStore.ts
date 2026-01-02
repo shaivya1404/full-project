@@ -43,7 +43,7 @@ const storage = createJSONStorage(() => {
 const API_BASE_URL =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
   (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) ||
-  'http://localhost:3000/api';
+  'https://backend-v2wh.onrender.com/api';
 
 const resolveApiUrl = (path: string) => {
   const normalizedBase = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
