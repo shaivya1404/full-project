@@ -221,6 +221,7 @@ model User {
   passwordHash    String
   firstName       String?
   lastName        String?
+  avatarUrl       String?
   isActive        Boolean      @default(true)
   lastLoginAt     DateTime?
   createdAt       DateTime     @default(now())

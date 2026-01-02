@@ -20,6 +20,7 @@ export interface UpdateUserInput {
   email?: string;
   firstName?: string;
   lastName?: string;
+  avatarUrl?: string | null;
   isActive?: boolean;
 }
 
@@ -83,6 +84,12 @@ export class UserRepository {
         email: data.email?.toLowerCase().trim(),
         firstName: data.firstName?.trim(),
         lastName: data.lastName?.trim(),
+        avatarUrl:
+          data.avatarUrl === undefined
+            ? undefined
+            : data.avatarUrl === null
+              ? null
+              : data.avatarUrl.trim(),
       },
     });
   }
@@ -171,6 +178,20 @@ export class UserRepository {
     await this.prisma.session.deleteMany({
       where: { userId },
     });
+  }
+
+  async deleteOtherSessions(userId: string, sessionIdToKeep?: string): Promise<number> {
+    const where: any = { userId };
+
+    if (sessionIdToKeep) {
+      where.id = { not: sessionIdToKeep };
+    }
+
+    const result = await this.prisma.session.deleteMany({
+      where,
+    });
+
+    return result.count;
   }
 
   async deleteExpiredSessions(): Promise<number> {
