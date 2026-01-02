@@ -42,39 +42,39 @@ export const AnalyticsCards: React.FC<AnalyticsCardsProps> = ({ stats, isLoading
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-         {[1,2,3,4].map(i => (
-           <Card key={i} className="h-32 animate-pulse bg-gray-100 dark:bg-gray-800" />
-         ))}
+        {[1, 2, 3, 4].map(i => (
+          <Card key={i} className="h-32 animate-pulse bg-gray-100 dark:bg-gray-800" />
+        ))}
       </div>
     );
   }
-  
+
   if (!stats) return null;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <StatCard 
-        label="Total Calls" 
-        value={stats.totalCalls.toLocaleString()} 
-        icon={Phone} 
+      <StatCard
+        label="Total Calls"
+        value={stats.totalCalls?.toLocaleString() ?? '0'}
+        icon={Phone}
         color="blue"
       />
-      <StatCard 
-        label="Avg Duration" 
-        value={`${Math.floor(stats.avgDuration / 60)}m ${stats.avgDuration % 60}s`} 
-        icon={Clock} 
+      <StatCard
+        label="Avg Duration"
+        value={`${Math.floor((stats.avgDuration ?? 0) / 60)}m ${(stats.avgDuration ?? 0) % 60}s`}
+        icon={Clock}
         color="orange"
       />
-      <StatCard 
-        label="Sentiment Score" 
-        value={`${stats.sentimentScore}/100`} 
-        icon={Smile} 
+      <StatCard
+        label="Sentiment Score"
+        value={`${stats.sentimentScore ?? 0}/100`}
+        icon={Smile}
         color="green"
       />
-      <StatCard 
-        label="Active Calls" 
-        value={stats.activeCalls} 
-        icon={Activity} 
+      <StatCard
+        label="Active Calls"
+        value={stats.activeCalls ?? 0}
+        icon={Activity}
         color="purple"
       />
     </div>

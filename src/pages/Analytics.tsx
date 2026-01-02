@@ -44,7 +44,7 @@ export const AnalyticsPage = () => {
 
   useEffect(() => {
     if (!token) return;
-    
+
     const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
     const eventSource = new EventSource(`${baseUrl}/calls/stream?token=${token}`);
 
@@ -129,10 +129,10 @@ export const AnalyticsPage = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-4">
-            <RefreshControl 
-              onRefresh={handleRefresh} 
-              isLoading={isLoading || isBotLoading || isUnansweredLoading} 
-              lastRefresh={lastRefresh} 
+            <RefreshControl
+              onRefresh={handleRefresh}
+              isLoading={isLoading || isBotLoading || isUnansweredLoading}
+              lastRefresh={lastRefresh}
             />
           </div>
         </div>
@@ -141,22 +141,20 @@ export const AnalyticsPage = () => {
         <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-lg w-fit">
           <button
             onClick={() => setActiveTab('calls')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'calls'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'calls'
+              ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
           >
             <BarChart3 className="w-4 h-4" />
             Call Analytics
           </button>
           <button
             onClick={() => setActiveTab('bot')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'bot'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'bot'
+              ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
           >
             <MessageSquareOff className="w-4 h-4" />
             Bot Analytics
@@ -282,13 +280,13 @@ export const AnalyticsPage = () => {
             <BotPerformanceMetrics metrics={botStats?.performanceMetrics} isLoading={isBotLoading} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <QuestionFrequencyChart 
-                data={botStats?.performanceMetrics.topCategories || []} 
-                isLoading={isBotLoading} 
+              <QuestionFrequencyChart
+                data={botStats?.performanceMetrics.topCategories || []}
+                isLoading={isBotLoading}
               />
-              <ConfidenceScoreDistribution 
-                data={botStats?.performanceMetrics.confidenceScoreDistribution || []} 
-                isLoading={isBotLoading} 
+              <ConfidenceScoreDistribution
+                data={botStats?.performanceMetrics.confidenceScoreDistribution || []}
+                isLoading={isBotLoading}
               />
             </div>
 
@@ -312,9 +310,9 @@ export const AnalyticsPage = () => {
               </div>
             </div>
 
-            <TrendingQuestionsChart 
-              data={botStats?.unansweredTrends || []} 
-              isLoading={isBotLoading} 
+            <TrendingQuestionsChart
+              data={botStats?.unansweredTrends || []}
+              isLoading={isBotLoading}
             />
           </>
         )}
