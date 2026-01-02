@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { ProductRepository } from '../db/repositories/productRepository';
+import { getTeamRepository } from '../db/repositories/teamRepository';
 import { ImportService } from '../services/importService';
 import { logger } from '../utils/logger';
 
@@ -29,7 +30,7 @@ interface ErrorResponse {
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { question, answer, category, relevantProductId } = req.body;
-    const teamId = (req as any).user?.teamId || req.body.teamId;
+    const teamId = (req as any).user?.teamId || req.body.teamId || req.headers['x-team-id'];
 
     if (!question || !answer) {
       return res.status(400).json({
@@ -46,6 +47,16 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     }
 
     const { productRepository: repo } = getServices();
+    const teamRepo = getTeamRepository();
+    const team = await teamRepo.getTeamByIdSimple(teamId);
+
+    if (!team) {
+      return res.status(404).json({
+        message: 'Team not found',
+        code: 'NOT_FOUND',
+      } as ErrorResponse);
+    }
+
     const faq = await repo.createProductFAQ({
       question,
       answer,
@@ -70,7 +81,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { category, question, search, productId, teamId: queryTeamId } = req.query;
-    const teamId = (req as any).user?.teamId || (queryTeamId as string);
+    const teamId = (req as any).user?.teamId || (queryTeamId as string) || (req.headers['x-team-id'] as string);
 
     if (!teamId) {
       return res.status(400).json({
@@ -123,7 +134,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
     }
 
     // Check team access
-    const teamId = (req as any).user?.teamId || (queryTeamId as string);
+    const teamId = (req as any).user?.teamId || (queryTeamId as string) || (req.headers['x-team-id'] as string);
     if (!teamId) {
       return res.status(400).json({
         message: 'Team ID is required',
@@ -165,7 +176,7 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
     }
 
     // Check team access
-    const teamId = (req as any).user?.teamId || req.body.teamId || (req.query.teamId as string);
+    const teamId = (req as any).user?.teamId || req.body.teamId || (req.query.teamId as string) || req.headers['x-team-id'];
     if (!teamId) {
       return res.status(400).json({
         message: 'Team ID is required',
@@ -217,7 +228,7 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     }
 
     // Check team access
-    const teamId = (req as any).user?.teamId || (req.query.teamId as string) || req.body.teamId;
+    const teamId = (req as any).user?.teamId || (req.query.teamId as string) || req.body.teamId || req.headers['x-team-id'];
     if (!teamId) {
       return res.status(400).json({
         message: 'Team ID is required',
@@ -261,8 +272,9 @@ router.post('/:id/helpful', async (req: Request, res: Response, next: NextFuncti
       } as ErrorResponse);
     }
 
+    const teamId = (req as any).user?.teamId || req.body.teamId || (req.query.teamId as string) || req.headers['x-team-id'];
     // Check team access
-    if (existing.teamId !== user?.teamId) {
+    if (existing.teamId !== teamId) {
       return res.status(403).json({
         message: 'Access denied',
         code: 'FORBIDDEN',
@@ -287,7 +299,7 @@ router.post('/:id/helpful', async (req: Request, res: Response, next: NextFuncti
 router.post('/import', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { format, data, mapping, teamId: bodyTeamId } = req.body;
-    const teamId = (req as any).user?.teamId || bodyTeamId;
+    const teamId = (req as any).user?.teamId || bodyTeamId || (req.query.teamId as string) || req.headers['x-team-id'];
 
     if (!format || !['csv', 'json'].includes(format)) {
       return res.status(400).json({
@@ -311,6 +323,16 @@ router.post('/import', async (req: Request, res: Response, next: NextFunction) =
     }
 
     const { importService: service } = getServices();
+    const teamRepo = getTeamRepository();
+    const team = await teamRepo.getTeamByIdSimple(teamId);
+
+    if (!team) {
+      return res.status(404).json({
+        message: 'Team not found',
+        code: 'NOT_FOUND',
+      } as ErrorResponse);
+    }
+
     let result: any;
 
     if (format === 'csv') {

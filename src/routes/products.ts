@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 // import  } from '../middleware/auth';
 import { ProductRepository } from '../db/repositories/productRepository';
+import { getTeamRepository } from '../db/repositories/teamRepository';
 import { ImportService } from '../services/importService';
 import { logger } from '../utils/logger';
 
@@ -30,22 +31,26 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, description, category, price, details, faqs } = req.body;
     const user = (req as any).user;
+    const teamId = user?.teamId || req.body.teamId || req.headers['x-team-id'];
 
-    if (!name || !description) {
+    if (!teamId) {
       return res.status(400).json({
-        message: 'Name and description are required',
-        code: 'VALIDATION_ERROR',
-      } as ErrorResponse);
-    }
-
-    if (!user || !user.teamId) {
-      return res.status(401).json({
-        message: 'User team not found',
+        message: 'Team ID is required',
         code: 'TEAM_REQUIRED',
       } as ErrorResponse);
     }
 
     const { productRepository: repo } = getServices();
+    const teamRepo = getTeamRepository();
+    const team = await teamRepo.getTeamByIdSimple(teamId);
+
+    if (!team) {
+      return res.status(404).json({
+        message: 'Team not found',
+        code: 'NOT_FOUND',
+      } as ErrorResponse);
+    }
+
     const product = await repo.createProduct({
       name,
       description,
@@ -53,7 +58,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       price,
       details,
       faqs,
-      teamId: user.teamId,
+      teamId,
     });
 
     logger.info(`Created product: ${product.id}`);
@@ -72,7 +77,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { category, name, search } = req.query;
-    const teamId = (req as any).user?.teamId || (req.query.teamId as string);
+    const teamId = (req as any).user?.teamId || (req.query.teamId as string) || (req.headers['x-team-id'] as string);
 
     if (!teamId) {
       return res.status(400).json({
@@ -122,7 +127,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
     }
 
     // Check team access
-    const teamId = (req as any).user?.teamId || (req.query.teamId as string);
+    const teamId = (req as any).user?.teamId || (req.query.teamId as string) || (req.headers['x-team-id'] as string);
     if (!teamId) {
       return res.status(400).json({
         message: 'Team ID is required',
@@ -163,8 +168,10 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
       } as ErrorResponse);
     }
 
+    const teamId = user?.teamId || req.body.teamId || req.headers['x-team-id'];
+
     // Check team access
-    if (existing.teamId !== user?.teamId) {
+    if (existing.teamId !== teamId) {
       return res.status(403).json({
         message: 'Access denied',
         code: 'FORBIDDEN',
@@ -210,8 +217,10 @@ router.put('/:id', async (req: Request, res: Response, next: NextFunction) => {
       } as ErrorResponse);
     }
 
+    const teamId = user?.teamId || req.body.teamId || req.headers['x-team-id'];
+
     // Check team access
-    if (existing.teamId !== user?.teamId) {
+    if (existing.teamId !== teamId) {
       return res.status(403).json({
         message: 'Access denied',
         code: 'FORBIDDEN',
@@ -256,8 +265,10 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
       } as ErrorResponse);
     }
 
+    const teamId = user?.teamId || req.body.teamId || (req.query.teamId as string) || req.headers['x-team-id'];
+
     // Check team access
-    if (existing.teamId !== user?.teamId) {
+    if (existing.teamId !== teamId) {
       return res.status(403).json({
         message: 'Access denied',
         code: 'FORBIDDEN',
@@ -293,7 +304,7 @@ router.get('/:id/faqs', async (req: Request, res: Response, next: NextFunction) 
     }
 
     // Check team access
-    const teamId = (req as any).user?.teamId || (req.query.teamId as string);
+    const teamId = (req as any).user?.teamId || (req.query.teamId as string) || (req.headers['x-team-id'] as string);
     if (!teamId) {
       return res.status(400).json({
         message: 'Team ID is required',
@@ -343,8 +354,10 @@ router.post('/:id/faqs', async (req: Request, res: Response, next: NextFunction)
       } as ErrorResponse);
     }
 
+    const teamId = user?.teamId || req.body.teamId || req.headers['x-team-id'];
+
     // Check team access
-    if (product.teamId !== user?.teamId) {
+    if (product.teamId !== teamId) {
       return res.status(403).json({
         message: 'Access denied',
         code: 'FORBIDDEN',
@@ -356,7 +369,7 @@ router.post('/:id/faqs', async (req: Request, res: Response, next: NextFunction)
       answer,
       category,
       relevantProductId: id,
-      teamId: user.teamId,
+      teamId,
     });
 
     logger.info(`Created FAQ ${faq.id} for product ${id}`);
@@ -388,8 +401,10 @@ router.put('/faqs/:id', async (req: Request, res: Response, next: NextFunction) 
       } as ErrorResponse);
     }
 
+    const teamId = user?.teamId || req.body.teamId || req.headers['x-team-id'];
+
     // Check team access
-    if (existing.teamId !== user?.teamId) {
+    if (existing.teamId !== teamId) {
       return res.status(403).json({
         message: 'Access denied',
         code: 'FORBIDDEN',
@@ -432,8 +447,10 @@ router.delete('/faqs/:id', async (req: Request, res: Response, next: NextFunctio
       } as ErrorResponse);
     }
 
+    const teamId = user?.teamId || req.body.teamId || (req.query.teamId as string) || req.headers['x-team-id'];
+
     // Check team access
-    if (existing.teamId !== user?.teamId) {
+    if (existing.teamId !== teamId) {
       return res.status(403).json({
         message: 'Access denied',
         code: 'FORBIDDEN',
@@ -473,23 +490,35 @@ router.post('/import', async (req: Request, res: Response, next: NextFunction) =
       } as ErrorResponse);
     }
 
-    if (!user || !user.teamId) {
-      return res.status(401).json({
-        message: 'User team not found',
+    const teamId = user?.teamId || req.body.teamId || (req.query.teamId as string) || (req.headers['x-team-id'] as string);
+
+    if (!teamId) {
+      return res.status(400).json({
+        message: 'Team ID is required',
         code: 'TEAM_REQUIRED',
       } as ErrorResponse);
     }
 
     const { importService: service } = getServices();
+    const teamRepo = getTeamRepository();
+    const team = await teamRepo.getTeamByIdSimple(teamId);
+
+    if (!team) {
+      return res.status(404).json({
+        message: 'Team not found',
+        code: 'NOT_FOUND',
+      } as ErrorResponse);
+    }
+
     let result: any;
 
     if (format === 'csv') {
       // CSV data is sent as base64 encoded string
       const buffer = Buffer.from(data, 'base64');
-      result = await service.importProductsFromCSV(buffer, user.teamId, mapping || {});
+      result = await service.importProductsFromCSV(buffer, teamId, mapping || {});
     } else {
       // JSON data is sent as array of objects
-      result = await service.importProductsFromJSON(data, user.teamId, mapping || {});
+      result = await service.importProductsFromJSON(data, teamId, mapping || {});
     }
 
     logger.info(`Imported ${result.imported} products`);

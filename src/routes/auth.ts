@@ -125,7 +125,7 @@ router.post('/register', authRateLimiter, async (req: AuthRequest, res: Response
 router.post('/login', authRateLimiter, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const validationResult = loginSchema.safeParse(req.body);
-
+    console.log(validationResult, "validationResult");
     if (!validationResult.success) {
       const errorMessage = getZodErrorMessage(validationResult.error);
       return res.status(400).json({
@@ -136,9 +136,11 @@ router.post('/login', authRateLimiter, async (req: AuthRequest, res: Response, n
     }
 
     const { email, password } = validationResult.data;
+    console.log(email, password, "email, password");
 
     const userRepo = getUserRepository();
     const user = await userRepo.getUserByEmail(email);
+    console.log(user, "user");
 
     if (!user) {
       return res.status(401).json({
