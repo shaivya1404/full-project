@@ -33,7 +33,7 @@ describe('AuthStore', () => {
     const mockUser = { id: '1', username: 'testuser', email: 'test@example.com' };
     const mockToken = 'test-jwt-token';
 
-    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({
         data: {
