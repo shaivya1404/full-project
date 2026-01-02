@@ -30,6 +30,7 @@ model Call {
   recordings           Recording[]
   transcripts          Transcript[]
   transferLogs         TransferLog[]
+  orders               Order[]
 }
 
 model Recording {
@@ -113,6 +114,7 @@ model Campaign {
   team          Team?              @relation(fields: [teamId], references: [id])
   analytics     CampaignAnalytics?
   contacts      Contact[]
+  orders        Order[]
 }
 
 model Contact {
@@ -124,6 +126,7 @@ model Contact {
   isValid         Boolean   @default(false)
   isDoNotCall     Boolean   @default(false)
   validationError String?
+  metadata        String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   callLogs        CallLog[]
@@ -175,22 +178,26 @@ model CampaignAnalytics {
 }
 
 model Team {
-  id            String          @id @default(uuid())
-  name          String
-  description   String?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  ownerId       String
-  agents        Agent[]
-  apiKeys       ApiKey[]
-  auditLogs     AuditLog[]
-  calls         Call[]
-  callQueues    CallQueue[]
-  campaigns     Campaign[]
-  knowledgeBase KnowledgeBase[]
-  products      Product[]
-  productFaqs   ProductFAQ[]
-  members       TeamMember[]
+  id               String            @id @default(uuid())
+  name             String
+  description      String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  ownerId          String
+  agents           Agent[]
+  apiKeys          ApiKey[]
+  auditLogs        AuditLog[]
+  calls            Call[]
+  callQueues       CallQueue[]
+  campaigns        Campaign[]
+  knowledgeBase    KnowledgeBase[]
+  products         Product[]
+  productFaqs      ProductFAQ[]
+  members          TeamMember[]
+  customers        Customer[]
+  orders           Order[]
+  payments         Payment[]
+  paymentAnalytics PaymentAnalytics?
 }
 
 model TeamMember {
@@ -415,4 +422,226 @@ model TransferLog {
   call      Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
 
   @@index([callId])
+}
+
+model Customer {
+  id             String              @id @default(uuid())
+  teamId         String?
+  phone          String?
+  email          String?
+  address        String?
+  name           String?
+  previousOrders Int                 @default(0)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  team           Team?               @relation(fields: [teamId], references: [id])
+  orders         Order[]
+  payments       Payment[]
+  preferences    CustomerPreference?
+
+  @@index([teamId])
+  @@index([phone])
+  @@index([email])
+}
+
+model CustomerPreference {
+  id                  String   @id @default(uuid())
+  customerId          String   @unique
+  favoriteItems       String?
+  dietaryRestrictions String?
+  allergies           String?
+  deliveryNotes       String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  customer            Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model Order {
+  id                  String          @id @default(uuid())
+  orderNumber         String          @unique
+  teamId              String?
+  campaignId          String?
+  callId              String?
+  customerId          String?
+  status              String          @default("pending")
+  totalAmount         Float           @default(0)
+  orderTime           DateTime        @default(now())
+  deliveryAddress     String?
+  phone               String?
+  email               String?
+  notes               String?
+  cancelReason        String?
+  specialInstructions String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  team                Team?           @relation(fields: [teamId], references: [id])
+  campaign            Campaign?       @relation(fields: [campaignId], references: [id])
+  call                Call?           @relation(fields: [callId], references: [id])
+  customer            Customer?       @relation(fields: [customerId], references: [id])
+  items               OrderItem[]
+  payments            Payment[]
+  paymentLinks        PaymentLink[]
+  invoices            Invoice[]
+  analytics           OrderAnalytics?
+
+  @@index([teamId])
+  @@index([customerId])
+  @@index([orderNumber])
+  @@index([status])
+  @@index([orderTime])
+}
+
+model OrderItem {
+  id                  String   @id @default(uuid())
+  orderId             String
+  productId           String?
+  productName         String
+  quantity            Int      @default(1)
+  unitPrice           Float
+  specialInstructions String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  order               Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model OrderAnalytics {
+  id                String   @id @default(uuid())
+  orderId           String   @unique
+  topProduct        String?
+  orderFrequency    Int      @default(0)
+  averageOrderValue Float    @default(0)
+  totalSpent        Float    @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id            String       @id @default(uuid())
+  orderId       String?
+  customerId    String?
+  teamId        String?
+  amount        Float
+  currency      String       @default("INR")
+  method        String
+  status        String       @default("pending")
+  transactionId String?      @unique
+  gateway       String       @default("razorpay")
+  token         String?
+  cardLast4     String?
+  cardBrand     String?
+  upiId         String?
+  failureReason String?
+  refundAmount  Float?
+  refundStatus  String?
+  refundId      String?
+  metadata      String?
+  timestamp     DateTime     @default(now())
+  expiresAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  order         Order?       @relation(fields: [orderId], references: [id])
+  customer      Customer?    @relation(fields: [customerId], references: [id])
+  team          Team?        @relation(fields: [teamId], references: [id])
+  link          PaymentLink?
+  logs          PaymentLog[]
+  invoice       Invoice?
+
+  @@index([teamId])
+  @@index([orderId])
+  @@index([customerId])
+  @@index([status])
+  @@index([transactionId])
+  @@index([timestamp])
+}
+
+model PaymentLink {
+  id        String    @id @default(uuid())
+  orderId   String?
+  paymentId String    @unique
+  link      String
+  shortLink String?
+  expiresAt DateTime
+  clickedAt DateTime?
+  status    String    @default("pending")
+  sentCount Int       @default(0)
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  order     Order?    @relation(fields: [orderId], references: [id])
+  payment   Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([orderId])
+  @@index([status])
+}
+
+model PaymentLog {
+  id           String   @id @default(uuid())
+  paymentId    String
+  action       String
+  status       String
+  errorMessage String?
+  metadata     String?
+  timestamp    DateTime @default(now())
+  ipAddress    String?
+  userAgent    String?
+  payment      Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([action])
+  @@index([timestamp])
+}
+
+model Invoice {
+  id             String    @id @default(uuid())
+  orderId        String?
+  paymentId      String    @unique
+  invoiceNumber  String    @unique
+  items          String
+  taxAmount      Float     @default(0)
+  taxDetails     String?
+  totalAmount    Float
+  currency       String    @default("INR")
+  status         String    @default("generated")
+  pdfUrl         String?
+  sentAt         DateTime?
+  sentVia        String?
+  billingAddress String?
+  customerName   String?
+  customerEmail  String?
+  customerPhone  String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  order          Order?    @relation(fields: [orderId], references: [id])
+  payment        Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([paymentId])
+  @@index([invoiceNumber])
+  @@index([status])
+}
+
+model PaymentAnalytics {
+  id               String   @id @default(uuid())
+  teamId           String   @unique
+  totalRevenue     Float    @default(0)
+  totalRefunds     Float    @default(0)
+  successRate      Float    @default(0)
+  refundRate       Float    @default(0)
+  averageAmount    Float    @default(0)
+  methodBreakdown  String?
+  topPaymentMethod String?
+  failedPayments   Int      @default(0)
+  commonFailReason String?
+  lastUpdated      DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  team             Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
 }

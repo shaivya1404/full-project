@@ -13,11 +13,11 @@ export interface CreateCampaignInput {
 
 export interface UpdateCampaignInput {
   name?: string;
-  description?: string;
+  description?: string | null;
   script?: string;
   status?: string;
-  startDate?: Date;
-  endDate?: Date;
+  startDate?: Date | null;
+  endDate?: Date | null;
   dailyLimit?: number;
   retryAttempts?: number;
 }
