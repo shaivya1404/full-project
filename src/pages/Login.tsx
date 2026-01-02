@@ -1,22 +1,22 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLogin } from '../api/hooks';
 import { Button, Input, Card } from '../components';
 import toast from 'react-hot-toast';
 import { LogIn } from 'lucide-react';
+import { useAuthStore } from '../store/authStore';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { mutate: login, isPending } = useLogin();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const login = useAuthStore((state) => state.login);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const [email, setEmail] = useState('demo@example.com');
+  const [password, setPassword] = useState('demo123');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
 
-    // Validation
     const newErrors: typeof errors = {};
     if (!email) newErrors.email = 'Email is required';
     if (!password) newErrors.password = 'Password is required';
@@ -26,18 +26,21 @@ export const LoginPage = () => {
       return;
     }
 
-    login(
-      { email, password },
-      {
-        onSuccess: () => {
-          toast.success('Login successful!');
-          navigate('/dashboard');
-        },
-        onError: (error) => {
-          toast.error(error.message || 'Login failed');
-        },
+    try {
+      await login(email, password);
+      toast.success('Login successful!');
+
+      const token = useAuthStore.getState().getToken();
+      if (!token) {
+        toast.error('Unable to store authentication token. Please try again.');
+        return;
       }
-    );
+
+      navigate('/dashboard');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Login failed';
+      toast.error(message);
+    }
   };
 
   return (
@@ -65,7 +68,7 @@ export const LoginPage = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             error={errors.email}
-            disabled={isPending}
+            disabled={isLoading}
           />
 
           <Input
@@ -75,14 +78,10 @@ export const LoginPage = () => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             error={errors.password}
-            disabled={isPending}
+            disabled={isLoading}
           />
 
-          <Button
-            type="submit"
-            fullWidth
-            isLoading={isPending}
-          >
+          <Button type="submit" fullWidth isLoading={isLoading}>
             Sign In
           </Button>
         </form>

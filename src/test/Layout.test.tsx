@@ -24,13 +24,15 @@ describe('DashboardLayout', () => {
       user: { id: '1', username: 'testuser' },
       logout: vi.fn(),
       isAuthenticated: true,
-      token: 'test-token',
+      accessToken: 'test-token',
+      refreshToken: null,
       isLoading: false,
       error: null,
       login: vi.fn(),
       setError: vi.fn(),
       setLoading: vi.fn(),
-      restoreFromCookie: vi.fn(),
+      setToken: vi.fn(),
+      getToken: vi.fn(),
     });
   });
 

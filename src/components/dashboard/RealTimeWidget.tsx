@@ -17,7 +17,7 @@ export const RealTimeWidget = () => {
     systemStatus: 'operational' 
   });
   const [connected, setConnected] = useState(false);
-  const token = useAuthStore(state => state.token);
+  const token = useAuthStore((state) => state.accessToken);
 
   useEffect(() => {
     if (!token) return;

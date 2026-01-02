@@ -36,7 +36,7 @@ import { useAuthStore } from '../store/authStore';
 
 export const AnalyticsPage = () => {
   const queryClient = useQueryClient();
-  const token = useAuthStore(state => state.token);
+  const token = useAuthStore((state) => state.accessToken);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [activeTab, setActiveTab] = useState<'calls' | 'bot'>('calls');
   const [unansweredPage, setUnansweredPage] = useState(1);
