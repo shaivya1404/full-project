@@ -32,6 +32,7 @@ export class OpenAIRealtimeService {
   private maxRetries: number = 5;
   private retryDelay: number = 1000;
   private conversationContexts: Map<string, ConversationContext> = new Map();
+  private aiTranscripts: Map<string, string> = new Map();
 
   constructor(twilioService: TwilioStreamService) {
     this.twilioService = twilioService;
@@ -124,12 +125,18 @@ export class OpenAIRealtimeService {
         break;
 
       case 'response.audio_transcript.delta':
-        // Optional: log or handle partial transcripts from the AI
+        if (event.delta && event.response_id) {
+          const current = this.aiTranscripts.get(event.response_id) || '';
+          this.aiTranscripts.set(event.response_id, current + event.delta);
+        }
         break;
 
       case 'response.output_text.delta':
       case 'response.text.delta':
-        // Handle text response for knowledge tracking
+        if (event.delta && event.response_id) {
+          const current = this.aiTranscripts.get(event.response_id) || '';
+          this.aiTranscripts.set(event.response_id, current + event.delta);
+        }
         await this.handleTextResponse(event.delta);
         break;
 
@@ -172,13 +179,13 @@ export class OpenAIRealtimeService {
   }
 
   private async handleResponseCompletion(event: any) {
-    // Log and save AI response text
-    let aiTranscript = '';
+    const responseId = event.response?.id;
+    let aiTranscript = this.aiTranscripts.get(responseId) || '';
 
-    // Look for transcript in various possible paths
-    const output = event.response?.output || [];
-    for (const item of output) {
-      if (item.type === 'message' && item.role === 'assistant') {
+    // Fallback: search in output array if accumulation was empty
+    if (!aiTranscript) {
+      const output = event.response?.output || [];
+      for (const item of output) {
         const content = item.content || [];
         for (const part of content) {
           if (part.type === 'audio' && part.transcript) {
@@ -189,8 +196,8 @@ export class OpenAIRealtimeService {
             break;
           }
         }
+        if (aiTranscript) break;
       }
-      if (aiTranscript) break;
     }
 
     if (aiTranscript) {
@@ -204,14 +211,18 @@ export class OpenAIRealtimeService {
       }
     } else {
       logger.debug('Could not extract AI transcript from response.done', {
-        responseId: event.response?.id,
+        responseId,
         outputType: event.response?.output?.[0]?.type
       });
     }
 
-    // Handle final response and record knowledge usage
+    // Cleanup accumulated transcript
+    if (responseId) {
+      this.aiTranscripts.delete(responseId);
+    }
+
+    // Handle knowledge usage
     for (const [streamSid, context] of this.conversationContexts) {
-      // Use the extracted aiTranscript if available, otherwise fallback to output_text if it exists
       const textToProcess = aiTranscript || event.response?.output_text;
       if (textToProcess) {
         await this.processResponseKnowledgeUsage(streamSid, textToProcess, context);
