@@ -1,5 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import * as fs from 'fs';
+import path from 'path';
+import { config } from '../config/env';
 import { CallRepository } from '../db/repositories/callRepository';
 import { StorageService } from '../services/storageService';
 import { logger } from '../utils/logger';
@@ -83,4 +85,87 @@ router.get('/:recordingId', async (req: Request, res: Response, next: NextFuncti
   }
 });
 
+// GET /api/recordings/download/:filename - Download recording file by filename (public, no auth required)
+router.get(
+  '/download/:filename',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { filename } = req.params;
+      // simple sanitization: no path traversal
+      if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+        return res.status(400).json({ message: 'Invalid filename', code: 'INVALID_FILENAME' } as ErrorResponse);
+      }
+
+      const recordingsDir = config.RECORDING_STORAGE_PATH;
+      const filePath = path.join(recordingsDir, filename);
+
+      const { storageService: storage } = getRepositories();
+      const exists = await storage.fileExists(filePath);
+      if (!exists) {
+        return res.status(404).json({ message: 'Recording file not found', code: 'FILE_NOT_FOUND' } as ErrorResponse);
+      }
+
+      const stat = fs.statSync(filePath);
+      res.setHeader('Content-Type', 'audio/wav');
+      res.setHeader('Content-Length', stat.size.toString());
+      res.setHeader('Content-Disposition', `attachment; filename="${path.basename(filename)}"`);
+
+      const stream = fs.createReadStream(filePath);
+      stream.pipe(res);
+      stream.on('error', (error) => {
+        logger.error('Error streaming recording by filename', error);
+        if (!res.headersSent) {
+          res.status(500).json({ message: 'Error streaming recording', code: 'STREAM_ERROR' } as ErrorResponse);
+        }
+      });
+    } catch (error) {
+      logger.error('Error handling recording download request', error);
+      next(error);
+    }
+  },
+);
+
+// GET /api/recordings/recent - Return last 5 recording filenames (no auth)
+router.get('/recent', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const recordingsDir = config.RECORDING_STORAGE_PATH;
+
+    // If directory doesn't exist, return empty list
+    if (!fs.existsSync(recordingsDir)) {
+      return res.status(200).json({ recordings: [] });
+    }
+
+    const files = await fs.promises.readdir(recordingsDir);
+
+    const fileStats = await Promise.all(
+      files.map(async (f) => {
+        try {
+          const full = path.join(recordingsDir, f);
+          const stat = await fs.promises.stat(full);
+          return {
+            filename: f,
+            size: stat.size,
+            mtime: stat.mtime.getTime(),
+            path: full,
+          };
+        } catch (e) {
+          return null;
+        }
+      }),
+    );
+
+    const cleaned = fileStats.filter(Boolean) as Array<{ filename: string; size: number; mtime: number }>;
+
+    // sort by mtime desc and take first 5
+    cleaned.sort((a, b) => b.mtime - a.mtime);
+    const latest = cleaned.slice(0, 5).map((f) => ({ filename: f.filename, size: f.size, mtime: f.mtime }));
+
+    res.status(200).json({ recordings: latest });
+  } catch (error) {
+    logger.error('Error listing recent recordings', error);
+    next(error);
+  }
+});
+
 export default router;
+

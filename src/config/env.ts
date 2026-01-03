@@ -13,6 +13,7 @@ const envSchema = z.object({
   // OpenAI Key & Model
   OPENAI_API_KEY: z.string().min(1, 'OpenAI API Key is required'),
   OPENAI_REALTIME_MODEL: z.string().optional().default('gpt-4o-realtime-preview'),
+  RECORDING_DOWNLOAD_TOKEN: z.string().optional(),
   // DB URL
   DATABASE_URL: z.string().min(1, 'Database URL is required'),
   // Recording Storage
