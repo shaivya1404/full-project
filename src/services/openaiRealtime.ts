@@ -48,7 +48,7 @@ export class OpenAIRealtimeService {
     try {
       // Use environment variable or default to latest available model
       // Update OPENAI_REALTIME_MODEL in .env if model access issues occur
-      const modelName = config.OPENAI_REALTIME_MODEL || 'gpt-4o-realtime-preview-2024-12-19';
+      const modelName = config.OPENAI_REALTIME_MODEL || 'gpt-4o-realtime';
       const url = `wss://api.openai.com/v1/realtime?model=${modelName}`;
       logger.info(`Connecting to OpenAI Realtime with model: ${modelName}`);
       this.ws = new WebSocket(url, {
