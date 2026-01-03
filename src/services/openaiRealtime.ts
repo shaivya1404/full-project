@@ -179,21 +179,29 @@ export class OpenAIRealtimeService {
   }
 
   private async handleResponseCompletion(event: any) {
-    const responseId = event.response?.id;
+    const response = event.response || {};
+
+    const responseId = response.id;
+    // Try to use accumulated deltas if present
     let aiTranscript = this.aiTranscripts.get(responseId) || '';
 
-    // Fallback: search in output array if accumulation was empty
+    // If no accumulated text, inspect other response shapes
     if (!aiTranscript) {
-      const output = event.response?.output || [];
-      for (const item of output) {
+      if (response.output_text) {
+        if (typeof response.output_text === 'string') aiTranscript = response.output_text.trim();
+        else if (Array.isArray(response.output_text)) aiTranscript = response.output_text.join(' ').trim();
+      }
+    }
+
+    // Fallback: search in output array for text/audio parts
+    if (!aiTranscript && Array.isArray(response.output)) {
+      for (const item of response.output) {
         const content = item.content || [];
         for (const part of content) {
-          if (part.type === 'audio' && part.transcript) {
-            aiTranscript = part.transcript.trim();
-            break;
-          } else if (part.type === 'text' && part.text) {
-            aiTranscript = part.text.trim();
-            break;
+          if (part.type === 'text' && part.text) {
+            aiTranscript += (aiTranscript ? ' ' : '') + part.text.trim();
+          } else if (part.type === 'audio' && part.transcript) {
+            aiTranscript += (aiTranscript ? ' ' : '') + part.transcript.trim();
           }
         }
         if (aiTranscript) break;
@@ -206,14 +214,14 @@ export class OpenAIRealtimeService {
         await this.twilioService.callManager.addTranscript(
           this.twilioService.streamSid,
           'AI',
-          aiTranscript
+          aiTranscript,
         );
       }
     } else {
-      // Log the full response for debugging to understand structure differences
+      // Log the full response for debugging when extraction fails
       logger.debug('Could not extract AI transcript from response.done', {
         responseId,
-        response: event.response,
+        response,
       });
     }
 
@@ -222,11 +230,12 @@ export class OpenAIRealtimeService {
       this.aiTranscripts.delete(responseId);
     }
 
-    // Handle knowledge usage
+    // Handle knowledge usage using extracted text or any output_text
+    const textForProcessing = aiTranscript || (typeof response.output_text === 'string' ? response.output_text : Array.isArray(response.output_text) ? response.output_text.join(' ') : undefined);
+
     for (const [streamSid, context] of this.conversationContexts) {
-      const textToProcess = aiTranscript || event.response?.output_text;
-      if (textToProcess) {
-        await this.processResponseKnowledgeUsage(streamSid, textToProcess, context);
+      if (textForProcessing) {
+        await this.processResponseKnowledgeUsage(streamSid, textForProcessing, context);
       }
     }
   }
