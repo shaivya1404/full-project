@@ -57,6 +57,7 @@ export class OpenAIRealtimeService {
         logger.info('Connected to OpenAI Realtime API');
         this.isConnected = true;
         this.retryCount = 0;
+        this.handlePostConnect();
       });
 
       this.ws.on('message', (data: WebSocket.Data) => {
@@ -90,12 +91,31 @@ export class OpenAIRealtimeService {
 
   private async handleOpenAIMessage(event: any) {
     switch (event.type) {
+      case 'session.created':
+        logger.info('OpenAI Session Created');
+        break;
+
+      case 'session.updated':
+        logger.info('OpenAI Session Updated');
+        // If we have a stored context for an ongoing call, we might want to trigger a greeting here
+        // but it's usually better to do it explicitly after calling updateSession
+        break;
+
+      case 'response.created':
+        logger.info('OpenAI Response Created');
+        break;
+
       case 'response.audio.delta':
         if (event.delta) {
           this.twilioService.sendAudio(event.delta);
         }
         break;
 
+      case 'response.audio_transcript.delta':
+        // Optional: log or handle partial transcripts from the AI
+        break;
+
+      case 'response.output_text.delta':
       case 'response.text.delta':
         // Handle text response for knowledge tracking
         await this.handleTextResponse(event.delta);
@@ -104,6 +124,14 @@ export class OpenAIRealtimeService {
       case 'response.done':
         // Handle completion and confidence scoring
         await this.handleResponseCompletion(event);
+        break;
+
+      case 'input_audio_buffer.speech_started':
+        logger.info('User started speaking');
+        break;
+
+      case 'input_audio_buffer.speech_stopped':
+        logger.info('User stopped speaking');
         break;
 
       case 'error':
@@ -297,9 +325,14 @@ export class OpenAIRealtimeService {
         knowledgeSources: new Set(),
       });
 
-      // Update system prompt if connected
+      // Update session with Twilio-specific configuration and knowledge
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        await this.updateSystemPrompt(streamSid, dynamicPrompt.systemPrompt);
+        await this.updateSession(streamSid, dynamicPrompt.systemPrompt);
+
+        // Trigger initial greeting
+        await this.triggerGreeting(streamSid);
+      } else {
+        logger.info(`Conversation context stored for call ${callId}, waiting for connection to initialize session.`);
       }
 
       logger.info(`Knowledge-enhanced conversation initialized for call ${callId}`);
@@ -308,16 +341,65 @@ export class OpenAIRealtimeService {
     }
   }
 
-  private async updateSystemPrompt(streamSid: string, systemPrompt: string): Promise<void> {
+  private async handlePostConnect() {
+    for (const [streamSid, context] of this.conversationContexts) {
+      try {
+        logger.info(`Performing post-connect initialization for streamSid: ${streamSid}`);
+
+        // Regenerate prompt to ensure it's fresh
+        const dynamicPrompt = await this.promptService.generateDynamicPrompt(
+          context.callId,
+          context.teamId,
+          context.campaignId,
+        );
+
+        await this.updateSession(streamSid, dynamicPrompt.systemPrompt);
+        await this.triggerGreeting(streamSid);
+      } catch (error) {
+        logger.error(`Error in post-connect initialization for stream ${streamSid}`, error);
+      }
+    }
+  }
+
+  private async updateSession(streamSid: string, systemPrompt: string): Promise<void> {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       const event = {
         type: 'session.update',
         session: {
+          modalities: ['text', 'audio'],
           instructions: systemPrompt,
+          voice: 'alloy',
+          input_audio_format: 'g711_ulaw',
+          output_audio_format: 'g711_ulaw',
+          input_audio_transcription: { model: 'whisper-1' },
+          turn_detection: {
+            type: 'server_vad',
+            threshold: 0.5,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 500,
+          },
+        },
+      };
+      logger.info('Updating OpenAI Session configuration');
+      this.ws.send(JSON.stringify(event));
+    }
+  }
+
+  private async triggerGreeting(streamSid: string): Promise<void> {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      logger.info('Triggering initial AI greeting');
+      const event = {
+        type: 'response.create',
+        response: {
+          instructions: 'Greet the user warmly and introduce yourself as the AI assistant. Ask how you can help them today.',
         },
       };
       this.ws.send(JSON.stringify(event));
     }
+  }
+
+  private async updateSystemPrompt(streamSid: string, systemPrompt: string): Promise<void> {
+    await this.updateSession(streamSid, systemPrompt);
   }
 
   /**
@@ -362,7 +444,7 @@ export class OpenAIRealtimeService {
           context.campaignId,
         );
 
-        await this.updateSystemPrompt(streamSid, dynamicPrompt.systemPrompt);
+        await this.updateSession(streamSid, dynamicPrompt.systemPrompt);
 
         logger.info(`Updated conversation knowledge for call ${context.callId}`);
       }
