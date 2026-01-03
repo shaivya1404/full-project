@@ -37,7 +37,6 @@ export class OpenAIRealtimeService {
   private modelToUse?: string;
   private attemptedModels: Set<string> = new Set();
   private modelDiscoveryInProgress: boolean = false;
-  private aiTranscripts: Map<string, string> = new Map();
 
   constructor(twilioService: TwilioStreamService) {
     this.twilioService = twilioService;
