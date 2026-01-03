@@ -1,5 +1,6 @@
 import { PrismaClient, UnansweredQuestion, TopicAnalytics, CampaignAnalytics } from '@prisma/client';
 import { getPrismaClient } from '../client';
+import { logger } from '../../utils/logger';
 
 type FAQ = any;
 
@@ -37,12 +38,20 @@ export class AnalyticsRepository {
   }
 
   async upsertFAQ(data: CreateFAQInput): Promise<FAQ> {
-    const existing = await (this.prisma as any).fAQ.findUnique({
+    // Some deployments/schema variations may not include an `FAQ` top-level model.
+    // Guard against missing model to avoid runtime crashes when analyzing transcripts.
+    const clientAny = this.prisma as any;
+    if (!clientAny.fAQ) {
+      logger.warn('FAQ model not present in Prisma schema; skipping upsertFAQ');
+      return Promise.resolve(null as any);
+    }
+
+    const existing = await clientAny.fAQ.findUnique({
       where: { question: data.question },
     });
 
     if (existing) {
-      return (this.prisma as any).fAQ.update({
+      return clientAny.fAQ.update({
         where: { question: data.question },
         data: {
           frequency: { increment: 1 },
@@ -51,7 +60,7 @@ export class AnalyticsRepository {
       });
     }
 
-    return (this.prisma as any).fAQ.create({
+    return clientAny.fAQ.create({
       data: {
         question: data.question,
         frequency: data.frequency || 1,
@@ -61,7 +70,13 @@ export class AnalyticsRepository {
   }
 
   async getTopFAQs(limit: number = 10): Promise<FAQ[]> {
-    return (this.prisma as any).fAQ.findMany({
+    const clientAny = this.prisma as any;
+    if (!clientAny.fAQ) {
+      logger.warn('FAQ model not present in Prisma schema; getTopFAQs will return empty list');
+      return [];
+    }
+
+    return clientAny.fAQ.findMany({
       take: limit,
       orderBy: { frequency: 'desc' },
     });

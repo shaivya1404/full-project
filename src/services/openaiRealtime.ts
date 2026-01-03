@@ -210,9 +210,10 @@ export class OpenAIRealtimeService {
         );
       }
     } else {
+      // Log the full response for debugging to understand structure differences
       logger.debug('Could not extract AI transcript from response.done', {
         responseId,
-        outputType: event.response?.output?.[0]?.type
+        response: event.response,
       });
     }
 
