@@ -135,8 +135,8 @@ export class TwilioStreamService {
         const chunk = this.audioConversionBuffer.slice(0, CHUNK_SIZE_24KHZ);
         this.audioConversionBuffer = this.audioConversionBuffer.slice(CHUNK_SIZE_24KHZ);
 
-        // 4️⃣ Convert to mono, resample 24kHz → 8kHz
-        const resampled = AudioNormalizer.resampleToMono(chunk, 24000, 8000);
+        // 4️⃣ Resample 24kHz → 8kHz (input is already PCM16 mono)
+        const resampled = AudioNormalizer.resample(chunk, 24000, 8000);
 
         // 5️⃣ Convert PCM16 → μ-law
         const mulawBuffer = AudioNormalizer.pcm16ToMulaw(resampled);
@@ -170,7 +170,7 @@ export class TwilioStreamService {
     const chunk = this.audioConversionBuffer;
     this.audioConversionBuffer = Buffer.alloc(0);
 
-    const resampled = AudioNormalizer.resampleToMono(chunk, 24000, 8000);
+    const resampled = AudioNormalizer.resample(chunk, 24000, 8000);
     const mulawBuffer = AudioNormalizer.pcm16ToMulaw(resampled);
 
     for (let i = 0; i < mulawBuffer.length; i += 160) {
