@@ -31,12 +31,14 @@ import paymentsRoutes from './routes/payments';
 import teamPortalRoutes from './routes/teamPortal';
 import userRoutes from './routes/user';
 import liveCallsRoutes from './routes/liveCalls';
+import streamRoutes from './routes/stream';
 import { KnowledgeBaseRepository } from './db/repositories/knowledgeBaseRepository';
 import { ProductRepository } from './db/repositories/productRepository';
 import { logger } from './utils/logger';
 
 const app = express();
 
+app.set('trust proxy', true);
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
@@ -52,6 +54,7 @@ app.use('/api/teams', teamsRoutes);
 app.use('/api/team', teamPortalRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/live-calls', liveCallsRoutes);
+app.use('/api/calls/stream', streamRoutes);
 app.use('/api/calls', callsRoutes);
 app.use('/api/recordings', recordingsRoutes);
 app.use('/api/analytics', analyticsRoutes);

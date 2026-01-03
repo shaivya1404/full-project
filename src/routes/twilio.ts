@@ -16,7 +16,10 @@ router.post('/incoming-call', (req: Request, res: Response) => {
     const protocol = req.protocol;
     const host = req.get('host');
     const wsProtocol = protocol === 'https' ? 'wss' : 'ws';
-    const streamUrl = `${wsProtocol}://${host}/streams`;
+    const teamId = req.body.teamId || 'default-team';
+    const streamUrl = `${wsProtocol}://${host}/streams?teamId=${teamId}`;
+
+    logger.info('Generated stream TwiML', { streamUrl });
 
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -109,7 +112,7 @@ router.post('/outbound-call-handler', async (req: Request, res: Response) => {
     res.send(twiml);
   } catch (error) {
     logger.error('Error handling outbound call', error);
-    
+
     res.type('text/xml').status(500).send(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="alice">Sorry, there was an error processing your call. Please try again later.</Say>
