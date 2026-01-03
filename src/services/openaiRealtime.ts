@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import { logger } from '../utils/logger';
 import { config } from '../config/env';
+import axios from 'axios';
 import { TwilioStreamService } from './twilioStream';
 import { KnowledgeService, KnowledgeContext, ConfidenceScore } from './knowledgeService';
 import { PromptService, DynamicPrompt } from './promptService';
@@ -32,6 +33,10 @@ export class OpenAIRealtimeService {
   private maxRetries: number = 5;
   private retryDelay: number = 1000;
   private conversationContexts: Map<string, ConversationContext> = new Map();
+  private aiTranscripts: Map<string, string> = new Map();
+  private modelToUse?: string;
+  private attemptedModels: Set<string> = new Set();
+  private modelDiscoveryInProgress: boolean = false;
   private aiTranscripts: Map<string, string> = new Map();
 
   constructor(twilioService: TwilioStreamService) {
@@ -112,6 +117,7 @@ export class OpenAIRealtimeService {
 
       case 'response.audio.delta':
         if (event.delta) {
+          logger.debug('OpenAI audio delta received', { length: event.delta.length });
           this.twilioService.sendAudio(event.delta);
         }
         break;
@@ -147,10 +153,21 @@ export class OpenAIRealtimeService {
       case 'response.done':
         // Check if response failed before processing
         if (event.response?.status === 'failed') {
+          const statusDetails = event.response?.status_details;
           logger.error('OpenAI Response Failed', {
             responseId: event.response?.id,
-            statusDetails: event.response?.status_details,
+            statusDetails,
           });
+
+          // If the failure is due to model access, try to discover a usable realtime model and reconnect
+          const errorCode = statusDetails?.error?.code;
+          if (errorCode === 'model_not_found') {
+            try {
+              await this.handleModelNotFound();
+            } catch (e) {
+              logger.error('Error handling model_not_found', e);
+            }
+          }
         } else {
           // Handle completion and confidence scoring
           await this.handleResponseCompletion(event);
@@ -636,6 +653,67 @@ export class OpenAIRealtimeService {
       }, delay);
     } else {
       logger.error('Max retries reached. Could not reconnect to OpenAI.');
+    }
+  }
+
+  private async handleModelNotFound(): Promise<void> {
+    if (this.modelDiscoveryInProgress) return;
+    this.modelDiscoveryInProgress = true;
+
+    try {
+      // Discover available realtime models from OpenAI
+      const discovered = await this.discoverRealtimeModel();
+      if (discovered) {
+        if (this.attemptedModels.has(discovered)) {
+          logger.warn('Discovered model was already attempted, skipping', { discovered });
+        } else {
+          logger.info('Discovered realtime model, will reconnect with it', { discovered });
+          this.attemptedModels.add(discovered);
+          this.modelToUse = discovered;
+
+          // Reconnect using discovered model
+          try {
+            this.disconnect();
+            // Slight delay before reconnect
+            setTimeout(() => this.connect(), 500);
+          } catch (e) {
+            logger.error('Failed to reconnect with discovered model', e);
+          }
+        }
+      } else {
+        logger.warn('No realtime model discovered in account');
+      }
+    } finally {
+      this.modelDiscoveryInProgress = false;
+    }
+  }
+
+  private async discoverRealtimeModel(): Promise<string | null> {
+    const apiKey = config.OPENAI_API_KEY;
+    if (!apiKey) {
+      logger.error('OPENAI_API_KEY not configured; cannot discover models');
+      return null;
+    }
+
+    try {
+      const res = await axios.get('https://api.openai.com/v1/models', {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        timeout: 10000,
+      });
+
+      const models: any[] = res.data?.data || [];
+      // Prefer models that match typical realtime naming
+      const preferredPatterns = [/gpt-?4.*realtime/i, /realtime/i];
+
+      for (const pat of preferredPatterns) {
+        const found = models.find((m) => pat.test(m.id));
+        if (found) return found.id;
+      }
+
+      return null;
+    } catch (err) {
+      logger.error('Error querying OpenAI models endpoint', err);
+      return null;
     }
   }
 }

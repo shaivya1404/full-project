@@ -90,14 +90,21 @@ export class TwilioStreamService {
 
   public sendAudio(payload: string) {
     if (this.ws.readyState === WebSocket.OPEN) {
-      // Send audio back to Twilio
+      // Send audio back to Twilio (mark as outbound track)
       const message = {
         event: 'media',
         media: {
           payload: payload,
+          track: 'outbound',
         },
       };
-      this.ws.send(JSON.stringify(message));
+
+      try {
+        this.ws.send(JSON.stringify(message));
+        logger.debug('Sent audio to Twilio media stream', { bytes: payload.length });
+      } catch (err) {
+        logger.error('Failed to send audio to Twilio', err);
+      }
     }
   }
 }
