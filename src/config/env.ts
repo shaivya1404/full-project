@@ -10,8 +10,9 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: z.string().min(1, 'Twilio Account SID is required'),
   TWILIO_AUTH_TOKEN: z.string().min(1, 'Twilio Auth Token is required'),
   TWILIO_PHONE_NUMBER: z.string().min(1, 'Twilio Phone Number is required'),
-  // OpenAI Key
+  // OpenAI Key & Model
   OPENAI_API_KEY: z.string().min(1, 'OpenAI API Key is required'),
+  OPENAI_REALTIME_MODEL: z.string().optional().default('gpt-4o-realtime-preview-2024-12-19'),
   // DB URL
   DATABASE_URL: z.string().min(1, 'Database URL is required'),
   // Recording Storage

@@ -46,7 +46,11 @@ export class OpenAIRealtimeService {
     this.isClosing = false;
 
     try {
-      const url = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01';
+      // Use environment variable or default to latest available model
+      // Update OPENAI_REALTIME_MODEL in .env if model access issues occur
+      const modelName = config.OPENAI_REALTIME_MODEL || 'gpt-4o-realtime-preview-2024-12-19';
+      const url = `wss://api.openai.com/v1/realtime?model=${modelName}`;
+      logger.info(`Connecting to OpenAI Realtime with model: ${modelName}`);
       this.ws = new WebSocket(url, {
         headers: {
           Authorization: `Bearer ${config.OPENAI_API_KEY}`,
@@ -141,8 +145,16 @@ export class OpenAIRealtimeService {
         break;
 
       case 'response.done':
-        // Handle completion and confidence scoring
-        await this.handleResponseCompletion(event);
+        // Check if response failed before processing
+        if (event.response?.status === 'failed') {
+          logger.error('OpenAI Response Failed', {
+            responseId: event.response?.id,
+            statusDetails: event.response?.status_details,
+          });
+        } else {
+          // Handle completion and confidence scoring
+          await this.handleResponseCompletion(event);
+        }
         break;
 
       case 'input_audio_buffer.speech_started':
