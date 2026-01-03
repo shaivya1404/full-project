@@ -48,7 +48,7 @@ export class OpenAIRealtimeService {
     try {
       // Use environment variable or default to latest available model
       // Update OPENAI_REALTIME_MODEL in .env if model access issues occur
-      const modelName = config.OPENAI_REALTIME_MODEL || 'gpt-4o-realtime';
+      const modelName = config.OPENAI_REALTIME_MODEL || 'gpt-4o-realtime-preview';
       const url = `wss://api.openai.com/v1/realtime?model=${modelName}`;
       logger.info(`Connecting to OpenAI Realtime with model: ${modelName}`);
       this.ws = new WebSocket(url, {
@@ -123,7 +123,7 @@ export class OpenAIRealtimeService {
           await this.twilioService.callManager.addTranscript(
             this.twilioService.streamSid,
             'User',
-            transcript
+            transcript,
           );
         }
         break;
@@ -201,7 +201,8 @@ export class OpenAIRealtimeService {
     if (!aiTranscript) {
       if (response.output_text) {
         if (typeof response.output_text === 'string') aiTranscript = response.output_text.trim();
-        else if (Array.isArray(response.output_text)) aiTranscript = response.output_text.join(' ').trim();
+        else if (Array.isArray(response.output_text))
+          aiTranscript = response.output_text.join(' ').trim();
       }
     }
 
@@ -243,7 +244,13 @@ export class OpenAIRealtimeService {
     }
 
     // Handle knowledge usage using extracted text or any output_text
-    const textForProcessing = aiTranscript || (typeof response.output_text === 'string' ? response.output_text : Array.isArray(response.output_text) ? response.output_text.join(' ') : undefined);
+    const textForProcessing =
+      aiTranscript ||
+      (typeof response.output_text === 'string'
+        ? response.output_text
+        : Array.isArray(response.output_text)
+          ? response.output_text.join(' ')
+          : undefined);
 
     for (const [streamSid, context] of this.conversationContexts) {
       if (textForProcessing) {
@@ -267,11 +274,13 @@ export class OpenAIRealtimeService {
         // Calculate confidence score
         const confidence = this.knowledgeService.calculateConfidenceScore(
           context.knowledgeContext,
-          usedSources.map(s => s.id),
+          usedSources.map((s) => s.id),
         );
 
         // Log confidence metrics
-        logger.info(`Response confidence for call ${context.callId}: ${confidence.overall.toFixed(2)}`);
+        logger.info(
+          `Response confidence for call ${context.callId}: ${confidence.overall.toFixed(2)}`,
+        );
 
         // Track fallback responses
         if (confidence.fallback) {
@@ -287,12 +296,15 @@ export class OpenAIRealtimeService {
             teamId: context.teamId,
             context: {
               lastConfidence: confidence.overall,
-              responseText
-            }
+              responseText,
+            },
           });
 
           // Optionally notify OpenAI to stop or say something about the transfer
-          await this.updateSystemPrompt(streamSid, "The customer is being transferred to a human agent. Please acknowledge this and tell them to wait a moment.");
+          await this.updateSystemPrompt(
+            streamSid,
+            'The customer is being transferred to a human agent. Please acknowledge this and tell them to wait a moment.',
+          );
         }
       }
     } catch (error) {
@@ -314,10 +326,10 @@ export class OpenAIRealtimeService {
       'human',
       'real person',
       'manager',
-      'operator'
+      'operator',
     ];
 
-    if (transferRequests.some(phrase => textLower.includes(phrase))) {
+    if (transferRequests.some((phrase) => textLower.includes(phrase))) {
       return true;
     }
 
@@ -327,8 +339,16 @@ export class OpenAIRealtimeService {
     }
 
     // Negative sentiment/Frustration
-    const frustrationKeywords = ['angry', 'upset', 'terrible', 'horrible', 'stupid bot', 'not helping', 'useless'];
-    if (frustrationKeywords.some(keyword => textLower.includes(keyword))) {
+    const frustrationKeywords = [
+      'angry',
+      'upset',
+      'terrible',
+      'horrible',
+      'stupid bot',
+      'not helping',
+      'useless',
+    ];
+    if (frustrationKeywords.some((keyword) => textLower.includes(keyword))) {
       return true;
     }
 
@@ -339,7 +359,11 @@ export class OpenAIRealtimeService {
     responseText: string,
     context: ConversationContext,
   ): Array<{ id: string; type: 'knowledge' | 'product' | 'faq'; relevanceScore: number }> {
-    const usedSources: Array<{ id: string; type: 'knowledge' | 'product' | 'faq'; relevanceScore: number }> = [];
+    const usedSources: Array<{
+      id: string;
+      type: 'knowledge' | 'product' | 'faq';
+      relevanceScore: number;
+    }> = [];
     const textLower = responseText.toLowerCase();
 
     // Check which knowledge sources were referenced in the response
@@ -381,10 +405,13 @@ export class OpenAIRealtimeService {
     const sourceKeywords = [
       source.title || source.name || '',
       source.content || source.description || source.answer || '',
-    ].join(' ').toLowerCase().split(' ');
+    ]
+      .join(' ')
+      .toLowerCase()
+      .split(' ');
 
-    const significantWords = sourceKeywords.filter(word => word.length > 3);
-    const matches = significantWords.filter(word => text.includes(word)).length;
+    const significantWords = sourceKeywords.filter((word) => word.length > 3);
+    const matches = significantWords.filter((word) => text.includes(word)).length;
 
     return matches >= Math.max(1, Math.floor(significantWords.length * 0.3));
   }
@@ -427,7 +454,9 @@ export class OpenAIRealtimeService {
         // Trigger initial greeting
         await this.triggerGreeting(streamSid);
       } else {
-        logger.info(`Conversation context stored for call ${callId}, waiting for connection to initialize session.`);
+        logger.info(
+          `Conversation context stored for call ${callId}, waiting for connection to initialize session.`,
+        );
       }
 
       logger.info(`Knowledge-enhanced conversation initialized for call ${callId}`);
@@ -486,7 +515,8 @@ export class OpenAIRealtimeService {
       const event = {
         type: 'response.create',
         response: {
-          instructions: 'Greet the user warmly and introduce yourself as the AI assistant. Ask how you can help them today.',
+          instructions:
+            'Greet the user warmly and introduce yourself as the AI assistant. Ask how you can help them today.',
         },
       };
       this.ws.send(JSON.stringify(event));
@@ -500,10 +530,7 @@ export class OpenAIRealtimeService {
   /**
    * Update conversation context with new knowledge
    */
-  async updateConversationKnowledge(
-    streamSid: string,
-    query: string,
-  ): Promise<void> {
+  async updateConversationKnowledge(streamSid: string, query: string): Promise<void> {
     const context = this.conversationContexts.get(streamSid);
     if (!context) {
       logger.warn(`No conversation context found for streamSid: ${streamSid}`);
@@ -524,9 +551,18 @@ export class OpenAIRealtimeService {
           ...context,
           knowledgeContext: {
             ...context.knowledgeContext,
-            knowledgeBase: [...context.knowledgeContext.knowledgeBase, ...newKnowledge.filter(k => k.type === 'knowledge')],
-            products: [...context.knowledgeContext.products, ...newKnowledge.filter(k => k.type === 'product')],
-            faqs: [...context.knowledgeContext.faqs, ...newKnowledge.filter(k => k.type === 'faq')],
+            knowledgeBase: [
+              ...context.knowledgeContext.knowledgeBase,
+              ...newKnowledge.filter((k) => k.type === 'knowledge'),
+            ],
+            products: [
+              ...context.knowledgeContext.products,
+              ...newKnowledge.filter((k) => k.type === 'product'),
+            ],
+            faqs: [
+              ...context.knowledgeContext.faqs,
+              ...newKnowledge.filter((k) => k.type === 'faq'),
+            ],
           },
         };
 
@@ -560,13 +596,13 @@ export class OpenAIRealtimeService {
       "i'm not sure",
       "i don't know",
       "i can't",
-      "not certain",
-      "unclear",
-      "beyond my knowledge",
+      'not certain',
+      'unclear',
+      'beyond my knowledge',
     ];
 
     const textLower = responseText.toLowerCase();
-    return uncertaintyPhrases.some(phrase => textLower.includes(phrase));
+    return uncertaintyPhrases.some((phrase) => textLower.includes(phrase));
   }
 
   public sendAudio(base64Audio: string) {
