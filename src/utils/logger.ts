@@ -28,7 +28,17 @@ winston.addColors(colors);
 const format = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
   winston.format.colorize({ all: true }),
-  winston.format.printf((info) => `${info.timestamp} ${info.level}: ${info.message}`),
+  winston.format.printf((info) => {
+    const { timestamp, level, message, ...rest } = info as any;
+    let msgText: string;
+    try {
+      msgText = typeof message === 'string' ? message : JSON.stringify(message);
+    } catch (e) {
+      msgText = String(message);
+    }
+    const meta = Object.keys(rest).length ? ' ' + JSON.stringify(rest, null, 2) : '';
+    return `${timestamp} ${level}: ${msgText}${meta}`;
+  }),
 );
 
 const transports = [new winston.transports.Console()];
