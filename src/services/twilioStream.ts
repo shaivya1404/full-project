@@ -11,6 +11,8 @@ export class TwilioStreamService {
   public streamSid: string | null = null;
   private audioBuffer: string[] = [];
   private isCallInitialized: boolean = false;
+  private audioConversionBuffer: Buffer = Buffer.alloc(0);
+  private readonly AUDIO_CHUNK_THRESHOLD = 2400; // Buffer ~100ms of 24kHz audio before conversion
 
   constructor(ws: WebSocket) {
     this.ws = ws;
@@ -72,6 +74,32 @@ export class TwilioStreamService {
             break;
           case 'stop':
             logger.info('Twilio Media Stream stopped');
+            // Flush any remaining buffered audio
+            if (this.audioConversionBuffer.length > 0) {
+              try {
+                const resampledBuffer = AudioNormalizer.resample(this.audioConversionBuffer, 24000, 8000);
+                const mulawBuffer = AudioNormalizer.pcm16ToMulaw(resampledBuffer);
+                const twilioPayload = AudioNormalizer.encodeBase64(mulawBuffer);
+                
+                const message = {
+                  event: 'media',
+                  media: {
+                    payload: twilioPayload,
+                    track: 'outbound',
+                  },
+                };
+                
+                this.ws.send(JSON.stringify(message));
+                logger.debug('Flushed remaining audio to Twilio', {
+                  bufferBytes: this.audioConversionBuffer.length,
+                  convertedBytes: twilioPayload.length,
+                });
+              } catch (err) {
+                logger.error('Error flushing audio buffer', err);
+              }
+              this.audioConversionBuffer = Buffer.alloc(0);
+            }
+            
             if (this.streamSid) {
               await this.callManager.endCall(this.streamSid);
             }
@@ -92,31 +120,35 @@ export class TwilioStreamService {
   public sendAudio(payload: string) {
     if (this.ws.readyState === WebSocket.OPEN) {
       try {
-        // Convert OpenAI audio (base64 PCM16 @ 24kHz) to Twilio format (base64 μ-law @ 8kHz)
-        const pcm16Buffer = AudioNormalizer.decodeBase64(payload);
-        
-        // Resample from 24kHz to 8kHz
-        const resampledBuffer = AudioNormalizer.resample(pcm16Buffer, 24000, 8000);
-        
-        // Convert PCM16 to μ-law
-        const mulawBuffer = AudioNormalizer.pcm16ToMulaw(resampledBuffer);
-        
-        // Encode back to base64
-        const twilioPayload = AudioNormalizer.encodeBase64(mulawBuffer);
+        // Decode and buffer audio chunks to ensure we have enough data for proper resampling
+        const incomingBuffer = AudioNormalizer.decodeBase64(payload);
+        this.audioConversionBuffer = Buffer.concat([this.audioConversionBuffer, incomingBuffer]);
 
-        const message = {
-          event: 'media',
-          media: {
-            payload: twilioPayload,
-            track: 'outbound',
-          },
-        };
+        // Only convert when buffer has enough data (~100ms at 24kHz = 2400 bytes)
+        while (this.audioConversionBuffer.length >= this.AUDIO_CHUNK_THRESHOLD) {
+          const chunk = this.audioConversionBuffer.slice(0, this.AUDIO_CHUNK_THRESHOLD);
+          this.audioConversionBuffer = this.audioConversionBuffer.slice(this.AUDIO_CHUNK_THRESHOLD);
 
-        this.ws.send(JSON.stringify(message));
-        logger.debug('Sent converted audio to Twilio', { 
-          originalBytes: payload.length, 
-          convertedBytes: twilioPayload.length 
-        });
+          // Convert OpenAI audio (PCM16 @ 24kHz) to Twilio format (μ-law @ 8kHz)
+          const resampledBuffer = AudioNormalizer.resample(chunk, 24000, 8000);
+          const mulawBuffer = AudioNormalizer.pcm16ToMulaw(resampledBuffer);
+          const twilioPayload = AudioNormalizer.encodeBase64(mulawBuffer);
+
+          const message = {
+            event: 'media',
+            media: {
+              payload: twilioPayload,
+              track: 'outbound',
+            },
+          };
+
+          this.ws.send(JSON.stringify(message));
+          logger.debug('Sent converted audio to Twilio', {
+            chunkedBytes: chunk.length,
+            convertedBytes: twilioPayload.length,
+            bufferRemaining: this.audioConversionBuffer.length,
+          });
+        }
       } catch (err) {
         logger.error('Failed to convert and send audio to Twilio', err);
       }

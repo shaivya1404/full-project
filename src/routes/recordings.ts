@@ -27,65 +27,37 @@ interface ErrorResponse {
   code?: string;
 }
 
-// GET /api/recordings/:recordingId - Get recording by ID
-router.get('/:recordingId', async (req: Request, res: Response, next: NextFunction) => {
+// GET /api/recordings/recent - Return last 5 recordings from database (no auth)
+// MUST be before /:recordingId to avoid being caught by the dynamic route
+router.get('/recent', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { recordingId } = req.params;
-    const download = req.query.download === 'true';
-    const { callRepository: repo, storageService: storage } = getRepositories();
+    const { callRepository: repo } = getRepositories();
 
-    const recording = await repo.getRecordingById(recordingId);
-    if (!recording) {
-      return res.status(404).json({
-        message: 'Recording not found',
-        code: 'RECORDING_NOT_FOUND',
-      } as ErrorResponse);
-    }
+    // Query the last 5 recordings from database, ordered by creation date
+    const recordings = await repo.getRecentRecordings(5);
 
-    const filePath = recording.filePath;
-    const fileExists = await storage.fileExists(filePath);
-    if (!fileExists) {
-      return res.status(404).json({
-        message: 'Recording file not found on storage',
-        code: 'FILE_NOT_FOUND',
-      } as ErrorResponse);
-    }
+    const result = recordings.map((rec) => ({
+      id: rec.id,
+      callId: rec.callId,
+      filename: path.basename(rec.filePath),
+      filePath: rec.filePath,
+      format: rec.format,
+      codec: rec.codec,
+      sampleRate: rec.sampleRate,
+      duration: rec.duration,
+      sizeBytes: rec.sizeBytes,
+      createdAt: rec.createdAt,
+    }));
 
-    const stat = fs.statSync(filePath);
-    const fileSize = stat.size;
-
-    if (download) {
-      res.setHeader('Content-Type', 'audio/wav');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="recording-${recordingId}.${recording.format || 'wav'}"`,
-      );
-    } else {
-      res.setHeader('Content-Type', 'audio/wav');
-      res.setHeader('Accept-Ranges', 'bytes');
-    }
-
-    res.setHeader('Content-Length', fileSize);
-
-    const stream = fs.createReadStream(filePath);
-    stream.pipe(res);
-
-    stream.on('error', (error) => {
-      logger.error('Error streaming recording', error);
-      if (!res.headersSent) {
-        res.status(500).json({
-          message: 'Error streaming recording',
-          code: 'STREAM_ERROR',
-        } as ErrorResponse);
-      }
-    });
+    res.status(200).json({ recordings: result });
   } catch (error) {
-    logger.error('Error handling recording request', error);
+    logger.error('Error listing recent recordings', error);
     next(error);
   }
 });
 
 // GET /api/recordings/download/:filename - Download recording file by filename (public, no auth required)
+// MUST be before /:recordingId to avoid being caught by the dynamic route
 router.get(
   '/download/:filename',
   async (req: Request, res: Response, next: NextFunction) => {
@@ -125,33 +97,7 @@ router.get(
   },
 );
 
-// GET /api/recordings/recent - Return last 5 recordings from database (no auth)
-router.get('/recent', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { callRepository: repo } = getRepositories();
-
-    // Query the last 5 recordings from database, ordered by creation date
-    const recordings = await repo.getRecentRecordings(5);
-
-    const result = recordings.map((rec) => ({
-      id: rec.id,
-      callId: rec.callId,
-      filename: path.basename(rec.filePath),
-      filePath: rec.filePath,
-      format: rec.format,
-      codec: rec.codec,
-      sampleRate: rec.sampleRate,
-      duration: rec.duration,
-      sizeBytes: rec.sizeBytes,
-      createdAt: rec.createdAt,
-    }));
-
-    res.status(200).json({ recordings: result });
-  } catch (error) {
-    logger.error('Error listing recent recordings', error);
-    next(error);
-  }
-});
+// GET /api/recordings/:recordingId - Get recording by ID
 
 export default router;
 
