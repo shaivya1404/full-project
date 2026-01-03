@@ -5,7 +5,7 @@ export class TwilioCallHandler {
   private callManager: CallManager;
 
   constructor() {
-    this.callManager = new CallManager();
+    this.callManager = CallManager.getInstance();
   }
 
   async handleCallStart(streamSid: string, callSid: string, from: string): Promise<void> {

@@ -7,10 +7,7 @@ const router = Router();
 let callManager: CallManager;
 
 const getCallManager = () => {
-  if (!callManager) {
-    callManager = new CallManager();
-  }
-  return callManager;
+  return CallManager.getInstance();
 };
 
 interface ErrorResponse {

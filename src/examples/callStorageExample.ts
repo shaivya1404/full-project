@@ -2,7 +2,7 @@ import { CallManager } from '../services/callManager';
 import { AudioNormalizer } from '../utils/audioNormalizer';
 
 export async function demonstrateCallStorage() {
-  const callManager = new CallManager();
+  const callManager = CallManager.getInstance();
 
   const streamSid = 'example_stream_123';
   const caller = '+1234567890';

@@ -72,7 +72,7 @@ describe('CallManager', () => {
     (CallManager.prototype as any).storage = mockStorage;
     (CallManager.prototype as any).analyticsService = mockAnalyticsService;
 
-    manager = new CallManager();
+    manager = new (CallManager as any)();
   });
 
   describe('Call lifecycle', () => {

@@ -14,7 +14,7 @@ export class TwilioOutboundService {
   constructor() {
     this.twilioClient = twilio(config.TWILIO_ACCOUNT_SID, config.TWILIO_AUTH_TOKEN);
     this.campaignService = new CampaignService();
-    this.callManager = new CallManager();
+    this.callManager = CallManager.getInstance();
     // Remove OpenAI service for now as it's not needed for basic outbound calls
     // this.openAIService = new OpenAIRealtimeService(this);
   }
@@ -73,7 +73,7 @@ export class TwilioOutboundService {
 
       // Get campaign and script
       const campaign = await this.campaignService.getCampaignById(campaignId);
-      
+
       if (!campaign) {
         throw new Error('Campaign not found');
       }
@@ -84,7 +84,7 @@ export class TwilioOutboundService {
       return twiml;
     } catch (error) {
       logger.error(`Error handling outbound call webhook for call SID: ${callSid}`, error);
-      
+
       // Fallback TwiML
       return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -126,7 +126,7 @@ export class TwilioOutboundService {
       // Note: In a real implementation, we'd need to track call SID to call log mapping
       // For now, we'll get all call logs and find pending ones
       const allCallLogs = await this.campaignService.getCallLogsForCampaign('all');
-      
+
       // This is a simplified approach - in production we'd have a better mapping
       for (const callLog of allCallLogs) {
         // In a real implementation, we'd store the call SID in the call log
@@ -157,12 +157,12 @@ export class TwilioOutboundService {
 
       // Find and update the corresponding call log
       const allCallLogs = await this.campaignService.getCallLogsForCampaign('all');
-      
+
       for (const callLog of allCallLogs) {
         // Simplified approach - in production we'd have proper call SID tracking
         if (callLog.result === 'pending' || callLog.result === 'initiated' || callLog.result === 'ringing') {
           let result: string;
-          
+
           switch (callStatus) {
             case 'ringing':
               result = 'ringing';
@@ -199,7 +199,7 @@ export class TwilioOutboundService {
       logger.info(`Processing campaign calls for campaign ${campaignId}, limit: ${limit}`);
 
       const campaign = await this.campaignService.getCampaignById(campaignId);
-      
+
       if (!campaign) {
         throw new Error('Campaign not found');
       }
@@ -211,7 +211,7 @@ export class TwilioOutboundService {
 
       // Get contacts that haven't been called yet
       const contacts = await this.campaignService.getContactsForCampaign(campaignId);
-      
+
       const contactsToCall = contacts.filter(contact => {
         // Skip invalid contacts and do-not-call numbers
         if (!contact.isValid || contact.isDoNotCall) {
@@ -226,7 +226,7 @@ export class TwilioOutboundService {
       logger.info(`Found ${contactsToCall.length} contacts to call for campaign ${campaignId}`);
 
       // Make calls in parallel with a limit
-      const callPromises = contactsToCall.map(contact => 
+      const callPromises = contactsToCall.map(contact =>
         this.makeOutboundCall(campaignId, contact.id, contact.phone, campaign.script)
       );
 
@@ -251,7 +251,7 @@ export class TwilioOutboundService {
   async transferCallToAgent(callSid: string, agentPhone: string): Promise<void> {
     try {
       logger.info(`Transferring call ${callSid} to agent phone ${agentPhone}`);
-      
+
       await this.twilioClient.calls(callSid).update({
         twiml: `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -261,7 +261,7 @@ export class TwilioOutboundService {
   </Dial>
 </Response>`
       });
-      
+
       logger.info(`Call ${callSid} transfer command sent to Twilio`);
     } catch (error) {
       logger.error(`Failed to transfer call ${callSid}`, error);

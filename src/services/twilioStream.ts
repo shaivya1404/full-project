@@ -8,11 +8,13 @@ export class TwilioStreamService {
   private openAIService: OpenAIRealtimeService;
   private callManager: CallManager;
   private streamSid: string | null = null;
+  private audioBuffer: string[] = [];
+  private isCallInitialized: boolean = false;
 
   constructor(ws: WebSocket) {
     this.ws = ws;
     this.openAIService = new OpenAIRealtimeService(this);
-    this.callManager = new CallManager();
+    this.callManager = CallManager.getInstance();
     this.callManager.setOpenAIService(this.openAIService);
   }
 
@@ -42,14 +44,29 @@ export class TwilioStreamService {
               teamId
             );
 
+            this.isCallInitialized = true;
+            logger.info(`Call session initialized for ${this.streamSid}. Flushing ${this.audioBuffer.length} buffered chunks.`);
+
+            // Process buffered audio
+            for (const payload of this.audioBuffer) {
+              await this.callManager.addAudioChunk(this.streamSid!, payload);
+            }
+            this.audioBuffer = [];
+
             this.openAIService.connect();
             break;
           case 'media':
             // Forward audio to OpenAI
             this.openAIService.sendAudio(data.media.payload);
+
             // Also add to recording
             if (this.streamSid) {
-              await this.callManager.addAudioChunk(this.streamSid, data.media.payload);
+              if (this.isCallInitialized) {
+                await this.callManager.addAudioChunk(this.streamSid, data.media.payload);
+              } else {
+                // Buffer audio if session not yet initialized
+                this.audioBuffer.push(data.media.payload);
+              }
             }
             break;
           case 'stop':

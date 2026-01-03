@@ -17,6 +17,7 @@ export interface CallSession {
 }
 
 export class CallManager {
+  private static instance: CallManager;
   private repository: CallRepository;
   private storage: StorageService;
   private analyticsService: AnalyticsService;
@@ -25,7 +26,7 @@ export class CallManager {
   private orderCollectionService: OrderCollectionService;
   private activeCalls: Map<string, CallSession>;
 
-  constructor() {
+  private constructor() {
     this.repository = new CallRepository();
     this.storage = new StorageService();
     this.analyticsService = new AnalyticsService();
@@ -34,16 +35,23 @@ export class CallManager {
     this.activeCalls = new Map();
   }
 
+  public static getInstance(): CallManager {
+    if (!CallManager.instance) {
+      CallManager.instance = new CallManager();
+    }
+    return CallManager.instance;
+  }
+
   setOpenAIService(service: OpenAIRealtimeService) {
     this.openaiService = service;
   }
 
   async startCall(
-    streamSid: string, 
-    caller: string, 
-    callSid?: string, 
-    teamId?: string, 
-    campaignId?: string, 
+    streamSid: string,
+    caller: string,
+    callSid?: string,
+    teamId?: string,
+    campaignId?: string,
     templateId?: string
   ): Promise<Call> {
     logger.info(`Starting call for streamSid: ${streamSid}`);
