@@ -2,6 +2,7 @@ import WebSocket from 'ws';
 import { logger } from '../utils/logger';
 import { OpenAIRealtimeService } from './openaiRealtime';
 import { CallManager } from './callManager';
+import { AudioNormalizer } from '../utils/audioNormalizer';
 
 export class TwilioStreamService {
   private ws: WebSocket;
@@ -90,20 +91,34 @@ export class TwilioStreamService {
 
   public sendAudio(payload: string) {
     if (this.ws.readyState === WebSocket.OPEN) {
-      // Send audio back to Twilio (mark as outbound track)
-      const message = {
-        event: 'media',
-        media: {
-          payload: payload,
-          track: 'outbound',
-        },
-      };
-
       try {
+        // Convert OpenAI audio (base64 PCM16 @ 24kHz) to Twilio format (base64 μ-law @ 8kHz)
+        const pcm16Buffer = AudioNormalizer.decodeBase64(payload);
+        
+        // Resample from 24kHz to 8kHz
+        const resampledBuffer = AudioNormalizer.resample(pcm16Buffer, 24000, 8000);
+        
+        // Convert PCM16 to μ-law
+        const mulawBuffer = AudioNormalizer.pcm16ToMulaw(resampledBuffer);
+        
+        // Encode back to base64
+        const twilioPayload = AudioNormalizer.encodeBase64(mulawBuffer);
+
+        const message = {
+          event: 'media',
+          media: {
+            payload: twilioPayload,
+            track: 'outbound',
+          },
+        };
+
         this.ws.send(JSON.stringify(message));
-        logger.debug('Sent audio to Twilio media stream', { bytes: payload.length });
+        logger.debug('Sent converted audio to Twilio', { 
+          originalBytes: payload.length, 
+          convertedBytes: twilioPayload.length 
+        });
       } catch (err) {
-        logger.error('Failed to send audio to Twilio', err);
+        logger.error('Failed to convert and send audio to Twilio', err);
       }
     }
   }

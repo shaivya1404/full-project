@@ -125,42 +125,28 @@ router.get(
   },
 );
 
-// GET /api/recordings/recent - Return last 5 recording filenames (no auth)
+// GET /api/recordings/recent - Return last 5 recordings from database (no auth)
 router.get('/recent', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const recordingsDir = config.RECORDING_STORAGE_PATH;
+    const { callRepository: repo } = getRepositories();
 
-    // If directory doesn't exist, return empty list
-    if (!fs.existsSync(recordingsDir)) {
-      return res.status(200).json({ recordings: [] });
-    }
+    // Query the last 5 recordings from database, ordered by creation date
+    const recordings = await repo.getRecentRecordings(5);
 
-    const files = await fs.promises.readdir(recordingsDir);
+    const result = recordings.map((rec) => ({
+      id: rec.id,
+      callId: rec.callId,
+      filename: path.basename(rec.filePath),
+      filePath: rec.filePath,
+      format: rec.format,
+      codec: rec.codec,
+      sampleRate: rec.sampleRate,
+      duration: rec.duration,
+      sizeBytes: rec.sizeBytes,
+      createdAt: rec.createdAt,
+    }));
 
-    const fileStats = await Promise.all(
-      files.map(async (f) => {
-        try {
-          const full = path.join(recordingsDir, f);
-          const stat = await fs.promises.stat(full);
-          return {
-            filename: f,
-            size: stat.size,
-            mtime: stat.mtime.getTime(),
-            path: full,
-          };
-        } catch (e) {
-          return null;
-        }
-      }),
-    );
-
-    const cleaned = fileStats.filter(Boolean) as Array<{ filename: string; size: number; mtime: number }>;
-
-    // sort by mtime desc and take first 5
-    cleaned.sort((a, b) => b.mtime - a.mtime);
-    const latest = cleaned.slice(0, 5).map((f) => ({ filename: f.filename, size: f.size, mtime: f.mtime }));
-
-    res.status(200).json({ recordings: latest });
+    res.status(200).json({ recordings: result });
   } catch (error) {
     logger.error('Error listing recent recordings', error);
     next(error);

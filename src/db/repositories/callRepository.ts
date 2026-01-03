@@ -159,6 +159,19 @@ export class CallRepository {
     });
   }
 
+  async getRecentRecordings(limit: number = 5): Promise<Recording[]> {
+    return this.prisma.recording.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
+
+  async getRecordingById(recordingId: string): Promise<Recording | null> {
+    return this.prisma.recording.findUnique({
+      where: { id: recordingId },
+    });
+  }
+
   async createTranscript(data: CreateTranscriptInput): Promise<Transcript> {
     return this.prisma.transcript.create({
       data: {
@@ -301,11 +314,11 @@ export class CallRepository {
 
   async getCallWithDetails(id: string): Promise<
     | (Call & {
-        recordings: Recording[];
-        transcripts: Transcript[];
-        analytics: Analytics[];
-        metadata: CallMetadata | null;
-      })
+      recordings: Recording[];
+      transcripts: Transcript[];
+      analytics: Analytics[];
+      metadata: CallMetadata | null;
+    })
     | null
   > {
     return this.prisma.call.findUnique({
@@ -323,11 +336,6 @@ export class CallRepository {
     });
   }
 
-  async getRecordingById(id: string): Promise<Recording | null> {
-    return this.prisma.recording.findUnique({
-      where: { id },
-    });
-  }
 
   async getAnalyticsAggregate(filters?: { startDate?: Date; endDate?: Date }): Promise<{
     totalCalls: number;
@@ -461,7 +469,7 @@ export class CallRepository {
     relevanceScore?: number;
   }): Promise<KnowledgeBaseSource> {
     const prisma = getPrismaClient();
-    
+
     return prisma.knowledgeBaseSource.create({
       data: {
         callId: data.callId,
@@ -478,7 +486,7 @@ export class CallRepository {
    */
   async getRecentTranscripts(callId: string, limit: number = 10): Promise<Transcript[]> {
     const prisma = getPrismaClient();
-    
+
     return prisma.transcript.findMany({
       where: { callId },
       orderBy: { createdAt: 'desc' },
@@ -491,7 +499,7 @@ export class CallRepository {
    */
   async getFaqsByTeamId(teamId: string): Promise<any[]> {
     const prisma = getPrismaClient();
-    
+
     // This would need to be implemented based on your FAQ model structure
     // For now, returning empty array as placeholder
     return [];
@@ -502,7 +510,7 @@ export class CallRepository {
    */
   async createOrUpdateUnansweredQuestion(question: string): Promise<void> {
     const prisma = getPrismaClient();
-    
+
     try {
       await prisma.unansweredQuestion.upsert({
         where: { question },
@@ -526,7 +534,7 @@ export class CallRepository {
    */
   async getKnowledgeUsedForCall(callId: string): Promise<any[]> {
     const prisma = getPrismaClient();
-    
+
     const sources = await prisma.knowledgeBaseSource.findMany({
       where: { callId },
       include: {
@@ -558,7 +566,7 @@ export class CallRepository {
     total: number;
   }> {
     const prisma = getPrismaClient();
-    
+
     const [questions, total] = await Promise.all([
       prisma.unansweredQuestion.findMany({
         orderBy: [
@@ -582,7 +590,7 @@ export class CallRepository {
    */
   async getKnowledgeAnalytics(teamId: string, startDate?: string, endDate?: string): Promise<any> {
     const prisma = getPrismaClient();
-    
+
     const whereClause: any = {
       call: {
         teamId,
@@ -603,14 +611,14 @@ export class CallRepository {
       averageRelevance,
     ] = await Promise.all([
       prisma.knowledgeBaseSource.count({ where: whereClause }),
-      prisma.knowledgeBaseSource.count({ 
-        where: { ...whereClause, knowledgeBaseId: { not: null } } 
+      prisma.knowledgeBaseSource.count({
+        where: { ...whereClause, knowledgeBaseId: { not: null } }
       }),
-      prisma.knowledgeBaseSource.count({ 
-        where: { ...whereClause, productId: { not: null } } 
+      prisma.knowledgeBaseSource.count({
+        where: { ...whereClause, productId: { not: null } }
       }),
-      prisma.knowledgeBaseSource.count({ 
-        where: { ...whereClause, faqId: { not: null } } 
+      prisma.knowledgeBaseSource.count({
+        where: { ...whereClause, faqId: { not: null } }
       }),
       prisma.knowledgeBaseSource.aggregate({
         where: whereClause,
