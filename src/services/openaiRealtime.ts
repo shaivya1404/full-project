@@ -111,6 +111,12 @@ export class OpenAIRealtimeService {
         }
         break;
 
+      case 'conversation.item.input_audio_transcription.completed':
+        if (event.transcript) {
+          logger.info(`USER: ${event.transcript.trim()}`);
+        }
+        break;
+
       case 'response.audio_transcript.delta':
         // Optional: log or handle partial transcripts from the AI
         break;
@@ -134,6 +140,17 @@ export class OpenAIRealtimeService {
         logger.info('User stopped speaking');
         break;
 
+      case 'input_audio_buffer.committed':
+      case 'conversation.item.created':
+      case 'conversation.item.input_audio_transcription.delta':
+      case 'response.content_part.added':
+      case 'response.content_part.done':
+      case 'response.output_item.added':
+      case 'response.output_item.done':
+      case 'rate_limits.updated':
+        // Silence frequent protocol events
+        break;
+
       case 'error':
         logger.error('OpenAI Error Event:', event.error);
         break;
@@ -149,6 +166,13 @@ export class OpenAIRealtimeService {
   }
 
   private async handleResponseCompletion(event: any) {
+    // Log AI response text
+    if (event.response?.output?.[0]?.content?.[0]?.transcript) {
+      logger.info(`AI: ${event.response.output[0].content[0].transcript.trim()}`);
+    } else if (event.response?.output?.[0]?.content?.[0]?.text) {
+      logger.info(`AI: ${event.response.output[0].content[0].text.trim()}`);
+    }
+
     // Handle final response and record knowledge usage
     for (const [streamSid, context] of this.conversationContexts) {
       if (event.response?.output_text) {
