@@ -112,8 +112,14 @@ export class OpenAIRealtimeService {
         break;
 
       case 'conversation.item.input_audio_transcription.completed':
-        if (event.transcript) {
-          logger.info(`USER: ${event.transcript.trim()}`);
+        if (event.transcript && this.twilioService.streamSid) {
+          const transcript = event.transcript.trim();
+          logger.info(`USER: ${transcript}`);
+          await this.twilioService.callManager.addTranscript(
+            this.twilioService.streamSid,
+            'User',
+            transcript
+          );
         }
         break;
 
@@ -166,17 +172,49 @@ export class OpenAIRealtimeService {
   }
 
   private async handleResponseCompletion(event: any) {
-    // Log AI response text
-    if (event.response?.output?.[0]?.content?.[0]?.transcript) {
-      logger.info(`AI: ${event.response.output[0].content[0].transcript.trim()}`);
-    } else if (event.response?.output?.[0]?.content?.[0]?.text) {
-      logger.info(`AI: ${event.response.output[0].content[0].text.trim()}`);
+    // Log and save AI response text
+    let aiTranscript = '';
+
+    // Look for transcript in various possible paths
+    const output = event.response?.output || [];
+    for (const item of output) {
+      if (item.type === 'message' && item.role === 'assistant') {
+        const content = item.content || [];
+        for (const part of content) {
+          if (part.type === 'audio' && part.transcript) {
+            aiTranscript = part.transcript.trim();
+            break;
+          } else if (part.type === 'text' && part.text) {
+            aiTranscript = part.text.trim();
+            break;
+          }
+        }
+      }
+      if (aiTranscript) break;
+    }
+
+    if (aiTranscript) {
+      logger.info(`AI: ${aiTranscript}`);
+      if (this.twilioService.streamSid) {
+        await this.twilioService.callManager.addTranscript(
+          this.twilioService.streamSid,
+          'AI',
+          aiTranscript
+        );
+      }
+    } else {
+      logger.debug('Could not extract AI transcript from response.done', {
+        responseId: event.response?.id,
+        outputType: event.response?.output?.[0]?.type
+      });
     }
 
     // Handle final response and record knowledge usage
     for (const [streamSid, context] of this.conversationContexts) {
-      if (event.response?.output_text) {
-        await this.processResponseKnowledgeUsage(streamSid, event.response.output_text, context);
+      // Use the extracted aiTranscript if available, otherwise fallback to output_text if it exists
+      const textToProcess = aiTranscript || event.response?.output_text;
+      if (textToProcess) {
+        await this.processResponseKnowledgeUsage(streamSid, textToProcess, context);
       }
     }
   }

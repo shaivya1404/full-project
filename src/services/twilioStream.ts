@@ -6,8 +6,8 @@ import { CallManager } from './callManager';
 export class TwilioStreamService {
   private ws: WebSocket;
   private openAIService: OpenAIRealtimeService;
-  private callManager: CallManager;
-  private streamSid: string | null = null;
+  public callManager: CallManager;
+  public streamSid: string | null = null;
   private audioBuffer: string[] = [];
   private isCallInitialized: boolean = false;
 
