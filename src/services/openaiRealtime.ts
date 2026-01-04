@@ -150,6 +150,9 @@ export class OpenAIRealtimeService {
         break;
 
       case 'response.done':
+        // ⭐ CRITICAL: Flush any remaining audio buffer to ensure all audio is sent to Twilio
+        this.twilioService.flushAudioBuffer();
+        
         // Check if response failed before processing
         if (event.response?.status === 'failed') {
           const statusDetails = event.response?.status_details;
@@ -509,8 +512,8 @@ export class OpenAIRealtimeService {
           modalities: ['text', 'audio'],
           instructions: systemPrompt,
           voice: 'alloy',
-          input_audio_format: 'g711_ulaw',
-          output_audio_format: 'g711_ulaw',
+          input_audio_format: 'pcm16',  // ⭐ OpenAI uses PCM16, NOT g711_ulaw
+          output_audio_format: 'pcm16', // ⭐ OpenAI uses PCM16, NOT g711_ulaw
           input_audio_transcription: { model: 'whisper-1' },
           turn_detection: {
             type: 'server_vad',
@@ -528,11 +531,16 @@ export class OpenAIRealtimeService {
   private async triggerGreeting(streamSid: string): Promise<void> {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       logger.info('Triggering initial AI greeting');
+      
+      // Get the context to find custom welcome message
+      const context = this.conversationContexts.get(streamSid);
+      let welcomeInstruction = 'Greet the user warmly and introduce yourself as the AI assistant. Ask how you can help them today.';
+      
+      // Will be enhanced with welcome message in the session prompt if available
       const event = {
         type: 'response.create',
         response: {
-          instructions:
-            'Greet the user warmly and introduce yourself as the AI assistant. Ask how you can help them today.',
+          instructions: welcomeInstruction,
         },
       };
       this.ws.send(JSON.stringify(event));

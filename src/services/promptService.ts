@@ -11,6 +11,8 @@ export interface SystemPromptTemplate {
   tone: string;
   knowledgeInjection: boolean;
   confidenceThreshold: number;
+  language?: string;  // 'en' for English, 'hi' for Hindi
+  welcomeMessage?: string;  // Custom welcome greeting
 }
 
 export interface DynamicPrompt {
@@ -34,7 +36,11 @@ export class PromptService {
       tone: 'professional, helpful, and empathetic',
       knowledgeInjection: true,
       confidenceThreshold: 0.5,
+      language: 'en',
+      welcomeMessage: 'Hello! Thank you for calling. How can I assist you today?',
       basePrompt: `You are a professional customer support agent. Your role is to help customers with their questions and concerns using the provided knowledge base and product information.
+
+⭐ IMPORTANT: Always respond in ENGLISH only. Do not translate or use any other language.
 
 Guidelines:
 - Be professional, helpful, and empathetic
@@ -51,7 +57,11 @@ Guidelines:
       tone: 'enthusiastic, persuasive, and consultative',
       knowledgeInjection: true,
       confidenceThreshold: 0.6,
+      language: 'en',
+      welcomeMessage: 'Hi! Welcome. I\'m here to help you find the perfect product. What interests you today?',
       basePrompt: `You are a knowledgeable sales agent specializing in our products and services. Your goal is to help customers understand our offerings and guide them toward suitable solutions.
+
+⭐ IMPORTANT: Always respond in ENGLISH only. Do not translate or use any other language.
 
 Guidelines:
 - Be enthusiastic and consultative, not pushy
@@ -68,7 +78,11 @@ Guidelines:
       tone: 'patient, detailed, and solution-oriented',
       knowledgeInjection: true,
       confidenceThreshold: 0.7,
+      language: 'en',
+      welcomeMessage: 'Welcome to technical support. Please describe the issue you\'re experiencing.',
       basePrompt: `You are a technical support specialist. Your expertise includes troubleshooting, product setup, and resolving technical issues.
+
+⭐ IMPORTANT: Always respond in ENGLISH only. Do not translate or use any other language.
 
 Guidelines:
 - Be patient and methodical in your approach
@@ -85,7 +99,11 @@ Guidelines:
       tone: 'helpful, informative, and reassuring',
       knowledgeInjection: true,
       confidenceThreshold: 0.8,
+      language: 'en',
+      welcomeMessage: 'Hi! I can help you track your order. What\'s your order number?',
       basePrompt: `You are an order status specialist. Your primary responsibility is to help customers track orders, check delivery status, and handle order-related inquiries.
+
+⭐ IMPORTANT: Always respond in ENGLISH only. Do not translate or use any other language.
 
 Guidelines:
 - Be informative and reassuring about order progress
@@ -93,6 +111,31 @@ Guidelines:
 - Provide accurate timelines and expectations
 - Handle order modifications when possible
 - Escalate complex order issues to order management team`
+    }
+  ];
+
+  // Hindi language variants
+  private readonly hindiTemplates: SystemPromptTemplate[] = [
+    {
+      id: 'customer-support-hi',
+      name: 'Customer Support Agent (Hindi)',
+      description: 'Customer support agent that responds in Hindi',
+      role: 'customer support agent',
+      tone: 'professional, helpful, and empathetic',
+      knowledgeInjection: true,
+      confidenceThreshold: 0.5,
+      language: 'hi',
+      welcomeMessage: 'नमस्ते! आपको कैसे मदद कर सकते हैं?',
+      basePrompt: `आप एक पेशेवर ग्राहक सहायता एजेंट हैं। आपकी भूमिका ग्राहकों को उनके प्रश्नों और चिंताओं में सहायता करना है।
+
+⭐ महत्वपूर्ण: हमेशा केवल HINDI में जवाब दें। अन्य किसी भी भाषा का उपयोग न करें।
+
+दिशानिर्देश:
+- पेशेवर, सहायक और सहानुभूतिशील रहें
+- ज्ञान आधार का उपयोग करके सटीक उत्तर दें
+- यदि आप कुछ नहीं जानते हैं तो ईमानदारी से बताएं
+- जटिल समस्याओं के लिए मानव एजेंट को ट्रांसफर करने की पेशकश करें
+- हमेशा ग्राहक संतुष्टि को प्राथमिकता दें`
     }
   ];
 
@@ -250,6 +293,11 @@ Guidelines:
 
   private buildSystemPrompt(template: SystemPromptTemplate, context: KnowledgeContext): string {
     let prompt = template.basePrompt;
+
+    // Add welcome message if available
+    if (template.welcomeMessage) {
+      prompt += `\n\n📞 INITIAL GREETING: When the call starts, begin with exactly this greeting: "${template.welcomeMessage}"`;
+    }
 
     // Inject knowledge if available and template allows it
     if (template.knowledgeInjection && this.hasRelevantKnowledge(context)) {

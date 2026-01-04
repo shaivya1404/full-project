@@ -119,11 +119,15 @@ export class TwilioStreamService {
   }
 
   public sendAudio(payload: string) {
-    if (this.ws.readyState !== WebSocket.OPEN) return;
+    if (this.ws.readyState !== WebSocket.OPEN) {
+      logger.warn('WebSocket not open, cannot send audio');
+      return;
+    }
 
     try {
       // 1️⃣ Decode Base64 from OpenAI audio delta
       const incomingBuffer = AudioNormalizer.decodeBase64(payload);
+      logger.debug(`Received audio chunk from OpenAI: ${incomingBuffer.length} bytes`);
 
       // 2️⃣ Append to buffer
       this.audioConversionBuffer = Buffer.concat([this.audioConversionBuffer, incomingBuffer]);
@@ -137,6 +141,7 @@ export class TwilioStreamService {
 
         // 4️⃣ Resample 24kHz → 8kHz (input is already PCM16 mono)
         const resampled = AudioNormalizer.resample(chunk, 24000, 8000);
+        logger.debug(`Resampled: ${chunk.length} bytes @ 24kHz → ${resampled.length} bytes @ 8kHz`);
 
         // 5️⃣ Convert PCM16 → μ-law
         const mulawBuffer = AudioNormalizer.pcm16ToMulaw(resampled);
@@ -148,14 +153,15 @@ export class TwilioStreamService {
 
           const message = {
             event: 'media',
+            streamSid: this.streamSid,
             media: {
               payload: base64Frame,
-              track: 'outbound', // tells Twilio this is bot audio
+              track: 'outbound', // ⭐ CRITICAL: tells Twilio this is bot audio (not user audio)
             },
           };
 
           this.ws.send(JSON.stringify(message));
-          logger.debug('Sent Twilio audio frame', { frameLength: frame.length });
+          logger.debug(`Sent Twilio audio frame (${frame.length} bytes, track: outbound)`);
         }
       }
     } catch (err) {
@@ -163,27 +169,39 @@ export class TwilioStreamService {
     }
   }
 
-  // 7️⃣ Call this periodically or on response.audio.done to flush remaining buffer
+  // 7️⃣ Call this on response.audio.done to flush remaining buffer
   public flushAudioBuffer() {
-    if (this.audioConversionBuffer.length === 0) return;
-
-    const chunk = this.audioConversionBuffer;
-    this.audioConversionBuffer = Buffer.alloc(0);
-
-    const resampled = AudioNormalizer.resample(chunk, 24000, 8000);
-    const mulawBuffer = AudioNormalizer.pcm16ToMulaw(resampled);
-
-    for (let i = 0; i < mulawBuffer.length; i += 160) {
-      const frame = mulawBuffer.slice(i, i + 160);
-      const base64Frame = frame.toString('base64');
-
-      const message = {
-        event: 'media',
-        media: { payload: base64Frame, track: 'outbound' },
-      };
-      this.ws.send(JSON.stringify(message));
+    if (this.audioConversionBuffer.length === 0) {
+      logger.debug('Audio buffer is empty, nothing to flush');
+      return;
     }
 
-    logger.debug('Flushed remaining audio buffer to Twilio', { flushedBytes: chunk.length });
+    try {
+      logger.info(`Flushing remaining audio buffer (${this.audioConversionBuffer.length} bytes)`);
+      
+      const chunk = this.audioConversionBuffer;
+      this.audioConversionBuffer = Buffer.alloc(0);
+
+      const resampled = AudioNormalizer.resample(chunk, 24000, 8000);
+      const mulawBuffer = AudioNormalizer.pcm16ToMulaw(resampled);
+
+      let frameCount = 0;
+      for (let i = 0; i < mulawBuffer.length; i += 160) {
+        const frame = mulawBuffer.slice(i, i + 160);
+        const base64Frame = frame.toString('base64');
+
+        const message = {
+          event: 'media',
+          streamSid: this.streamSid,
+          media: { payload: base64Frame, track: 'outbound' },
+        };
+        this.ws.send(JSON.stringify(message));
+        frameCount++;
+      }
+
+      logger.debug(`Flushed ${frameCount} audio frames (${chunk.length} bytes total)`);
+    } catch (err) {
+      logger.error('Error flushing audio buffer', err);
+    }
   }
 }
