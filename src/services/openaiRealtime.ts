@@ -19,6 +19,8 @@ export interface ConversationContext {
   knowledgeContext: KnowledgeContext;
   confidenceThreshold: number;
   knowledgeSources: Set<string>;
+  detectedLanguage?: string; // Track detected language
+  lastUserInput?: string; // Track last user input
 }
 
 export class OpenAIRealtimeService {
@@ -125,6 +127,24 @@ export class OpenAIRealtimeService {
         if (event.transcript && this.twilioService.streamSid) {
           const transcript = event.transcript.trim();
           logger.info(`USER: ${transcript}`);
+
+          // Detect and store language from user input
+          const detectedLang = this.detectLanguage(transcript);
+          const context = this.conversationContexts.get(this.twilioService.streamSid);
+          if (context) {
+            const previousLang = context.detectedLanguage;
+            context.detectedLanguage = detectedLang;
+            context.lastUserInput = transcript;
+
+            logger.info(`Detected language: ${detectedLang}`);
+
+            // If language changed, update session to reinforce language matching
+            if (previousLang && previousLang !== detectedLang && detectedLang !== 'auto') {
+              logger.info(`Language switch detected: ${previousLang} -> ${detectedLang}`);
+              await this.reinforceLanguageContext(this.twilioService.streamSid, detectedLang);
+            }
+          }
+
           await this.twilioService.callManager.addTranscript(
             this.twilioService.streamSid,
             'User',
@@ -152,7 +172,7 @@ export class OpenAIRealtimeService {
       case 'response.done':
         // ⭐ CRITICAL: Flush any remaining audio buffer to ensure all audio is sent to Twilio
         this.twilioService.flushAudioBuffer();
-        
+
         // Check if response failed before processing
         if (event.response?.status === 'failed') {
           const statusDetails = event.response?.status_details;
@@ -201,6 +221,85 @@ export class OpenAIRealtimeService {
 
       default:
         logger.debug(`Unhandled OpenAI event type: ${event.type}`);
+    }
+  }
+
+  /**
+   * Detect language from user input text
+   */
+  private detectLanguage(text: string): string {
+    // Basic language detection using Unicode ranges and patterns
+    const hindiPattern = /[\u0900-\u097F]/; // Devanagari script (Hindi)
+    const arabicPattern = /[\u0600-\u06FF]/; // Arabic script
+    const chinesePattern = /[\u4E00-\u9FFF]/; // Chinese characters
+    const japanesePattern = /[\u3040-\u309F\u30A0-\u30FF]/; // Hiragana and Katakana
+
+    // Check for non-Latin scripts first
+    if (hindiPattern.test(text)) {
+      return 'hindi';
+    } else if (arabicPattern.test(text)) {
+      return 'arabic';
+    } else if (chinesePattern.test(text)) {
+      return 'chinese';
+    } else if (japanesePattern.test(text)) {
+      return 'japanese';
+    }
+
+    // Check for common Hindi romanized words
+    const hindiRomanizedWords = ['namaste', 'dhanyavaad', 'kripya', 'aap', 'main', 'haan', 'nahi'];
+    const textLower = text.toLowerCase();
+    const hasHindiWords = hindiRomanizedWords.some((word) => textLower.includes(word));
+
+    if (hasHindiWords) {
+      return 'hindi-romanized';
+    }
+
+    // Default to English if primarily Latin characters
+    const englishPattern = /^[a-zA-Z\s.,!?'"0-9]+$/;
+    if (englishPattern.test(text.trim())) {
+      return 'english';
+    }
+
+    // Auto-detect for mixed or unknown
+    return 'auto';
+  }
+
+  /**
+   * Reinforce language context when language changes
+   */
+  private async reinforceLanguageContext(streamSid: string, language: string): Promise<void> {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const languageMap: { [key: string]: string } = {
+        hindi: 'Hindi (हिंदी)',
+        'hindi-romanized': 'Hindi (in Roman script)',
+        english: 'English',
+        arabic: 'Arabic',
+        chinese: 'Chinese',
+        japanese: 'Japanese',
+      };
+
+      const languageName = languageMap[language] || language;
+
+      const reinforcementInstruction = `IMPORTANT: The user is now speaking in ${languageName}. 
+You MUST respond in ${languageName} for all subsequent responses. 
+Continue the conversation naturally in ${languageName}.`;
+
+      const event = {
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'system',
+          content: [
+            {
+              type: 'input_text',
+              text: reinforcementInstruction,
+            },
+          ],
+        },
+      };
+
+      this.ws.send(JSON.stringify(event));
+      logger.info(`Reinforced language context to ${languageName}`);
     }
   }
 
@@ -436,7 +535,7 @@ export class OpenAIRealtimeService {
   }
 
   /**
-   * Initialize conversation context with knowledge integration
+   * Initialize conversation context with knowledge integration and multilingual support
    */
   async initializeConversation(
     streamSid: string,
@@ -446,7 +545,7 @@ export class OpenAIRealtimeService {
     templateId?: string,
   ): Promise<void> {
     try {
-      logger.info(`Initializing knowledge-enhanced conversation for call ${callId}`);
+      logger.info(`Initializing multilingual knowledge-enhanced conversation for call ${callId}`);
 
       // Generate dynamic prompt with knowledge context
       const dynamicPrompt = await this.promptService.generateDynamicPrompt(
@@ -464,6 +563,8 @@ export class OpenAIRealtimeService {
         knowledgeContext: dynamicPrompt.knowledgeContext,
         confidenceThreshold: dynamicPrompt.confidenceThreshold,
         knowledgeSources: new Set(),
+        detectedLanguage: 'auto', // Initialize as auto-detect
+        lastUserInput: undefined,
       });
 
       // Update session with Twilio-specific configuration and knowledge
@@ -478,7 +579,7 @@ export class OpenAIRealtimeService {
         );
       }
 
-      logger.info(`Knowledge-enhanced conversation initialized for call ${callId}`);
+      logger.info(`Multilingual knowledge-enhanced conversation initialized for call ${callId}`);
     } catch (error) {
       logger.error('Error initializing conversation context', error);
     }
@@ -506,37 +607,81 @@ export class OpenAIRealtimeService {
 
   private async updateSession(streamSid: string, systemPrompt: string): Promise<void> {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const context = this.conversationContexts.get(streamSid);
+
+      // Enhanced system prompt with critical multilingual instruction
+      const multilingualInstruction = `
+
+═══════════════════════════════════════════════════════════
+🌐 CRITICAL MULTILINGUAL INSTRUCTION - HIGHEST PRIORITY 🌐
+═══════════════════════════════════════════════════════════
+
+YOU MUST ALWAYS RESPOND IN THE EXACT SAME LANGUAGE THE USER SPEAKS TO YOU.
+
+Language Matching Rules:
+✓ If user speaks English → Respond in English
+✓ If user speaks Hindi → Respond in Hindi (हिंदी)
+✓ If user speaks Spanish → Respond in Spanish
+✓ If user speaks ANY language → Respond in THAT SAME language
+
+Important Guidelines:
+- Detect the language from the user's speech automatically
+- Match the language EXACTLY - same script, same style
+- Maintain natural pronunciation and grammar for the detected language
+- NEVER switch languages unless the user switches first
+- For Hindi, use Devanagari script (हिंदी) when appropriate
+- For Romanized Hindi (Hinglish), use Roman script naturally
+- Be culturally appropriate for the detected language
+- Keep the same helpful and professional tone across all languages
+
+This is your PRIMARY directive. All other instructions are secondary to maintaining language consistency with the user.
+
+═══════════════════════════════════════════════════════════`;
+
+      const enhancedPrompt = systemPrompt + multilingualInstruction;
+
       const event = {
         type: 'session.update',
         session: {
           modalities: ['text', 'audio'],
-          instructions: systemPrompt,
-          voice: 'alloy',
-          input_audio_format: 'pcm16',  // ⭐ OpenAI uses PCM16, NOT g711_ulaw
-          output_audio_format: 'pcm16', // ⭐ OpenAI uses PCM16, NOT g711_ulaw
-          input_audio_transcription: { model: 'whisper-1' },
+          instructions: enhancedPrompt,
+          voice: 'alloy', // OpenAI's alloy voice handles multiple languages well
+          input_audio_format: 'pcm16',
+          output_audio_format: 'pcm16',
+          input_audio_transcription: {
+            model: 'whisper-1', // Whisper automatically detects language
+          },
           turn_detection: {
             type: 'server_vad',
             threshold: 0.5,
             prefix_padding_ms: 300,
             silence_duration_ms: 500,
           },
+          temperature: 0.8, // Balanced for natural multilingual responses
+          max_response_output_tokens: 4096,
         },
       };
-      logger.info('Updating OpenAI Session configuration');
+      logger.info('Updating OpenAI Session with multilingual support');
       this.ws.send(JSON.stringify(event));
     }
   }
 
   private async triggerGreeting(streamSid: string): Promise<void> {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      logger.info('Triggering initial AI greeting');
-      
-      // Get the context to find custom welcome message
+      logger.info('Triggering multilingual AI greeting');
+
       const context = this.conversationContexts.get(streamSid);
-      let welcomeInstruction = 'Greet the user warmly and introduce yourself as the AI assistant. Ask how you can help them today.';
-      
-      // Will be enhanced with welcome message in the session prompt if available
+
+      // Universal greeting that works across languages
+      const welcomeInstruction = `Greet the user warmly using a universal greeting.
+Start with "Hello" or "Namaste" (which works for both English and Hindi speakers).
+Introduce yourself briefly as an AI assistant.
+Ask how you can help them today in a friendly way.
+Keep your greeting SHORT (1-2 sentences maximum).
+
+IMPORTANT: After this greeting, the user will respond in their preferred language.
+YOU MUST then respond in the SAME language they use for all subsequent interactions.`;
+
       const event = {
         type: 'response.create',
         response: {
@@ -615,7 +760,7 @@ export class OpenAIRealtimeService {
     const context = this.conversationContexts.get(streamSid);
     if (!context) return false;
 
-    // Check for uncertainty indicators in response
+    // Check for uncertainty indicators in response (multilingual)
     const uncertaintyPhrases = [
       "i'm not sure",
       "i don't know",
@@ -623,6 +768,11 @@ export class OpenAIRealtimeService {
       'not certain',
       'unclear',
       'beyond my knowledge',
+      'मुझे नहीं पता', // Hindi: I don't know
+      'मुझे यकीन नहीं', // Hindi: I'm not sure
+      'मैं नहीं जानता', // Hindi: I don't know
+      'no sé', // Spanish: I don't know
+      'não sei', // Portuguese: I don't know
     ];
 
     const textLower = responseText.toLowerCase();
