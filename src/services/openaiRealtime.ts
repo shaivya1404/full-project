@@ -789,6 +789,39 @@ YOU MUST then respond in the SAME language they use for all subsequent interacti
     }
   }
 
+  /**
+   * Send text input as if it were user speech (for testing)
+   */
+  public sendUserText(text: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      // 1. Send the user message
+      const itemEvent = {
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: text,
+            },
+          ],
+        },
+      };
+      this.ws.send(JSON.stringify(itemEvent));
+
+      // 2. Trigger a response generation
+      const responseEvent = {
+        type: 'response.create',
+      };
+      this.ws.send(JSON.stringify(responseEvent));
+
+      logger.info(`Sent test text input: "${text}"`);
+    } else {
+      logger.warn('Cannot send test text: OpenAI user WebSocket not open');
+    }
+  }
+
   public disconnect() {
     if (this.ws) {
       this.isClosing = true;

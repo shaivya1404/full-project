@@ -106,6 +106,14 @@ export class TwilioStreamService {
             }
             this.openAIService.disconnect();
             break;
+
+          case 'test_input':
+            // 🧪 TEST ONLY: Allow injecting text input (simulating user speech)
+            if (data.text) {
+              logger.info(`Received test input text: "${data.text}"`);
+              this.openAIService.sendUserText(data.text);
+            }
+            break;
         }
       } catch (error) {
         logger.error('Error handling Twilio message', error);
@@ -127,7 +135,7 @@ export class TwilioStreamService {
     try {
       // 1️⃣ Decode Base64 from OpenAI audio delta
       const incomingBuffer = AudioNormalizer.decodeBase64(payload);
-      logger.debug(`Received audio chunk from OpenAI: ${incomingBuffer.length} bytes`);
+      // logger.debug(`Received audio chunk from OpenAI: ${incomingBuffer.length} bytes`);
 
       // 2️⃣ Append to buffer
       this.audioConversionBuffer = Buffer.concat([this.audioConversionBuffer, incomingBuffer]);
@@ -141,7 +149,7 @@ export class TwilioStreamService {
 
         // 4️⃣ Resample 24kHz → 8kHz (input is already PCM16 mono)
         const resampled = AudioNormalizer.resample(chunk, 24000, 8000);
-        logger.debug(`Resampled: ${chunk.length} bytes @ 24kHz → ${resampled.length} bytes @ 8kHz`);
+        // logger.debug(`Resampled: ${chunk.length} bytes @ 24kHz → ${resampled.length} bytes @ 8kHz`);
 
         // 5️⃣ Convert PCM16 → μ-law
         const mulawBuffer = AudioNormalizer.pcm16ToMulaw(resampled);
@@ -161,7 +169,7 @@ export class TwilioStreamService {
           };
 
           this.ws.send(JSON.stringify(message));
-          logger.debug(`Sent Twilio audio frame (${frame.length} bytes, track: outbound)`);
+          // logger.debug(`Sent Twilio audio frame (${frame.length} bytes, track: outbound)`);
         }
       }
     } catch (err) {
@@ -178,7 +186,7 @@ export class TwilioStreamService {
 
     try {
       logger.info(`Flushing remaining audio buffer (${this.audioConversionBuffer.length} bytes)`);
-      
+
       const chunk = this.audioConversionBuffer;
       this.audioConversionBuffer = Buffer.alloc(0);
 
@@ -199,7 +207,7 @@ export class TwilioStreamService {
         frameCount++;
       }
 
-      logger.debug(`Flushed ${frameCount} audio frames (${chunk.length} bytes total)`);
+      // logger.debug(`Flushed ${frameCount} audio frames (${chunk.length} bytes total)`);
     } catch (err) {
       logger.error('Error flushing audio buffer', err);
     }

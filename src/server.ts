@@ -28,3 +28,4 @@ process.on('SIGTERM', () => {
     logger.info('Process terminated');
   });
 });
+// Restart trigger
