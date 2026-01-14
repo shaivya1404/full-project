@@ -40,6 +40,10 @@ export class OpenAIRealtimeService {
   private attemptedModels: Set<string> = new Set();
   private modelDiscoveryInProgress: boolean = false;
 
+  // ⭐ Audio buffer for audio received before OpenAI connection is established
+  private pendingAudioBuffer: string[] = [];
+  private readonly MAX_PENDING_AUDIO_CHUNKS = 100; // Limit buffer to prevent memory issues
+
   constructor(twilioService: TwilioStreamService) {
     this.twilioService = twilioService;
     this.knowledgeService = new KnowledgeService();
@@ -603,6 +607,22 @@ Continue the conversation naturally in ${languageName}.`;
         logger.error(`Error in post-connect initialization for stream ${streamSid}`, error);
       }
     }
+
+    // ⭐ Flush any audio that was buffered while waiting for connection
+    if (this.pendingAudioBuffer.length > 0) {
+      logger.info(`Flushing ${this.pendingAudioBuffer.length} buffered audio chunks to OpenAI`);
+      for (const audioChunk of this.pendingAudioBuffer) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          const event = {
+            type: 'input_audio_buffer.append',
+            audio: audioChunk,
+          };
+          this.ws.send(JSON.stringify(event));
+        }
+      }
+      this.pendingAudioBuffer = [];
+      logger.info('Buffered audio flushed to OpenAI');
+    }
   }
 
   private async updateSession(streamSid: string, systemPrompt: string): Promise<void> {
@@ -786,6 +806,19 @@ YOU MUST then respond in the SAME language they use for all subsequent interacti
         audio: base64Audio,
       };
       this.ws.send(JSON.stringify(event));
+    } else {
+      // ⭐ Buffer audio if connection not yet established
+      // This prevents losing initial user speech while OpenAI connects
+      if (this.pendingAudioBuffer.length < this.MAX_PENDING_AUDIO_CHUNKS) {
+        this.pendingAudioBuffer.push(base64Audio);
+        if (this.pendingAudioBuffer.length === 1) {
+          logger.info('Buffering audio while waiting for OpenAI connection...');
+        }
+      } else if (this.pendingAudioBuffer.length === this.MAX_PENDING_AUDIO_CHUNKS) {
+        logger.warn('Audio buffer full, dropping oldest chunks');
+        this.pendingAudioBuffer.shift();
+        this.pendingAudioBuffer.push(base64Audio);
+      }
     }
   }
 
@@ -829,6 +862,8 @@ YOU MUST then respond in the SAME language they use for all subsequent interacti
       this.ws = null;
       this.isConnected = false;
     }
+    // Clear any pending audio buffer to prevent memory leaks
+    this.pendingAudioBuffer = [];
   }
 
   private attemptReconnect() {

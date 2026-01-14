@@ -33,31 +33,47 @@ export class TwilioStreamService {
             break;
           case 'start':
             this.streamSid = data.start.streamSid;
+            // Extract parameters - Twilio sends callSid at data.start.callSid
+            // and customParameters from <Parameter> elements
             const callSid = data.start.callSid;
             const customParameters = data.start.customParameters || {};
+
+            // Read parameters passed from TwiML <Parameter> elements
             const teamId = customParameters.teamId || 'default-team';
+            const caller = customParameters.caller || data.start.caller || 'Inbound Call';
+            const passedCallSid = customParameters.callSid || callSid;
 
-            logger.info(`Twilio Media Stream started: ${this.streamSid}`, { callSid, teamId });
+            logger.info(`Twilio Media Stream started: ${this.streamSid}`, {
+              callSid: passedCallSid,
+              teamId,
+              caller,
+              customParameters
+            });
 
-            // Initialize call in database
-            await this.callManager.startCall(this.streamSid!, 'Inbound Call', callSid, teamId);
+            // Initialize call in database with proper caller info
+            await this.callManager.startCall(this.streamSid!, caller, passedCallSid, teamId);
 
             this.isCallInitialized = true;
             logger.info(
               `Call session initialized for ${this.streamSid}. Flushing ${this.audioBuffer.length} buffered chunks.`,
             );
 
-            // Process buffered audio
+            // Process buffered audio (convert to OpenAI format before storing)
             for (const payload of this.audioBuffer) {
               await this.callManager.addAudioChunk(this.streamSid!, payload);
             }
             this.audioBuffer = [];
 
+            // Connect to OpenAI Realtime API
+            logger.info('Initiating OpenAI Realtime connection...');
             this.openAIService.connect();
             break;
           case 'media':
-            // Forward audio to OpenAI
-            this.openAIService.sendAudio(data.media.payload);
+            // ⭐ CRITICAL FIX: Convert Twilio μ-law 8kHz to OpenAI PCM16 24kHz before sending
+            // Twilio sends: μ-law encoded audio at 8kHz
+            // OpenAI expects: PCM16 audio at 24kHz
+            const convertedAudio = AudioNormalizer.convertToOpenAIFormat(data.media.payload);
+            this.openAIService.sendAudio(convertedAudio);
 
             // Also add to recording
             if (this.streamSid) {
