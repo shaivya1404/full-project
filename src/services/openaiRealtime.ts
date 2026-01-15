@@ -629,83 +629,86 @@ Continue the conversation naturally in ${languageName}.`;
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       const context = this.conversationContexts.get(streamSid);
 
-      // Enhanced system prompt with critical multilingual instruction
-      const multilingualInstruction = `
-
-═══════════════════════════════════════════════════════════
-🌐 CRITICAL MULTILINGUAL INSTRUCTION - HIGHEST PRIORITY 🌐
-═══════════════════════════════════════════════════════════
-
-YOU MUST ALWAYS RESPOND IN THE EXACT SAME LANGUAGE THE USER SPEAKS TO YOU.
-
-Language Matching Rules:
-✓ If user speaks English → Respond in English
-✓ If user speaks Hindi → Respond in Hindi (हिंदी)
-✓ If user speaks Spanish → Respond in Spanish
-✓ If user speaks ANY language → Respond in THAT SAME language
-
-Important Guidelines:
-- Detect the language from the user's speech automatically
-- Match the language EXACTLY - same script, same style
-- Maintain natural pronunciation and grammar for the detected language
-- NEVER switch languages unless the user switches first
-- For Hindi, use Devanagari script (हिंदी) when appropriate
-- For Romanized Hindi (Hinglish), use Roman script naturally
-- Be culturally appropriate for the detected language
-- Keep the same helpful and professional tone across all languages
-
-This is your PRIMARY directive. All other instructions are secondary to maintaining language consistency with the user.
-
-═══════════════════════════════════════════════════════════`;
-
-      const enhancedPrompt = systemPrompt + multilingualInstruction;
+      // ═══════════════════════════════════════════════════════════════════════════
+      // HUMAN-LIKE VOICE CONFIGURATION
+      // These settings are optimized to make the AI sound natural and human
+      // ═══════════════════════════════════════════════════════════════════════════
 
       const event = {
         type: 'session.update',
         session: {
           modalities: ['text', 'audio'],
-          instructions: enhancedPrompt,
-          voice: 'alloy', // OpenAI's alloy voice handles multiple languages well
+          instructions: systemPrompt,
+
+          // ⭐ VOICE SELECTION - 'shimmer' is warm and natural sounding
+          // Options: 'alloy', 'echo', 'shimmer', 'ash', 'ballad', 'coral', 'sage', 'verse'
+          // 'shimmer' - warm, friendly female voice (best for customer service)
+          // 'echo' - clear, professional male voice
+          voice: 'shimmer',
+
           input_audio_format: 'pcm16',
           output_audio_format: 'pcm16',
+
           input_audio_transcription: {
-            model: 'whisper-1', // Whisper automatically detects language
+            model: 'whisper-1', // Auto language detection
           },
+
+          // ⭐ TURN DETECTION - Natural conversation flow
           turn_detection: {
             type: 'server_vad',
-            threshold: 0.5,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 500,
+            threshold: 0.6,           // Slightly higher = waits for clearer speech end
+            prefix_padding_ms: 400,   // Captures beginning of speech better
+            silence_duration_ms: 700, // Waits a bit longer before responding (more natural)
           },
-          temperature: 0.8, // Balanced for natural multilingual responses
+
+          // ⭐ TEMPERATURE - Higher = more natural variation in responses
+          // 0.9 gives good variation while staying coherent
+          temperature: 0.9,
+
           max_response_output_tokens: 4096,
         },
       };
-      logger.info('Updating OpenAI Session with multilingual support');
+
+      logger.info('Updating OpenAI Session with human-like voice settings', {
+        voice: 'shimmer',
+        temperature: 0.9,
+        silenceDuration: 700,
+      });
+
       this.ws.send(JSON.stringify(event));
     }
   }
 
   private async triggerGreeting(streamSid: string): Promise<void> {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      logger.info('Triggering multilingual AI greeting');
+      logger.info('Triggering human-like greeting');
 
-      const context = this.conversationContexts.get(streamSid);
+      // ═══════════════════════════════════════════════════════════════════════════
+      // HUMAN-LIKE GREETING
+      // This greeting sounds like a real customer service rep, not a bot
+      // ═══════════════════════════════════════════════════════════════════════════
 
-      // Universal greeting that works across languages
-      const welcomeInstruction = `Greet the user warmly using a universal greeting.
-Start with "Hello" or "Namaste" (which works for both English and Hindi speakers).
-Introduce yourself briefly as an AI assistant.
-Ask how you can help them today in a friendly way.
-Keep your greeting SHORT (1-2 sentences maximum).
+      const greetingInstruction = `Give a warm, natural greeting like a real customer service rep would.
 
-IMPORTANT: After this greeting, the user will respond in their preferred language.
-YOU MUST then respond in the SAME language they use for all subsequent interactions.`;
+IMPORTANT RULES:
+- DO NOT say you're an AI, bot, or virtual assistant
+- DO NOT say "I'm here to assist you" or similar robotic phrases
+- Sound like a friendly human coworker
+
+GREETING STYLE (pick one naturally based on your mood):
+- "Hey there! Thanks for calling. What can I help you with?"
+- "Hi! How's it going? What can I do for you today?"
+- "Hello! Thanks for reaching out. What's up?"
+
+Keep it SHORT - just 1-2 sentences. Be warm and friendly.
+Then WAIT for them to tell you what they need.
+
+If they greet you back or make small talk, engage briefly and naturally before asking how you can help.`;
 
       const event = {
         type: 'response.create',
         response: {
-          instructions: welcomeInstruction,
+          instructions: greetingInstruction,
         },
       };
       this.ws.send(JSON.stringify(event));
