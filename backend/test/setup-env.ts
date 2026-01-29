@@ -1,0 +1,9 @@
+process.env.NODE_ENV = 'test';
+process.env.PORT = '3000';
+process.env.TWILIO_ACCOUNT_SID = 'ACtest';
+process.env.TWILIO_AUTH_TOKEN = 'authtoken';
+process.env.TWILIO_PHONE_NUMBER = '+1234567890';
+process.env.OPENAI_API_KEY = 'sk-test';
+process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
+process.env.RECORDING_STORAGE_PATH = '/tmp/recordings';
+process.env.TWILIO_WEBHOOK_SECRET = 'secret';
