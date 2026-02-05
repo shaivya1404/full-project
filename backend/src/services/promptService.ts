@@ -1,6 +1,7 @@
 import { KnowledgeService, KnowledgeContext } from './knowledgeService';
 import { CampaignRepository } from '../db/repositories/campaignRepository';
 import { logger } from '../utils/logger';
+import { EnhancedPromptContext } from './aiAgentCoordinator';
 
 export interface SystemPromptTemplate {
   id: string;
@@ -21,6 +22,7 @@ export interface DynamicPrompt {
   knowledgeContext: KnowledgeContext;
   confidenceThreshold: number;
   fallbackGuidance: string;
+  aiAgentContextInjected?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -346,6 +348,7 @@ People call about orders because they're either excited to get something or worr
     teamId: string,
     campaignId?: string,
     templateId?: string,
+    aiAgentContext?: EnhancedPromptContext,
   ): Promise<DynamicPrompt> {
     try {
       const knowledgeContext = await this.knowledgeService.getKnowledgeContext(callId, teamId);
@@ -376,8 +379,8 @@ People call about orders because they're either excited to get something or worr
 
       confidenceThreshold = template.confidenceThreshold;
 
-      // Build the complete human-like system prompt
-      const systemPrompt = this.buildHumanLikePrompt(template, knowledgeContext);
+      // Build the complete human-like system prompt with AI agent context
+      const systemPrompt = this.buildHumanLikePrompt(template, knowledgeContext, aiAgentContext);
 
       fallbackGuidance = this.generateFallbackGuidance(template);
 
@@ -386,6 +389,7 @@ People call about orders because they're either excited to get something or worr
         knowledgeContext,
         confidenceThreshold,
         fallbackGuidance,
+        aiAgentContextInjected: !!aiAgentContext,
       };
     } catch (error) {
       logger.error('Error generating dynamic prompt', error);
@@ -477,7 +481,11 @@ People call about orders because they're either excited to get something or worr
     return this.defaultTemplates[0];
   }
 
-  private buildHumanLikePrompt(template: SystemPromptTemplate, context: KnowledgeContext): string {
+  private buildHumanLikePrompt(
+    template: SystemPromptTemplate,
+    context: KnowledgeContext,
+    aiAgentContext?: EnhancedPromptContext
+  ): string {
     // Start with the human personality core
     let prompt = HUMAN_PERSONALITY_CORE;
 
@@ -488,6 +496,78 @@ People call about orders because they're either excited to get something or worr
 
 ${template.basePrompt}
 `;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AI AGENT CONTEXT INJECTION
+    // Customer memory, emotion handling, loop avoidance, progress tracking
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (aiAgentContext) {
+      prompt += `\n\n═══════════════════════════════════════════════════════════════════════════
+🧠 CUSTOMER INTELLIGENCE (USE THIS - IT'S IMPORTANT!)
+═══════════════════════════════════════════════════════════════════════════
+
+`;
+
+      // Customer context/memory
+      if (aiAgentContext.customerContext && aiAgentContext.customerContext !== 'New customer - no prior history.') {
+        prompt += `👤 ABOUT THIS CUSTOMER:
+${aiAgentContext.customerContext}
+
+`;
+      }
+
+      // Already collected info (ZERO REPETITION)
+      if (aiAgentContext.collectedInfo) {
+        prompt += `✅ INFO ALREADY COLLECTED (DO NOT ASK AGAIN!):
+${aiAgentContext.collectedInfo}
+
+⚠️ CRITICAL: If you need any of the above info, just use it - don't ask for it again!
+
+`;
+      }
+
+      // Emotion guidance
+      if (aiAgentContext.emotionGuidance) {
+        prompt += `💭 EMOTIONAL STATE:
+${aiAgentContext.emotionGuidance}
+
+`;
+      }
+
+      // Loop warning
+      if (aiAgentContext.loopGuidance) {
+        prompt += `🔄 CONVERSATION WARNING:
+${aiAgentContext.loopGuidance}
+
+⚠️ Change your approach! Try a different angle or ask the question differently.
+
+`;
+      }
+
+      // Progress tracking
+      if (aiAgentContext.progressInfo) {
+        prompt += `📊 CONVERSATION PROGRESS:
+${aiAgentContext.progressInfo}
+
+`;
+      }
+
+      // Apology status
+      if (aiAgentContext.apologyStatus) {
+        prompt += `🙏 APOLOGY NOTE:
+${aiAgentContext.apologyStatus}
+
+`;
+      }
+
+      // Special instructions
+      if (aiAgentContext.specialInstructions && aiAgentContext.specialInstructions.length > 0) {
+        prompt += `⭐ SPECIAL INSTRUCTIONS:
+${aiAgentContext.specialInstructions.map(i => `• ${i}`).join('\n')}
+
+`;
+      }
+    }
 
     // Add knowledge context if available
     if (template.knowledgeInjection && this.hasRelevantKnowledge(context)) {

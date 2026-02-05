@@ -6,6 +6,8 @@ import { TwilioStreamService } from './twilioStream';
 import { KnowledgeService, KnowledgeContext, ConfidenceScore } from './knowledgeService';
 import { PromptService, DynamicPrompt } from './promptService';
 import { QueueService } from './queueService';
+import { aiAgentCoordinator, AIAgentContext, ProcessedInput } from './aiAgentCoordinator';
+import { notifyNewCall, notifyCallStatusChange, notifySentimentAlert, notifyCallTransfer } from './websocketService';
 
 export interface RealtimeMessage {
   type: string;
@@ -16,11 +18,14 @@ export interface ConversationContext {
   callId: string;
   teamId: string;
   campaignId?: string;
+  customerId?: string; // Track customer for memory features
   knowledgeContext: KnowledgeContext;
   confidenceThreshold: number;
   knowledgeSources: Set<string>;
   detectedLanguage?: string; // Track detected language
   lastUserInput?: string; // Track last user input
+  aiAgentContext?: AIAgentContext; // AI Agent enhanced context
+  lastProcessedInput?: ProcessedInput; // Last processed user input with emotion/loop analysis
 }
 
 export class OpenAIRealtimeService {
@@ -146,6 +151,74 @@ export class OpenAIRealtimeService {
             if (previousLang && previousLang !== detectedLang && detectedLang !== 'auto') {
               logger.info(`Language switch detected: ${previousLang} -> ${detectedLang}`);
               await this.reinforceLanguageContext(this.twilioService.streamSid, detectedLang);
+            }
+
+            // ═══════════════════════════════════════════════════════════════════════════
+            // AI AGENT: Process user input for emotion, loops, facts, confusion
+            // (Phase 1 + Phase 2 features)
+            // ═══════════════════════════════════════════════════════════════════════════
+            try {
+              const processedInput = await aiAgentCoordinator.processUserInputEnhanced(
+                this.twilioService.streamSid,
+                transcript,
+                context.teamId,
+                context.customerId,
+                context.aiAgentContext
+              );
+
+              // Store processed input for later use
+              context.lastProcessedInput = processedInput;
+
+              // Log emotion detection
+              logger.info(`Emotion detected: ${processedInput.emotion.emotion} (score: ${processedInput.emotion.score})`);
+
+              // Send sentiment alert for negative emotions
+              if (processedInput.emotion.score < 0.3 ||
+                  ['anger', 'frustration', 'distress'].includes(processedInput.emotion.emotion)) {
+                notifySentimentAlert(
+                  context.teamId,
+                  context.callId,
+                  processedInput.emotion.emotion,
+                  processedInput.emotion.score
+                );
+              }
+
+              // Check for loop detection
+              if (processedInput.loopStatus.loopDetected) {
+                logger.warn(`Loop detected: ${processedInput.loopStatus.details}`);
+              }
+
+              // Phase 2: Check for confusion
+              if (processedInput.confusion?.detected) {
+                logger.info(`Customer confusion detected: ${processedInput.confusion.type}`);
+                if (context.aiAgentContext) {
+                  context.aiAgentContext.confusionDetected = true;
+                }
+              }
+
+              // Phase 2: Check if we can educate the customer
+              if (processedInput.educationTopic) {
+                logger.info(`Education topic found: ${processedInput.educationTopic.topicKey}`);
+              }
+
+              // Check if escalation needed
+              if (processedInput.shouldEscalate) {
+                logger.warn(`Escalation triggered: ${processedInput.escalationReason}`);
+                await this.handleEscalation(
+                  this.twilioService.streamSid,
+                  context,
+                  processedInput.escalationReason || 'Customer needs human assistance'
+                );
+              }
+
+              // Update AI Agent context
+              if (context.aiAgentContext) {
+                context.aiAgentContext.currentEmotion = processedInput.emotion.emotion;
+                context.aiAgentContext.emotionScore = processedInput.emotion.score;
+                context.aiAgentContext.loopStatus = processedInput.loopStatus;
+              }
+            } catch (agentError) {
+              logger.error('Error processing user input with AI Agent', agentError);
             }
           }
 
@@ -312,6 +385,49 @@ Continue the conversation naturally in ${languageName}.`;
     // This could be used to monitor AI responses in real-time
   }
 
+  /**
+   * Handle escalation when AI Agent determines human assistance needed
+   */
+  private async handleEscalation(
+    streamSid: string,
+    context: ConversationContext,
+    reason: string
+  ): Promise<void> {
+    try {
+      logger.info(`Handling escalation for call ${context.callId}: ${reason}`);
+
+      // Request transfer to human agent
+      const transferResult = await this.queueService.requestTransfer(context.callId, {
+        reason,
+        priority: 1, // High priority for escalations
+        teamId: context.teamId,
+        context: {
+          emotion: context.lastProcessedInput?.emotion,
+          loopStatus: context.lastProcessedInput?.loopStatus,
+          lastUserInput: context.lastUserInput,
+        },
+      });
+
+      // Notify dashboard about transfer request
+      notifyCallTransfer(
+        context.teamId,
+        context.callId,
+        null, // from AI
+        transferResult.status === 'assigned' ? (transferResult.agent as any)?.id : 'queued',
+        reason
+      );
+
+      // Update AI to acknowledge transfer
+      await this.updateSystemPrompt(
+        streamSid,
+        'The customer needs additional assistance. Please acknowledge that you are connecting them with a specialist who can better help, and ask them to stay on the line for a moment.'
+      );
+
+    } catch (error) {
+      logger.error('Error handling escalation', error);
+    }
+  }
+
   private async handleResponseCompletion(event: any) {
     const response = event.response || {};
 
@@ -351,6 +467,36 @@ Continue the conversation naturally in ${languageName}.`;
           'AI',
           aiTranscript,
         );
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // AI AGENT: Preprocess AI response for emotion adaptation, apologies, etc.
+        // ═══════════════════════════════════════════════════════════════════════════
+        const context = this.conversationContexts.get(this.twilioService.streamSid);
+        if (context) {
+          try {
+            const processedResponse = await aiAgentCoordinator.preprocessAIResponse(
+              this.twilioService.streamSid,
+              aiTranscript,
+              context.teamId,
+              context.callId
+            );
+
+            // Log any adaptations made
+            if (processedResponse.emotionAdaptation?.empathyPrefix || processedResponse.emotionAdaptation?.toneGuidance) {
+              logger.info(`Response adapted for emotion with empathy: ${processedResponse.emotionAdaptation.empathyPrefix || 'N/A'}`);
+            }
+
+            if (processedResponse.apologyIncluded) {
+              logger.info(`Apology included for situation: ${processedResponse.apologyIncluded.isSpecific ? 'specific' : 'generic'}`);
+            }
+
+            if (processedResponse.promisesMade.length > 0) {
+              logger.info(`Promises made: ${processedResponse.promisesMade.join(', ')}`);
+            }
+          } catch (agentError) {
+            logger.error('Error preprocessing AI response with AI Agent', agentError);
+          }
+        }
       }
     } else {
       // Log the full response for debugging when extraction fails
@@ -410,7 +556,7 @@ Continue the conversation naturally in ${languageName}.`;
         }
 
         // Check if we should trigger a transfer to a human agent
-        if (this.shouldTriggerTransfer(responseText, confidence)) {
+        if (this.shouldTriggerTransfer(responseText, confidence, streamSid)) {
           logger.info(`Triggering automated transfer request for call ${context.callId}`);
           await this.queueService.requestTransfer(context.callId, {
             reason: confidence.fallback ? 'AI Uncertainty' : 'Customer Request',
@@ -436,8 +582,13 @@ Continue the conversation naturally in ${languageName}.`;
 
   /**
    * Determine if the conversation should be transferred to a human agent
+   * Enhanced with AI Agent loop detection and emotion analysis
    */
-  private shouldTriggerTransfer(text: string, confidence: ConfidenceScore): boolean {
+  private shouldTriggerTransfer(
+    text: string,
+    confidence: ConfidenceScore,
+    streamSid?: string
+  ): boolean {
     const textLower = text.toLowerCase();
 
     // Explicit requests for a human
@@ -460,7 +611,7 @@ Continue the conversation naturally in ${languageName}.`;
       return true;
     }
 
-    // Negative sentiment/Frustration
+    // Negative sentiment/Frustration (basic keyword check)
     const frustrationKeywords = [
       'angry',
       'upset',
@@ -472,6 +623,46 @@ Continue the conversation naturally in ${languageName}.`;
     ];
     if (frustrationKeywords.some((keyword) => textLower.includes(keyword))) {
       return true;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AI AGENT ENHANCED TRANSFER TRIGGERS
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (streamSid) {
+      const context = this.conversationContexts.get(streamSid);
+      if (context?.lastProcessedInput) {
+        const { loopStatus, emotion } = context.lastProcessedInput;
+
+        // Severe loop detected - conversation is stuck
+        if (loopStatus.loopDetected && loopStatus.severity === 'severe') {
+          logger.warn('Transfer triggered: Severe conversation loop detected');
+          return true;
+        }
+
+        // Customer is extremely frustrated or angry
+        if (emotion.score <= 0.2 && ['anger', 'frustration'].includes(emotion.emotion)) {
+          logger.warn(`Transfer triggered: Customer is highly ${emotion.emotion} (score: ${emotion.score})`);
+          return true;
+        }
+
+        // Multiple moderate issues combined
+        if (
+          loopStatus.loopDetected &&
+          loopStatus.severity === 'moderate' &&
+          emotion.score <= 0.4
+        ) {
+          logger.warn('Transfer triggered: Loop + low emotion score combination');
+          return true;
+        }
+      }
+
+      // Check if AI Agent context indicates escalation needed
+      if (context?.aiAgentContext) {
+        if (context.aiAgentContext.emotionScore <= 0.2) {
+          logger.warn('Transfer triggered: AI Agent context shows very low emotion score');
+          return true;
+        }
+      }
     }
 
     return false;
@@ -547,9 +738,43 @@ Continue the conversation naturally in ${languageName}.`;
     teamId: string,
     campaignId?: string,
     templateId?: string,
+    customerId?: string,
   ): Promise<void> {
     try {
       logger.info(`Initializing multilingual knowledge-enhanced conversation for call ${callId}`);
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // AI AGENT INITIALIZATION (Phase 1 + Phase 2)
+      // Initialize AI Agent coordinator for memory, emotion, loop detection,
+      // proactive problems, risk profile, and smart suggestions
+      // ═══════════════════════════════════════════════════════════════════════════
+      let aiAgentContext: AIAgentContext | undefined;
+      try {
+        // Use enhanced initialization with Phase 2 features
+        aiAgentContext = await aiAgentCoordinator.onCallStartEnhanced(
+          streamSid,
+          callId,
+          customerId,
+          teamId
+        );
+        logger.info(`AI Agent initialized. Returning customer: ${aiAgentContext.isReturningCustomer}`);
+
+        // Log proactive problems if detected
+        if (aiAgentContext.proactiveProblems && aiAgentContext.proactiveProblems.length > 0) {
+          logger.info(`Proactive problems detected: ${aiAgentContext.proactiveProblems.length}`);
+          const proactiveMessage = aiAgentCoordinator.generateProactiveMessage(aiAgentContext.proactiveProblems);
+          if (proactiveMessage) {
+            logger.info(`Proactive message ready: ${proactiveMessage}`);
+          }
+        }
+
+        // Log risk level
+        if (aiAgentContext.riskProfile?.riskLevel === 'high') {
+          logger.warn(`High-risk customer: ${aiAgentContext.riskProfile.recommendedApproach}`);
+        }
+      } catch (agentError) {
+        logger.error('Error initializing AI Agent (continuing without)', agentError);
+      }
 
       // Generate dynamic prompt with knowledge context
       const dynamicPrompt = await this.promptService.generateDynamicPrompt(
@@ -564,16 +789,40 @@ Continue the conversation naturally in ${languageName}.`;
         callId,
         teamId,
         campaignId,
+        customerId,
         knowledgeContext: dynamicPrompt.knowledgeContext,
         confidenceThreshold: dynamicPrompt.confidenceThreshold,
         knowledgeSources: new Set(),
         detectedLanguage: 'auto', // Initialize as auto-detect
         lastUserInput: undefined,
+        aiAgentContext,
+      });
+
+      // Notify dashboard about new call
+      notifyNewCall(teamId, {
+        callId,
+        streamSid,
+        customerId,
+        campaignId,
+        isReturningCustomer: aiAgentContext?.isReturningCustomer || false,
+        proactiveProblemsCount: aiAgentContext?.proactiveProblems?.length || 0,
+        riskLevel: aiAgentContext?.riskProfile?.riskLevel || 'low',
       });
 
       // Update session with Twilio-specific configuration and knowledge
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        await this.updateSession(streamSid, dynamicPrompt.systemPrompt);
+        // Enhance system prompt with AI Agent context if available
+        let enhancedPrompt = dynamicPrompt.systemPrompt;
+        if (aiAgentContext) {
+          const agentPromptContext = await aiAgentCoordinator.buildEnhancedPromptContext(
+            streamSid,
+            customerId,
+            teamId
+          );
+          enhancedPrompt = this.injectAgentContext(dynamicPrompt.systemPrompt, agentPromptContext);
+        }
+
+        await this.updateSession(streamSid, enhancedPrompt);
 
         // Trigger initial greeting
         await this.triggerGreeting(streamSid);
@@ -589,6 +838,40 @@ Continue the conversation naturally in ${languageName}.`;
     }
   }
 
+  /**
+   * Inject AI Agent context into system prompt
+   */
+  private injectAgentContext(basePrompt: string, agentContext: any): string {
+    const contextInjection = `
+
+═══════════════════════════════════════════════════════════════════════════
+AI AGENT CONTEXT (USE THIS INFORMATION)
+═══════════════════════════════════════════════════════════════════════════
+
+CUSTOMER CONTEXT:
+${agentContext.customerContext}
+
+${agentContext.collectedInfo ? `ALREADY COLLECTED (DO NOT ASK AGAIN):\n${agentContext.collectedInfo}` : ''}
+
+EMOTION GUIDANCE:
+${agentContext.emotionGuidance}
+
+${agentContext.loopGuidance ? `LOOP WARNING:\n${agentContext.loopGuidance}` : ''}
+
+PROGRESS:
+${agentContext.progressInfo}
+
+APOLOGY STATUS:
+${agentContext.apologyStatus}
+
+${agentContext.specialInstructions.length > 0 ? `SPECIAL INSTRUCTIONS:\n${agentContext.specialInstructions.map((i: string) => `- ${i}`).join('\n')}` : ''}
+
+═══════════════════════════════════════════════════════════════════════════
+`;
+
+    return basePrompt + contextInjection;
+  }
+
   private async handlePostConnect() {
     for (const [streamSid, context] of this.conversationContexts) {
       try {
@@ -601,7 +884,20 @@ Continue the conversation naturally in ${languageName}.`;
           context.campaignId,
         );
 
-        await this.updateSession(streamSid, dynamicPrompt.systemPrompt);
+        // ═══════════════════════════════════════════════════════════════════════════
+        // AI AGENT: Enhance prompt with agent context on reconnect
+        // ═══════════════════════════════════════════════════════════════════════════
+        let enhancedPrompt = dynamicPrompt.systemPrompt;
+        if (context.aiAgentContext) {
+          const agentPromptContext = await aiAgentCoordinator.buildEnhancedPromptContext(
+            streamSid,
+            context.customerId,
+            context.teamId
+          );
+          enhancedPrompt = this.injectAgentContext(dynamicPrompt.systemPrompt, agentPromptContext);
+        }
+
+        await this.updateSession(streamSid, enhancedPrompt);
         await this.triggerGreeting(streamSid);
       } catch (error) {
         logger.error(`Error in post-connect initialization for stream ${streamSid}`, error);
@@ -858,7 +1154,30 @@ If they greet you back or make small talk, engage briefly and naturally before a
     }
   }
 
-  public disconnect() {
+  public async disconnect() {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AI AGENT CLEANUP
+    // Clean up AI Agent state and sync to database
+    // ═══════════════════════════════════════════════════════════════════════════
+    for (const [streamSid, context] of this.conversationContexts) {
+      try {
+        await aiAgentCoordinator.onCallEnd(streamSid, context.callId);
+        logger.info(`AI Agent cleanup completed for call ${context.callId}`);
+
+        // Notify dashboard about call ended
+        notifyCallStatusChange(context.teamId, context.callId, 'ended', {
+          streamSid,
+          emotion: context.aiAgentContext?.currentEmotion,
+          emotionScore: context.aiAgentContext?.emotionScore,
+        });
+      } catch (error) {
+        logger.error(`Error cleaning up AI Agent for ${streamSid}`, error);
+      }
+    }
+
+    // Clear conversation contexts
+    this.conversationContexts.clear();
+
     if (this.ws) {
       this.isClosing = true;
       this.ws.close();

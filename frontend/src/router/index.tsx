@@ -23,6 +23,10 @@ import {
   PaymentsPage,
   PaymentDetailPage,
   InvoicesPage,
+  LeadsPage,
+  CallbacksPage,
+  InventoryPage,
+  StoreSettingsPage,
 } from '../pages';
 import { ProtectedRoute } from '../components';
 
@@ -220,6 +224,42 @@ export const AppRouter = () => {
           element={
             <ProtectedRoute>
               <UserProfilePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/leads"
+          element={
+            <ProtectedRoute>
+              <LeadsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/callbacks"
+          element={
+            <ProtectedRoute>
+              <CallbacksPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/inventory"
+          element={
+            <ProtectedRoute>
+              <InventoryPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/store-settings"
+          element={
+            <ProtectedRoute>
+              <StoreSettingsPage />
             </ProtectedRoute>
           }
         />

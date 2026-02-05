@@ -10,7 +10,12 @@
       "Bash(npx prisma@5.22.0 validate:*)",
       "Bash(npx tsc:*)",
       "Bash(./node_modules/.bin/tsc:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npm run build:*)",
+      "Bash(find:*)",
+      "Bash(npx vite build)"
     ]
   }
 }

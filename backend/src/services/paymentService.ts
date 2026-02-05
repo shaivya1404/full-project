@@ -95,9 +95,13 @@ export class PaymentService {
   constructor() {
     this.paymentRepository = new PaymentRepository();
 
-    // Initialize Razorpay
-    const keyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder';
-    const keySecret = process.env.RAZORPAY_KEY_SECRET || 'secret_placeholder';
+    // Initialize Razorpay - requires valid credentials in .env
+    const keyId = process.env.RAZORPAY_KEY_ID || '';
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || '';
+
+    if (!keyId || !keySecret) {
+      logger.warn('Razorpay credentials not configured. Payment processing will not work.');
+    }
 
     this.razorpay = new Razorpay({
       key_id: keyId,

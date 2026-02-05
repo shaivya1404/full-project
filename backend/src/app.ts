@@ -38,6 +38,30 @@ import notificationsRoutes from './routes/notifications';
 import searchRoutes from './routes/search';
 import bulkRoutes from './routes/bulk';
 import webhooksRoutes from './routes/webhooks';
+import leadsRoutes from './routes/leads';
+import objectionsRoutes from './routes/objections';
+import complianceRoutes from './routes/compliance';
+import callbacksRoutes from './routes/callbacks';
+import inventoryRoutes from './routes/inventory';
+import storeRoutes from './routes/store';
+// AI Agent feature routes (Phase 1 - Foundation)
+import memoryRoutes from './routes/memory';
+import conversationStateRoutes from './routes/conversationState';
+import transferContextRoutes from './routes/transferContext';
+import emotionsRoutes from './routes/emotions';
+import apologiesRoutes from './routes/apologies';
+// AI Agent feature routes (Phase 2 - Problem Solving)
+import problemSolvingRoutes from './routes/problemSolving';
+// Real-time notifications
+import websocketRoutes from './routes/websocket';
+// Campaign follow-up sequences
+import followUpSequencesRoutes from './routes/followUpSequences';
+// Loyalty & rewards
+import loyaltyRoutes from './routes/loyalty';
+// SMS notifications
+import smsRoutes from './routes/sms';
+// Complaint management
+import complaintsRoutes from './routes/complaints';
 import { KnowledgeBaseRepository } from './db/repositories/knowledgeBaseRepository';
 import { ProductRepository } from './db/repositories/productRepository';
 import { logger } from './utils/logger';
@@ -128,6 +152,39 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/bulk', bulkRoutes);
 app.use('/api/webhooks', webhooksRoutes);
+
+// New use case feature routes
+app.use('/api/leads', authMiddleware, leadsRoutes);
+app.use('/api/objections', authMiddleware, objectionsRoutes);
+app.use('/api/compliance', authMiddleware, complianceRoutes);
+app.use('/api/callbacks', authMiddleware, callbacksRoutes);
+app.use('/api/inventory', authMiddleware, inventoryRoutes);
+app.use('/api/store', authMiddleware, storeRoutes);
+
+// AI Agent feature routes (Phase 1 - Foundation)
+app.use('/api/memory', authMiddleware, memoryRoutes);
+app.use('/api/conversation', authMiddleware, conversationStateRoutes);
+app.use('/api/transfer', authMiddleware, transferContextRoutes);
+app.use('/api/emotions', authMiddleware, emotionsRoutes);
+app.use('/api/apologies', authMiddleware, apologiesRoutes);
+
+// AI Agent feature routes (Phase 2 - Problem Solving)
+app.use('/api/problem-solving', authMiddleware, problemSolvingRoutes);
+
+// Real-time WebSocket notifications
+app.use('/api/websocket', websocketRoutes);
+
+// Campaign follow-up sequences
+app.use('/api/follow-up', authMiddleware, followUpSequencesRoutes);
+
+// Loyalty & rewards
+app.use('/api/loyalty', loyaltyRoutes);
+
+// SMS notifications
+app.use('/api/sms', smsRoutes);
+
+// Complaint management
+app.use('/api/complaints', complaintsRoutes);
 
 // External API endpoint for knowledge search (for WhatsApp, email, chat flows)
 app.get('/api/knowledge/search', async (req: Request, res: Response) => {

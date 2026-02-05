@@ -68,6 +68,18 @@ export class ContactService {
       metadata: null,
       createdAt: new Date(),
       updatedAt: new Date(),
+      // Lead scoring defaults
+      leadScore: 0,
+      leadTier: 'unknown',
+      leadSource: null,
+      interestLevel: 0,
+      buyingSignals: null,
+      lastScoredAt: null,
+      totalCalls: 0,
+      successfulCalls: 0,
+      lastContactedAt: null,
+      preferredCallTime: null,
+      timezone: null,
     };
   }
 
@@ -129,6 +141,17 @@ export class ContactService {
           metadata: null,
           createdAt: new Date(),
           updatedAt: new Date(),
+          leadScore: 0,
+          leadTier: 'unknown',
+          leadSource: null,
+          interestLevel: 0,
+          buyingSignals: null,
+          lastScoredAt: null,
+          totalCalls: 0,
+          successfulCalls: 0,
+          lastContactedAt: null,
+          preferredCallTime: null,
+          timezone: null,
         };
       }
 
@@ -146,6 +169,17 @@ export class ContactService {
         metadata: null,
         createdAt: new Date(),
         updatedAt: new Date(),
+        leadScore: 0,
+        leadTier: 'unknown',
+        leadSource: null,
+        interestLevel: 0,
+        buyingSignals: null,
+        lastScoredAt: null,
+        totalCalls: 0,
+        successfulCalls: 0,
+        lastContactedAt: null,
+        preferredCallTime: null,
+        timezone: null,
       };
     });
   }

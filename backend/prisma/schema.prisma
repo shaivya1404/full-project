@@ -31,6 +31,9 @@ model Call {
   transcripts          Transcript[]
   transferLogs         TransferLog[]
   orders               Order[]
+  conversationState    ConversationState?
+  factVerifications    FactVerification[]
+  complaints           Complaint[]
 }
 
 model Recording {
@@ -98,23 +101,25 @@ model CallMetadata {
 }
 
 model Campaign {
-  id            String             @id @default(uuid())
-  name          String
-  description   String?
-  status        String             @default("draft")
-  script        String
-  startDate     DateTime?
-  endDate       DateTime?
-  dailyLimit    Int                @default(100)
-  retryAttempts Int                @default(3)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  teamId        String?
-  callLogs      CallLog[]
-  team          Team?              @relation(fields: [teamId], references: [id])
-  analytics     CampaignAnalytics?
-  contacts      Contact[]
-  orders        Order[]
+  id                String             @id @default(uuid())
+  name              String
+  description       String?
+  status            String             @default("draft")
+  script            String
+  startDate         DateTime?
+  endDate           DateTime?
+  dailyLimit        Int                @default(100)
+  retryAttempts     Int                @default(3)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  teamId            String?
+  callLogs          CallLog[]
+  team              Team?              @relation(fields: [teamId], references: [id])
+  analytics         CampaignAnalytics?
+  contacts          Contact[]
+  orders            Order[]
+  callbacks         CallbackSchedule[]
+  followUpSequences FollowUpSequence[]
 }
 
 model Contact {
@@ -129,8 +134,27 @@ model Contact {
   metadata        String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  callLogs        CallLog[]
-  campaign        Campaign? @relation(fields: [campaignId], references: [id])
+
+  // Lead Scoring Fields
+  leadScore         Int       @default(0)
+  leadTier          String    @default("unknown") // hot, warm, cold, unknown
+  leadSource        String?
+  interestLevel     Int       @default(0) // 0-100
+  buyingSignals     String?   // JSON array of detected signals
+  lastScoredAt      DateTime?
+
+  // Behavioral tracking
+  totalCalls        Int       @default(0)
+  successfulCalls   Int       @default(0)
+  lastContactedAt   DateTime?
+  preferredCallTime String?
+  timezone          String?
+
+  callLogs          CallLog[]
+  campaign          Campaign?         @relation(fields: [campaignId], references: [id])
+  consents          ContactConsent[]
+  callbacks         CallbackSchedule[]
+  followUpExecutions FollowUpExecution[]
 }
 
 model CallLog {
@@ -143,8 +167,16 @@ model CallLog {
   transcript   String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  contact      Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  // Objection Tracking
+  sentimentScore   Float?
+  escalationReason String?
+  wasEscalated     Boolean  @default(false)
+
+  contact            Contact         @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  campaign           Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  objections         CallObjection[]
+  followUpExecutions FollowUpExecution[]
 }
 
 model UnansweredQuestion {
@@ -198,6 +230,26 @@ model Team {
   orders           Order[]
   payments         Payment[]
   paymentAnalytics PaymentAnalytics?
+
+  // New relations for use case features
+  objectionTemplates ObjectionTemplate[]
+  callbacks          CallbackSchedule[]
+  storeInfo          StoreInfo?
+
+  // AI Agent feature relations
+  emotionTemplates   EmotionTemplate[]
+  apologyTemplates   ApologyTemplate[]
+
+  // Follow-up & Loyalty relations
+  followUpSequences  FollowUpSequence[]
+  loyaltyProgram     LoyaltyProgram?
+  customerLoyalties  CustomerLoyalty[]
+
+  // SMS & Complaint relations
+  smsTemplates       SmsTemplate[]
+  smsLogs            SmsLog[]
+  complaints         Complaint[]
+  complaintCategories ComplaintCategory[]
 }
 
 model TeamMember {
@@ -319,12 +371,23 @@ model Product {
   faqs        String?
   createdAt   DateTime              @default(now())
   updatedAt   DateTime              @updatedAt
-  sources     KnowledgeBaseSource[]
-  team        Team                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  productFaqs ProductFAQ[]
+
+  // Inventory Fields
+  sku             String?
+  stockQuantity   Int       @default(0)
+  minStockLevel   Int       @default(0)
+  maxStockLevel   Int?
+  reorderLevel    Int       @default(10)
+  isAvailable     Boolean   @default(true)
+
+  sources            KnowledgeBaseSource[]
+  team               Team                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  productFaqs        ProductFAQ[]
+  inventoryMovements InventoryMovement[]
 
   @@index([teamId])
   @@index([category])
+  @@index([sku])
 }
 
 model ProductFAQ {
@@ -421,14 +484,15 @@ model CallQueue {
 }
 
 model TransferLog {
-  id        String   @id @default(uuid())
-  callId    String
-  fromBot   Boolean  @default(true)
-  toAgentId String?
-  timestamp DateTime @default(now())
-  context   String?
-  createdAt DateTime @default(now())
-  call      Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  id              String           @id @default(uuid())
+  callId          String
+  fromBot         Boolean          @default(true)
+  toAgentId       String?
+  timestamp       DateTime         @default(now())
+  context         String?
+  createdAt       DateTime         @default(now())
+  call            Call             @relation(fields: [callId], references: [id], onDelete: Cascade)
+  transferContext TransferContext?
 
   @@index([callId])
 }
@@ -447,6 +511,10 @@ model Customer {
   orders         Order[]
   payments       Payment[]
   preferences    CustomerPreference?
+  memories       CustomerMemory[]
+  loyalty        CustomerLoyalty?
+  smsLogs        SmsLog[]
+  complaints     Complaint[]
 
   @@index([teamId])
   @@index([phone])
@@ -492,6 +560,10 @@ model Order {
   paymentLinks        PaymentLink[]
   invoices            Invoice[]
   analytics           OrderAnalytics?
+  loyaltyTransactions LoyaltyTransaction[]
+  rewardRedemptions   RewardRedemption[]
+  smsLogs             SmsLog[]
+  complaints          Complaint[]
 
   @@index([teamId])
   @@index([customerId])
@@ -832,4 +904,819 @@ model WebhookLog {
   @@index([webhookId])
   @@index([event])
   @@index([createdAt])
+}
+
+// ==================== LEAD SCORING & OBJECTION HANDLING ====================
+
+model CallObjection {
+  id            String    @id @default(uuid())
+  callLogId     String
+  objectionType String    // price, timing, competitor, not_interested, need_time, etc.
+  objectionText String?
+  responseUsed  String?
+  wasResolved   Boolean   @default(false)
+  resolvedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  callLog       CallLog   @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+
+  @@index([callLogId])
+  @@index([objectionType])
+}
+
+model ObjectionTemplate {
+  id                String   @id @default(uuid())
+  teamId            String
+  objectionType     String
+  keywords          String   // JSON array of trigger keywords
+  suggestedResponse String
+  successRate       Float    @default(0)
+  usageCount        Int      @default(0)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  team              Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([objectionType])
+}
+
+// ==================== DND REGISTRY & COMPLIANCE ====================
+
+model DNDRegistry {
+  id           String    @id @default(uuid())
+  phoneNumber  String    @unique
+  registeredAt DateTime
+  source       String    // national, internal, customer_request
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([phoneNumber])
+  @@index([source])
+}
+
+model ContactConsent {
+  id            String    @id @default(uuid())
+  contactId     String
+  consentType   String    // call, sms, email, whatsapp
+  consentGiven  Boolean
+  consentDate   DateTime
+  consentMethod String    // verbal, written, web_form
+  expiresAt     DateTime?
+  recordingUrl  String?   // For verbal consent proof
+  createdAt     DateTime  @default(now())
+
+  contact       Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@index([consentType])
+}
+
+model ComplianceLog {
+  id          String   @id @default(uuid())
+  teamId      String?
+  callId      String?
+  phoneNumber String
+  checkType   String   // dnd_check, quiet_hours, consent_verify
+  checkResult String   // passed, failed, warning
+  details     String?
+  createdAt   DateTime @default(now())
+
+  @@index([teamId])
+  @@index([phoneNumber])
+  @@index([checkType])
+  @@index([createdAt])
+}
+
+// ==================== CALLBACK SCHEDULING ====================
+
+model CallbackSchedule {
+  id            String    @id @default(uuid())
+  teamId        String
+  contactId     String
+  campaignId    String?
+  scheduledTime DateTime
+  timezone      String    @default("Asia/Kolkata")
+  reason        String?   // customer_request, no_answer, follow_up
+  priority      Int       @default(0)
+  status        String    @default("pending") // pending, completed, cancelled, missed
+  attempts      Int       @default(0)
+  maxAttempts   Int       @default(3)
+  completedAt   DateTime?
+  resultCallId  String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  team          Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  contact       Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  campaign      Campaign? @relation(fields: [campaignId], references: [id])
+
+  @@index([teamId])
+  @@index([contactId])
+  @@index([campaignId])
+  @@index([scheduledTime])
+  @@index([status])
+}
+
+// ==================== INVENTORY MANAGEMENT ====================
+
+model InventoryMovement {
+  id            String   @id @default(uuid())
+  productId     String
+  movementType  String   // sale, restock, adjustment, return, waste
+  quantity      Int
+  previousStock Int
+  newStock      Int
+  reason        String?
+  orderId       String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([movementType])
+  @@index([createdAt])
+}
+
+// ==================== STORE & DELIVERY ZONES ====================
+
+model StoreInfo {
+  id              String   @id @default(uuid())
+  teamId          String   @unique
+  storeName       String
+  address         String
+  phone           String?
+  operatingHours  String   // JSON: {"monday": {"open": "09:00", "close": "22:00"}, ...}
+  timezone        String   @default("Asia/Kolkata")
+  deliveryEnabled Boolean  @default(true)
+  minOrderAmount  Float    @default(0)
+  avgPrepTime     Int      @default(30) // minutes
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  team            Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  deliveryZones   DeliveryZone[]
+}
+
+model DeliveryZone {
+  id             String    @id @default(uuid())
+  storeId        String
+  zoneName       String
+  postalCodes    String    // JSON array of postal codes
+  deliveryFee    Float     @default(0)
+  minOrderAmount Float     @default(0)
+  estimatedTime  Int       // minutes
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  store          StoreInfo @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([isActive])
+}
+
+// ==================== AI AGENT FEATURES ====================
+
+// Persistent Customer Memory - Remember facts across conversations
+model CustomerMemory {
+  id            String    @id @default(uuid())
+  customerId    String
+  teamId        String
+  factType      String    // preference, issue, promise, personal_info, interaction_note
+  factKey       String    // e.g., "favorite_product", "complaint_topic"
+  factValue     String
+  confidence    Float     @default(1.0)
+  source        String    // call_id that provided this info
+  learnedAt     DateTime  @default(now())
+  expiresAt     DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  customer      Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, factType, factKey])
+  @@index([customerId])
+  @@index([teamId])
+  @@index([factType])
+}
+
+// In-Call Conversation State - Track state to prevent repetition
+model ConversationState {
+  id                  String   @id @default(uuid())
+  callId              String   @unique
+  streamSid           String   @unique
+  customerId          String?
+
+  // Collected information tracking (Zero Repetition)
+  collectedFields     String   @default("{}") // JSON: {"name": "John", "phone": "123"}
+  pendingConfirmations String? // JSON: fields awaiting confirmation
+
+  // Loop detection
+  questionHistory     String   @default("[]") // JSON: [{question, count, askedAt}]
+  responseHistory     String   @default("[]") // JSON: [{response, count}]
+  loopDetected        Boolean  @default(false)
+  loopType            String?  // question_repeat, response_repeat, circular
+
+  // Emotion tracking
+  currentEmotion      String   @default("neutral") // anger, sadness, confusion, frustration, neutral, happy
+  emotionScore        Float    @default(0.5) // 0 = very negative, 1 = very positive
+  emotionHistory      String?  // JSON: [{emotion, timestamp, trigger}]
+
+  // Progress tracking
+  conversationStage   String   @default("greeting")
+  progressPercentage  Int      @default(0)
+  stepsCompleted      String?  // JSON array
+  stepsRemaining      String?  // JSON array
+
+  // Apology tracking
+  apologyGiven        Boolean  @default(false)
+  apologyReason       String?
+  promisesMade        String?  // JSON: [{promise, madeAt, fulfilled}]
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  call                Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+}
+
+// Transfer Context - Full context package for human agent handoff
+model TransferContext {
+  id                  String   @id @default(uuid())
+  callId              String
+  transferLogId       String   @unique
+
+  // Customer context
+  customerName        String?
+  customerPhone       String?
+  customerId          String?
+  isReturningCustomer Boolean  @default(false)
+  customerTier        String?  // vip, regular, new
+
+  // Conversation summary
+  conversationSummary String
+  topicsDiscussed     String   // JSON array
+  callDuration        Int?     // seconds
+
+  // Issue details
+  primaryIssue        String?
+  issueCategory       String?
+  issueSeverity       String   @default("medium") // low, medium, high, critical
+
+  // Sentiment & emotion
+  overallSentiment    String?  // positive, neutral, negative
+  sentimentScore      Float?
+  currentEmotion      String?
+  frustrationLevel    Int      @default(0) // 0-10
+
+  // Attempted solutions
+  attemptedSolutions  String?  // JSON array
+  whatWorked          String?  // JSON array
+  whatDidntWork       String?  // JSON array
+
+  // Agent recommendations
+  recommendations     String?  // JSON array of suggested next steps
+  warningsForAgent    String?  // JSON array of things to avoid
+
+  // Collected data
+  collectedInfo       String?  // JSON of all info collected during call
+  verifiedFacts       String?  // JSON of database-verified information
+
+  createdAt           DateTime @default(now())
+
+  transferLog         TransferLog @relation(fields: [transferLogId], references: [id], onDelete: Cascade)
+
+  @@index([callId])
+  @@index([transferLogId])
+}
+
+// Fact Verification - Track claim verification before AI responds
+model FactVerification {
+  id                      String   @id @default(uuid())
+  callId                  String
+  claimText               String   // What was claimed
+  claimType               String   // order_status, product_info, policy, price, availability
+
+  // Verification result
+  verifiedAgainst         String?  // What database entity was checked
+  verificationResult      String   // verified, unverified, contradicted, partial
+  confidence              Float    @default(0)
+
+  // Response handling
+  responseGenerated       String?  // How AI responded
+  uncertaintyAcknowledged Boolean  @default(false)
+
+  createdAt               DateTime @default(now())
+
+  call                    Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([callId])
+  @@index([claimType])
+}
+
+// Emotion Template - Response templates for different emotions
+model EmotionTemplate {
+  id                  String   @id @default(uuid())
+  teamId              String
+  emotion             String   // anger, sadness, confusion, frustration, fear, neutral
+  triggerPatterns     String   // JSON array of trigger keywords/phrases
+  responseTemplate    String   // How to respond
+  toneGuidance        String?  // Guidance on tone to use
+  escalationThreshold Int      @default(3) // Trigger count before escalate
+  isActive            Boolean  @default(true)
+  usageCount          Int      @default(0)
+  successRate         Float    @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  team                Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([emotion])
+}
+
+// Apology Template - Smart apology templates by situation
+model ApologyTemplate {
+  id                  String   @id @default(uuid())
+  teamId              String
+  situation           String   // late_delivery, wrong_order, poor_service, billing_error, repeat_issue, etc.
+  isSpecific          Boolean  @default(true) // true = specific, false = generic
+  template            String   // The apology text
+  followUpAction      String?  // Suggested action after apology
+  usageCount          Int      @default(0)
+  effectivenessScore  Float    @default(0)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  team                Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([situation])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CAMPAIGN FOLLOW-UP SEQUENCES
+// Automated follow-up after initial calls (SMS, Email, Callbacks)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Follow-up sequence definition
+model FollowUpSequence {
+  id              String           @id @default(uuid())
+  teamId          String
+  campaignId      String?
+  name            String
+  description     String?
+  triggerEvent    String           // call_completed, call_no_answer, call_voicemail, lead_interested, lead_not_interested
+  isActive        Boolean          @default(true)
+  priority        Int              @default(0)
+  maxExecutions   Int              @default(1)  // Max times sequence can run per contact
+  cooldownHours   Int              @default(24) // Hours before sequence can run again
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  team            Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  campaign        Campaign?        @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  steps           FollowUpStep[]
+  executions      FollowUpExecution[]
+
+  @@index([teamId])
+  @@index([campaignId])
+  @@index([triggerEvent])
+}
+
+// Individual step in a follow-up sequence
+model FollowUpStep {
+  id              String           @id @default(uuid())
+  sequenceId      String
+  stepOrder       Int              // Order of execution (1, 2, 3...)
+  actionType      String           // sms, email, callback, whatsapp, wait
+  delayMinutes    Int              @default(0) // Delay before this step executes
+  delayType       String           @default("after_previous") // after_previous, after_trigger, specific_time
+  specificTime    String?          // For specific_time type: "09:00", "14:30"
+
+  // Action content
+  templateContent String?          // SMS/Email template with {{variables}}
+  subject         String?          // Email subject
+  callbackPriority Int?            // For callback type
+
+  // Conditions
+  conditions      String?          // JSON: conditions to execute this step
+  skipIfContacted Boolean          @default(true) // Skip if contact replied
+
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  sequence        FollowUpSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  stepExecutions  FollowUpStepExecution[]
+
+  @@index([sequenceId])
+  @@index([stepOrder])
+}
+
+// Track execution of follow-up sequences for contacts
+model FollowUpExecution {
+  id              String           @id @default(uuid())
+  sequenceId      String
+  contactId       String
+  callLogId       String?          // The call that triggered this
+  status          String           @default("pending") // pending, in_progress, completed, cancelled, failed
+  currentStepOrder Int             @default(0)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  cancelReason    String?
+  metadata        String?          // JSON: additional data
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  sequence        FollowUpSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  contact         Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  callLog         CallLog?         @relation(fields: [callLogId], references: [id], onDelete: SetNull)
+  stepExecutions  FollowUpStepExecution[]
+
+  @@index([sequenceId])
+  @@index([contactId])
+  @@index([status])
+}
+
+// Track individual step execution
+model FollowUpStepExecution {
+  id              String           @id @default(uuid())
+  executionId     String
+  stepId          String
+  status          String           @default("pending") // pending, scheduled, sent, delivered, failed, skipped
+  scheduledFor    DateTime?
+  executedAt      DateTime?
+  result          String?          // JSON: delivery result, response, etc.
+  errorMessage    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  execution       FollowUpExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  step            FollowUpStep      @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@index([stepId])
+  @@index([status])
+  @@index([scheduledFor])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LOYALTY & REWARDS SYSTEM
+// Customer loyalty points, tiers, and rewards
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Loyalty program configuration per team
+model LoyaltyProgram {
+  id                  String           @id @default(uuid())
+  teamId              String           @unique
+  name                String           @default("Rewards Program")
+  description         String?
+  isActive            Boolean          @default(true)
+
+  // Points configuration
+  pointsPerRupee      Float            @default(1)    // Points earned per Rs spent
+  minimumOrderAmount  Float            @default(0)    // Minimum order to earn points
+  pointsExpireDays    Int?             // Days until points expire (null = never)
+
+  // Referral bonus
+  referralPoints      Int              @default(100)  // Points for referring new customer
+  refereePoints       Int              @default(50)   // Points for new customer who was referred
+
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  team                Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  tiers               LoyaltyTier[]
+  rewards             Reward[]
+}
+
+// Loyalty tier definitions
+model LoyaltyTier {
+  id                  String           @id @default(uuid())
+  programId           String
+  name                String           // Bronze, Silver, Gold, Platinum
+  minPoints           Int              // Minimum points to reach this tier
+  maxPoints           Int?             // Maximum points (null for top tier)
+  multiplier          Float            @default(1)    // Points multiplier for this tier
+  benefits            String?          // JSON: tier benefits
+  color               String?          // Hex color for UI
+  icon                String?          // Icon name
+  tierOrder           Int              @default(0)    // Order for display
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  program             LoyaltyProgram   @relation(fields: [programId], references: [id], onDelete: Cascade)
+  customerLoyalties   CustomerLoyalty[]
+
+  @@index([programId])
+  @@index([tierOrder])
+}
+
+// Customer loyalty status
+model CustomerLoyalty {
+  id                  String           @id @default(uuid())
+  customerId          String           @unique
+  teamId              String
+  tierId              String?
+
+  // Points
+  totalPointsEarned   Int              @default(0)
+  totalPointsRedeemed Int              @default(0)
+  currentPoints       Int              @default(0)
+  lifetimeValue       Float            @default(0)   // Total amount spent
+
+  // Stats
+  totalOrders         Int              @default(0)
+  lastOrderAt         DateTime?
+  memberSince         DateTime         @default(now())
+
+  // Referral
+  referralCode        String?          @unique
+  referredBy          String?          // Customer ID who referred
+  referralCount       Int              @default(0)
+
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  customer            Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  team                Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  tier                LoyaltyTier?     @relation(fields: [tierId], references: [id], onDelete: SetNull)
+  transactions        LoyaltyTransaction[]
+  redemptions         RewardRedemption[]
+
+  @@index([customerId])
+  @@index([teamId])
+  @@index([tierId])
+  @@index([referralCode])
+}
+
+// Points transactions (earn/redeem/expire/adjust)
+model LoyaltyTransaction {
+  id                  String           @id @default(uuid())
+  customerLoyaltyId   String
+  type                String           // earn, redeem, expire, adjust, referral_bonus
+  points              Int              // Positive for earn, negative for redeem
+  balanceAfter        Int              // Balance after this transaction
+  description         String?
+  orderId             String?          // Related order if applicable
+  expiresAt           DateTime?        // When these points expire
+  createdAt           DateTime         @default(now())
+
+  customerLoyalty     CustomerLoyalty  @relation(fields: [customerLoyaltyId], references: [id], onDelete: Cascade)
+  order               Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([customerLoyaltyId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
+
+// Available rewards
+model Reward {
+  id                  String           @id @default(uuid())
+  programId           String
+  name                String
+  description         String?
+  type                String           // discount_percent, discount_flat, free_item, free_delivery
+  value               Float            // Percentage or amount
+  pointsCost          Int              // Points required to redeem
+  minOrderAmount      Float?           // Minimum order to use reward
+  maxDiscount         Float?           // Maximum discount amount
+  productId           String?          // For free_item type
+  validDays           Int              @default(30) // Days reward is valid after redemption
+  maxRedemptions      Int?             // Max times this reward can be redeemed (null = unlimited)
+  currentRedemptions  Int              @default(0)
+  isActive            Boolean          @default(true)
+  startDate           DateTime?
+  endDate             DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  program             LoyaltyProgram   @relation(fields: [programId], references: [id], onDelete: Cascade)
+  redemptions         RewardRedemption[]
+
+  @@index([programId])
+  @@index([type])
+  @@index([isActive])
+}
+
+// Reward redemption tracking
+model RewardRedemption {
+  id                  String           @id @default(uuid())
+  customerLoyaltyId   String
+  rewardId            String
+  pointsSpent         Int
+  status              String           @default("active") // active, used, expired, cancelled
+  code                String           @unique // Redemption code
+  usedAt              DateTime?
+  orderId             String?          // Order where reward was used
+  expiresAt           DateTime
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  customerLoyalty     CustomerLoyalty  @relation(fields: [customerLoyaltyId], references: [id], onDelete: Cascade)
+  reward              Reward           @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  order               Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([customerLoyaltyId])
+  @@index([rewardId])
+  @@index([code])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SMS NOTIFICATIONS
+// SMS templates and logs for order notifications
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// SMS Template definitions per team
+model SmsTemplate {
+  id          String   @id @default(uuid())
+  teamId      String
+  type        String   // order_confirmation, order_ready, order_delivered, etc.
+  name        String
+  content     String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, type])
+  @@index([teamId])
+}
+
+// SMS sending log
+model SmsLog {
+  id            String    @id @default(uuid())
+  teamId        String?
+  to            String
+  message       String
+  templateType  String?
+  status        String    @default("pending") // pending, sent, delivered, failed
+  messageSid    String?   // Twilio message SID
+  errorMessage  String?
+  orderId       String?
+  customerId    String?
+  createdAt     DateTime  @default(now())
+
+  team          Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  order         Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  customer      Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([teamId])
+  @@index([orderId])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMPLAINT MANAGEMENT SYSTEM
+// Track and resolve customer complaints
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Complaint tickets
+model Complaint {
+  id              String            @id @default(uuid())
+  teamId          String
+  ticketNumber    String            @unique
+  customerId      String?
+  orderId         String?
+  callId          String?
+
+  // Complaint details
+  category        String            // product_quality, delivery, service, billing, other
+  subcategory     String?
+  priority        String            @default("medium") // low, medium, high, critical
+  status          String            @default("open") // open, in_progress, pending_customer, resolved, closed
+
+  // Description
+  subject         String
+  description     String
+  customerPhone   String?
+  customerEmail   String?
+  customerName    String?
+
+  // Assignment
+  assignedTo      String?           // Agent ID
+  assignedAt      DateTime?
+
+  // Resolution
+  resolution      String?
+  resolutionType  String?           // refund, replacement, apology, compensation, other
+  compensationAmount Float?
+  resolvedBy      String?
+  resolvedAt      DateTime?
+
+  // Satisfaction
+  customerSatisfied Boolean?
+  feedbackScore     Int?            // 1-5
+  feedbackComment   String?
+
+  // Timestamps
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  closedAt        DateTime?
+
+  // SLA tracking
+  slaDeadline     DateTime?
+  slaBreach       Boolean           @default(false)
+  firstResponseAt DateTime?
+
+  // Relations
+  team            Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  customer        Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  order           Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  call            Call?             @relation(fields: [callId], references: [id], onDelete: SetNull)
+  comments        ComplaintComment[]
+  history         ComplaintHistory[]
+  attachments     ComplaintAttachment[]
+
+  @@index([teamId])
+  @@index([customerId])
+  @@index([orderId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedTo])
+  @@index([createdAt])
+  @@index([ticketNumber])
+}
+
+// Complaint comments/notes
+model ComplaintComment {
+  id            String    @id @default(uuid())
+  complaintId   String
+  authorId      String?   // User ID
+  authorName    String
+  authorType    String    // agent, customer, system
+  content       String
+  isInternal    Boolean   @default(false) // Internal notes not visible to customer
+  createdAt     DateTime  @default(now())
+
+  complaint     Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId])
+  @@index([createdAt])
+}
+
+// Complaint status history
+model ComplaintHistory {
+  id            String    @id @default(uuid())
+  complaintId   String
+  action        String    // status_change, assignment, escalation, etc.
+  fromValue     String?
+  toValue       String?
+  performedBy   String?
+  performedByName String?
+  note          String?
+  createdAt     DateTime  @default(now())
+
+  complaint     Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId])
+  @@index([createdAt])
+}
+
+// Complaint attachments
+model ComplaintAttachment {
+  id            String    @id @default(uuid())
+  complaintId   String
+  fileName      String
+  fileUrl       String
+  fileType      String
+  fileSize      Int
+  uploadedBy    String?
+  createdAt     DateTime  @default(now())
+
+  complaint     Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId])
+}
+
+// Complaint categories and SLA rules
+model ComplaintCategory {
+  id              String    @id @default(uuid())
+  teamId          String
+  name            String
+  description     String?
+  subcategories   String?   // JSON array of subcategories
+  defaultPriority String    @default("medium")
+  slaHours        Int       @default(24) // Hours to resolve
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  team            Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, name])
+  @@index([teamId])
 }

@@ -1,5 +1,6 @@
 import { PaymentRepository, CreatePaymentLinkInput } from '../db/repositories/paymentRepository';
 import { PaymentService } from './paymentService';
+import { prisma } from '../db/client';
 import { logger } from '../utils/logger';
 import crypto from 'crypto';
 
@@ -143,23 +144,28 @@ export class PaymentLinkService {
   // Get payment link by short code
   async getPaymentLinkByShortCode(shortCode: string): Promise<any> {
     try {
-      // Search for link with matching shortLink
-      const allLinks = await this.paymentRepository.searchPayments(100, 0, {}); // This would need a dedicated method
-
-      // For now, we'll need to add a method to find by shortLink
-      // Let's implement a workaround by getting all payment links and filtering
-      // In production, add a direct query method in repository
-
-      // Since we don't have a direct method, let's modify the approach
-      // We'll add the shortCode to the metadata or create a dedicated query
-
-      // For this implementation, we'll assume the shortLink format: baseUrl + '/p/' + shortCode
       const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
       const fullShortLink = `${baseUrl}/p/${shortCode}`;
 
-      // Get payment by looking through recent links (this is a simplified approach)
-      // In production, add: findByShortLink in PaymentRepository
-      throw new Error('Short code lookup not implemented - use full link ID');
+      // Query payment link by short link
+      const paymentLink = await prisma.paymentLink.findFirst({
+        where: {
+          OR: [
+            { shortLink: fullShortLink },
+            { shortLink: shortCode },
+          ],
+        },
+        include: {
+          payment: true,
+          order: true,
+        },
+      });
+
+      if (!paymentLink) {
+        throw new Error(`Payment link not found for short code: ${shortCode}`);
+      }
+
+      return paymentLink;
     } catch (error) {
       logger.error('Error getting payment link by short code', error);
       throw error;
@@ -369,21 +375,39 @@ export class PaymentLinkService {
     conversionRate: number;
   }> {
     try {
-      // This would need a dedicated query in the repository
-      // For now, return placeholder data
-      // In production, add: getPaymentLinkStats in PaymentRepository
+      const where: any = {};
+      if (startDate || endDate) {
+        where.createdAt = {};
+        if (startDate) where.createdAt.gte = startDate;
+        if (endDate) where.createdAt.lte = endDate;
+      }
+
+      // Filter by team through the payment -> order -> team relation
+      if (teamId) {
+        where.payment = { teamId };
+      }
+
+      const links = await prisma.paymentLink.findMany({
+        where,
+        select: { status: true, clickedAt: true },
+      });
+
+      const totalLinks = links.length;
+      const clickedLinks = links.filter((l: any) => l.clickedAt !== null).length;
+      const paidLinks = links.filter((l: any) => l.status === 'paid').length;
+      const expiredLinks = links.filter((l: any) => l.status === 'expired').length;
+      const cancelledLinks = links.filter((l: any) => l.status === 'cancelled').length;
 
       const stats = {
-        totalLinks: 0,
-        clickedLinks: 0,
-        paidLinks: 0,
-        expiredLinks: 0,
-        cancelledLinks: 0,
-        clickRate: 0,
-        conversionRate: 0,
+        totalLinks,
+        clickedLinks,
+        paidLinks,
+        expiredLinks,
+        cancelledLinks,
+        clickRate: totalLinks > 0 ? (clickedLinks / totalLinks) * 100 : 0,
+        conversionRate: totalLinks > 0 ? (paidLinks / totalLinks) * 100 : 0,
       };
 
-      logger.warn('Payment link stats not fully implemented - add query to repository');
       return stats;
     } catch (error) {
       logger.error('Error getting payment link stats', error);

@@ -20,3 +20,7 @@ export { OrdersPage } from './Orders';
 export { PaymentsPage } from './Payments';
 export { PaymentDetailPage } from './PaymentDetail';
 export { InvoicesPage } from './Invoices';
+export { LeadsPage } from './Leads';
+export { CallbacksPage } from './Callbacks';
+export { InventoryPage } from './Inventory';
+export { StoreSettingsPage } from './StoreSettings';

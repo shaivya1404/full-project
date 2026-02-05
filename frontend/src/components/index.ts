@@ -4,6 +4,7 @@ export { Card } from './Card';
 export { Sidebar } from './Sidebar';
 export { TopBar } from './TopBar';
 export { ToastProvider } from './ToastProvider';
+export { WebSocketProvider } from './WebSocketProvider';
 export { ProtectedRoute } from './ProtectedRoute';
 export { DashboardLayout } from './DashboardLayout';
 export { Modal } from './Modal';

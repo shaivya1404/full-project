@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ToastProvider } from './components';
+import { ToastProvider, WebSocketProvider } from './components';
 import { AppRouter } from './router';
 
 const queryClient = new QueryClient({
@@ -15,6 +15,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider />
+      <WebSocketProvider />
       <AppRouter />
     </QueryClientProvider>
   );

@@ -7,8 +7,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (including dev for build)
+RUN npm ci
 
 # Generate Prisma client
 RUN npx prisma generate
@@ -27,11 +27,13 @@ WORKDIR /app
 # Install necessary tools
 RUN apk add --no-cache curl
 
+# Copy package files and install production-only dependencies
+COPY package*.json ./
+COPY prisma ./prisma/
+RUN npm ci --only=production && npx prisma generate
+
 # Copy built files from builder
-COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/package*.json ./
 
 # Create directories for recordings and exports
 RUN mkdir -p /app/recordings /app/recordings/exports

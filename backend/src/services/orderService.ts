@@ -1,5 +1,6 @@
 import { OrderRepository, CreateOrderInput, UpdateOrderInput, CustomerPreferenceInput } from '../db/repositories/orderRepository';
 import { logger } from '../utils/logger';
+import { notifyOrderUpdate } from './websocketService';
 
 export interface OrderItemInput {
   productId?: string;
@@ -241,6 +242,16 @@ export class OrderService {
 
       logger.info(`Order created: ${order.orderNumber} for customer ${customer.id}`);
 
+      // Notify dashboard about new order
+      if (request.teamId) {
+        notifyOrderUpdate(request.teamId, order.id, 'pending', {
+          orderNumber: order.orderNumber,
+          customerName: customer.name,
+          totalAmount,
+          itemCount: request.items.length,
+        });
+      }
+
       return {
         order,
         validation,
@@ -271,23 +282,43 @@ export class OrderService {
   }
 
   async cancelOrder(orderId: string, reason: string): Promise<any> {
-    return this.orderRepository.updateOrderStatus(orderId, 'cancelled', reason);
+    const order = await this.orderRepository.updateOrderStatus(orderId, 'cancelled', reason);
+    if (order?.teamId) {
+      notifyOrderUpdate(order.teamId, orderId, 'cancelled', { reason });
+    }
+    return order;
   }
 
   async confirmOrder(orderId: string): Promise<any> {
-    return this.orderRepository.updateOrderStatus(orderId, 'confirmed');
+    const order = await this.orderRepository.updateOrderStatus(orderId, 'confirmed');
+    if (order?.teamId) {
+      notifyOrderUpdate(order.teamId, orderId, 'confirmed');
+    }
+    return order;
   }
 
   async processOrder(orderId: string): Promise<any> {
-    return this.orderRepository.updateOrderStatus(orderId, 'processing');
+    const order = await this.orderRepository.updateOrderStatus(orderId, 'processing');
+    if (order?.teamId) {
+      notifyOrderUpdate(order.teamId, orderId, 'processing');
+    }
+    return order;
   }
 
   async markOrderReady(orderId: string): Promise<any> {
-    return this.orderRepository.updateOrderStatus(orderId, 'ready');
+    const order = await this.orderRepository.updateOrderStatus(orderId, 'ready');
+    if (order?.teamId) {
+      notifyOrderUpdate(order.teamId, orderId, 'ready');
+    }
+    return order;
   }
 
   async markOrderDelivered(orderId: string): Promise<any> {
-    return this.orderRepository.updateOrderStatus(orderId, 'delivered');
+    const order = await this.orderRepository.updateOrderStatus(orderId, 'delivered');
+    if (order?.teamId) {
+      notifyOrderUpdate(order.teamId, orderId, 'delivered');
+    }
+    return order;
   }
 
   async deleteOrder(orderId: string): Promise<void> {

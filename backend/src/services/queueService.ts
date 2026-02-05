@@ -2,6 +2,8 @@ import { AgentRepository } from '../db/repositories/agentRepository';
 import { QueueRepository } from '../db/repositories/queueRepository';
 import { CallRepository } from '../db/repositories/callRepository';
 import { TwilioOutboundService } from './twilioOutbound';
+import { transferContextService } from './transferContextService';
+import { notifyQueueUpdate, notifyAgentStatus } from './websocketService';
 import { logger } from '../utils/logger';
 import { getPrismaClient } from '../db/client';
 
@@ -29,11 +31,20 @@ export class QueueService {
     logger.info(`Transfer requested for call ${callId}. Reason: ${options.reason}`);
 
     // Log the transfer request
-    await this.queueRepo.createTransferLog({
+    const transferLog = await this.queueRepo.createTransferLog({
       callId,
       fromBot: true,
       context: options.context
     });
+
+    // Build comprehensive transfer context for human agent
+    try {
+      await transferContextService.buildTransferContext(callId, transferLog.id);
+      logger.info(`Built transfer context for call ${callId}, transfer log ${transferLog.id}`);
+    } catch (contextError) {
+      // Log but don't fail the transfer if context building fails
+      logger.error(`Failed to build transfer context for call ${callId}`, contextError);
+    }
 
     // Try to find an available agent immediately
     const availableAgents = await this.agentRepo.findAvailableAgents(options.teamId, options.requiredSkills);
@@ -63,6 +74,16 @@ export class QueueService {
         }
       }
 
+      // Notify about call assignment
+      if (options.teamId) {
+        notifyQueueUpdate(options.teamId, 'call_assigned', {
+          callId,
+          agentId: selectedAgent.id,
+          agentName: selectedAgent.name,
+        });
+        notifyAgentStatus(options.teamId, selectedAgent.id, 'busy');
+      }
+
       return {
         status: 'assigned',
         agent: {
@@ -83,6 +104,16 @@ export class QueueService {
       priority: options.priority
     });
 
+    // Notify about call added to queue
+    if (options.teamId) {
+      notifyQueueUpdate(options.teamId, 'call_added', {
+        callId,
+        queueEntryId: queueEntry.id,
+        reason: options.reason,
+        priority: options.priority,
+      });
+    }
+
     return {
       status: 'queued',
       queueEntry
@@ -91,23 +122,34 @@ export class QueueService {
 
   async processQueue(teamId?: string) {
     const queue = await this.queueRepo.getActiveQueue(teamId);
-    
+
     for (const entry of queue) {
       // Find agents without specific skill requirements for now
       const availableAgents = await this.agentRepo.findAvailableAgents(entry.teamId || undefined);
-      
+
       if (availableAgents.length > 0) {
         const selectedAgent = availableAgents[0];
-        
+
         logger.info(`Assigning queued call ${entry.callId} to agent ${selectedAgent.id}`);
-        
+
         await this.queueRepo.updateQueueStatus(entry.id, 'assigned', selectedAgent.id);
-        
+
         await this.agentRepo.createAgentSession({
           agentId: selectedAgent.id,
           callId: entry.callId,
           notes: entry.reasonForTransfer || undefined
         });
+
+        // Notify about queue assignment
+        if (entry.teamId) {
+          notifyQueueUpdate(entry.teamId, 'call_assigned', {
+            callId: entry.callId,
+            queueEntryId: entry.id,
+            agentId: selectedAgent.id,
+            agentName: selectedAgent.name,
+          });
+          notifyAgentStatus(entry.teamId, selectedAgent.id, 'busy');
+        }
 
         // Trigger Twilio transfer logic here
         const call = await this.callRepo.getCallById(entry.callId);
