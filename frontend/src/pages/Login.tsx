@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button, Input, Card } from '../components';
 import toast from 'react-hot-toast';
 import { LogIn } from 'lucide-react';
@@ -86,13 +86,12 @@ export const LoginPage = () => {
           </Button>
         </form>
 
-        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            <strong>Demo credentials:</strong>
-            <br />
-            Email: demo@example.com
-            <br />
-            Password: demo123
+        <div className="mt-6 text-center">
+          <p className="text-gray-600 dark:text-gray-400">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-primary hover:underline font-medium">
+              Sign up
+            </Link>
           </p>
         </div>
       </Card>

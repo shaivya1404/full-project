@@ -259,10 +259,10 @@ export const AnalyticsPage = () => {
                     <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">
                       {(() => {
                         const completed =
-                          stats.statusBreakdown.find(
+                          stats?.statusBreakdown?.find(
                             (s) => s.status === "completed"
                           )?.count || 0;
-                        const total = stats.totalCalls;
+                        const total = stats?.totalCalls || 0;
                         return total > 0
                           ? ((completed / total) * 100).toFixed(1)
                           : "0.0";
@@ -276,7 +276,7 @@ export const AnalyticsPage = () => {
                       Positive Sentiment
                     </p>
                     <p className="text-lg font-semibold text-green-900 dark:text-green-100">
-                      {stats.sentimentBreakdown.find(
+                      {stats?.sentimentBreakdown?.find(
                         (s) => s.sentiment === "positive"
                       )?.percentage || 0}
                       %
@@ -288,8 +288,8 @@ export const AnalyticsPage = () => {
                       Avg Call Duration
                     </p>
                     <p className="text-lg font-semibold text-purple-900 dark:text-purple-100">
-                      {Math.floor(stats.avgDuration / 60)}m{" "}
-                      {stats.avgDuration % 60}s
+                      {Math.floor((stats?.avgDuration || 0) / 60)}m{" "}
+                      {(stats?.avgDuration || 0) % 60}s
                     </p>
                   </div>
 
@@ -299,9 +299,11 @@ export const AnalyticsPage = () => {
                     </p>
                     <p className="text-lg font-semibold text-orange-900 dark:text-orange-100">
                       {(() => {
-                        const peak = stats.peakHours.reduce(
+                        const peakHours = stats?.peakHours || [];
+                        if (peakHours.length === 0) return "N/A";
+                        const peak = peakHours.reduce(
                           (max, h) => (h.count > max.count ? h : max),
-                          stats.peakHours[0] || { hour: 0, count: 0 }
+                          peakHours[0]
                         );
                         return `${peak.hour}:00`;
                       })()}
@@ -313,7 +315,7 @@ export const AnalyticsPage = () => {
                       Failed Calls
                     </p>
                     <p className="text-lg font-semibold text-red-900 dark:text-red-100">
-                      {stats.statusBreakdown.find((s) => s.status === "failed")
+                      {stats?.statusBreakdown?.find((s) => s.status === "failed")
                         ?.count || 0}
                     </p>
                   </div>
@@ -323,7 +325,7 @@ export const AnalyticsPage = () => {
                       Connection Quality
                     </p>
                     <p className="text-lg font-semibold text-indigo-900 dark:text-indigo-100">
-                      {stats.callQualityMetrics.connectionQuality}/100
+                      {stats?.callQualityMetrics?.connectionQuality || 0}/100
                     </p>
                   </div>
                 </div>

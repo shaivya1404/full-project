@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -216,19 +216,27 @@ model TeamMember {
 }
 
 model User {
-  id              String       @id @default(uuid())
-  email           String       @unique
-  passwordHash    String
-  firstName       String?
-  lastName        String?
-  avatarUrl       String?
-  isActive        Boolean      @default(true)
-  lastLoginAt     DateTime?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  apiKeys         ApiKey[]
-  sessions        Session[]
-  teamMemberships TeamMember[]
+  id                     String                   @id @default(uuid())
+  email                  String                   @unique
+  passwordHash           String
+  firstName              String?
+  lastName               String?
+  avatarUrl              String?
+  phone                  String?
+  isActive               Boolean                  @default(true)
+  emailVerified          Boolean                  @default(false)
+  emailVerifiedAt        DateTime?
+  lastLoginAt            DateTime?
+  failedLoginAttempts    Int                      @default(0)
+  lockedUntil            DateTime?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  apiKeys                ApiKey[]
+  sessions               Session[]
+  teamMemberships        TeamMember[]
+  passwordResetTokens    PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  twoFactorAuth          TwoFactorAuth?
 }
 
 model Session {
@@ -645,4 +653,183 @@ model PaymentAnalytics {
   team             Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@index([teamId])
+}
+
+// ==================== NOTIFICATION SYSTEM ====================
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  teamId    String?
+  type      String
+  title     String
+  message   String
+  data      String?
+  read      Boolean   @default(false)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([teamId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+model NotificationPreference {
+  id             String  @id @default(uuid())
+  userId         String  @unique
+  emailEnabled   Boolean @default(true)
+  smsEnabled     Boolean @default(false)
+  inAppEnabled   Boolean @default(true)
+  orderUpdates   Boolean @default(true)
+  paymentUpdates Boolean @default(true)
+  campaignUpdates Boolean @default(true)
+  callAlerts     Boolean @default(true)
+  teamUpdates    Boolean @default(true)
+  marketingEmails Boolean @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// ==================== PASSWORD RESET & EMAIL VERIFICATION ====================
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  code      String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  verifiedAt DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model TwoFactorAuth {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  secret      String
+  enabled     Boolean  @default(false)
+  backupCodes String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model LoginAttempt {
+  id        String   @id @default(uuid())
+  email     String
+  ipAddress String?
+  userAgent String?
+  success   Boolean
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([ipAddress])
+  @@index([createdAt])
+}
+
+// ==================== EXPORT JOBS ====================
+
+model ExportJob {
+  id          String    @id @default(uuid())
+  userId      String
+  teamId      String?
+  type        String
+  format      String
+  status      String    @default("pending")
+  filters     String?
+  filePath    String?
+  fileUrl     String?
+  fileSize    Int?
+  recordCount Int?
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([teamId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ==================== SCHEDULED TASKS & AUTOMATION ====================
+
+model ScheduledTask {
+  id          String    @id @default(uuid())
+  teamId      String?
+  type        String
+  name        String
+  description String?
+  cron        String
+  enabled     Boolean   @default(true)
+  config      String?
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  lastStatus  String?
+  lastError   String?
+  runCount    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([teamId])
+  @@index([enabled])
+  @@index([nextRunAt])
+}
+
+// ==================== WEBHOOKS ====================
+
+model Webhook {
+  id          String   @id @default(uuid())
+  teamId      String
+  url         String
+  secret      String
+  events      String
+  enabled     Boolean  @default(true)
+  description String?
+  lastCalledAt DateTime?
+  lastStatus  Int?
+  failCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([teamId])
+  @@index([enabled])
+}
+
+model WebhookLog {
+  id         String   @id @default(uuid())
+  webhookId  String
+  event      String
+  payload    String
+  response   String?
+  statusCode Int?
+  duration   Int?
+  error      String?
+  createdAt  DateTime @default(now())
+
+  @@index([webhookId])
+  @@index([event])
+  @@index([createdAt])
 }

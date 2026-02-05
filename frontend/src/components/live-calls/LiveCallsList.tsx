@@ -53,11 +53,18 @@ export const LiveCallsList = () => {
     const fetchCalls = async () => {
       try {
         const response = await getLiveCalls(teamId);
-        setCalls(response.data);
+        // Handle different response structures
+        const callsData = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+            ? response.data
+            : [];
+        setCalls(callsData);
         setError(null);
       } catch (err) {
         setError('Failed to fetch live calls');
         console.error('Error fetching live calls:', err);
+        setCalls([]); // Reset to empty array on error
       } finally {
         setLoading(false);
       }
@@ -80,7 +87,7 @@ export const LiveCallsList = () => {
   };
 
   // Filter and sort calls
-  const filteredAndSortedCalls = calls
+  const filteredAndSortedCalls = (Array.isArray(calls) ? calls : [])
     .filter(call => {
       if (filters.status && call.status !== filters.status) return false;
       if (filters.agent && call.agentName?.toLowerCase().includes(filters.agent.toLowerCase()) === false) return false;

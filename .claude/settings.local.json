@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(grep:*)",
+      "Bash(npx prisma validate:*)",
+      "Bash(echo:*)",
+      "Bash(npx prisma@5.22.0 validate:*)",
+      "Bash(npx tsc:*)",
+      "Bash(./node_modules/.bin/tsc:*)",
+      "Bash(test:*)"
+    ]
+  }
+}

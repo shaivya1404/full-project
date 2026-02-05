@@ -5,6 +5,7 @@ import { Request, Response } from 'express';
 import { requestLogger } from './middleware/requestLogger';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware, optionalAuth } from './middleware/auth';
+import { sanitizeInput } from './middleware/sanitizer';
 import healthRoutes from './routes/health';
 import authRoutes from './routes/auth';
 import apiKeysRoutes from './routes/apiKeys';
@@ -32,17 +33,65 @@ import teamPortalRoutes from './routes/teamPortal';
 import userRoutes from './routes/user';
 import liveCallsRoutes from './routes/liveCalls';
 import streamRoutes from './routes/stream';
+import exportRoutes from './routes/export';
+import notificationsRoutes from './routes/notifications';
+import searchRoutes from './routes/search';
+import bulkRoutes from './routes/bulk';
+import webhooksRoutes from './routes/webhooks';
 import { KnowledgeBaseRepository } from './db/repositories/knowledgeBaseRepository';
 import { ProductRepository } from './db/repositories/productRepository';
 import { logger } from './utils/logger';
 
 const app = express();
 
+// Security configuration
 app.set('trust proxy', true);
-app.use(helmet());
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Helmet security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "wss:", "https:"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
+
+// CORS configuration - production-ready
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://dashboard.yourdomain.com',
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      logger.warn(`CORS blocked request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-API-Token', 'X-Request-ID'],
+  exposedHeaders: ['X-Total-Count', 'X-Page', 'X-Limit'],
+  maxAge: 86400, // 24 hours
+}));
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Input sanitization middleware
+app.use(sanitizeInput);
 
 app.use(requestLogger);
 
@@ -74,6 +123,11 @@ app.use('/api/customers', customersRoutes);
 app.use('/api/analytics/orders', orderAnalyticsRoutes);
 app.use('/api/orders/bot', orderBotRoutes);
 app.use('/api/payments', paymentsRoutes);
+app.use('/api/export', exportRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/bulk', bulkRoutes);
+app.use('/api/webhooks', webhooksRoutes);
 
 // External API endpoint for knowledge search (for WhatsApp, email, chat flows)
 app.get('/api/knowledge/search', async (req: Request, res: Response) => {
