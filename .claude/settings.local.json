@@ -15,7 +15,10 @@
       "Bash(npx prisma generate:*)",
       "Bash(npm run build:*)",
       "Bash(find:*)",
-      "Bash(npx vite build)"
+      "Bash(npx vite build)",
+      "Bash(node:*)",
+      "Bash(node -e:*)",
+      "Bash(npm install:*)"
     ]
   }
 }

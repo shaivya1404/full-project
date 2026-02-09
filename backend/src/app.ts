@@ -62,6 +62,9 @@ import loyaltyRoutes from './routes/loyalty';
 import smsRoutes from './routes/sms';
 // Complaint management
 import complaintsRoutes from './routes/complaints';
+// STT/TTS provider routes
+import sttRoutes from './routes/stt';
+import ttsRoutes from './routes/tts';
 import { KnowledgeBaseRepository } from './db/repositories/knowledgeBaseRepository';
 import { ProductRepository } from './db/repositories/productRepository';
 import { logger } from './utils/logger';
@@ -185,6 +188,10 @@ app.use('/api/sms', smsRoutes);
 
 // Complaint management
 app.use('/api/complaints', complaintsRoutes);
+
+// STT/TTS provider APIs (switchable between custom ML services and OpenAI)
+app.use('/api/stt', sttRoutes);
+app.use('/api/tts', ttsRoutes);
 
 // External API endpoint for knowledge search (for WhatsApp, email, chat flows)
 app.get('/api/knowledge/search', async (req: Request, res: Response) => {

@@ -81,6 +81,13 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'debug']).default('info'),
   LOG_FORMAT: z.enum(['json', 'pretty']).default('json'),
 
+  // STT/TTS Provider Configuration
+  STT_PROVIDER: z.enum(['custom', 'openai']).default('custom'),
+  TTS_PROVIDER: z.enum(['custom', 'openai']).default('custom'),
+  STT_SERVICE_URL: z.string().default('http://localhost:8002'),
+  TTS_SERVICE_URL: z.string().default('http://localhost:8001'),
+  TTS_VOICE: z.string().default('default'),
+
   // Feature Flags
   ENABLE_SWAGGER: z.string().default('true').transform((v) => v === 'true'),
   ENABLE_METRICS: z.string().default('true').transform((v) => v === 'true'),
