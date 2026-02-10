@@ -36,62 +36,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # STT ML Service (Faster-Whisper)
-  stt-service:
-    build:
-      context: ./ml-services/stt-service
-      dockerfile: Dockerfile
-    container_name: voice_ai_stt
-    environment:
-      - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-large-v3}
-      - DEVICE=cpu
-      - COMPUTE_TYPE=int8
-    volumes:
-      - whisper_models:/root/.cache/huggingface
-    ports:
-      - "8002:8002"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/ml/stt/health"]
-      interval: 30s
-      timeout: 15s
-      start_period: 120s
-      retries: 3
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 8G
-        reservations:
-          memory: 4G
-
-  # TTS ML Service (XTTS v2)
-  tts-service:
-    build:
-      context: ./ml-services/tts-service
-      dockerfile: Dockerfile
-    container_name: voice_ai_tts
-    environment:
-      - DEVICE=cpu
-      - TTS_OUTPUT_DIR=/app/synthesized
-    volumes:
-      - tts_models:/root/.local/share/tts
-      - tts_output:/app/synthesized
-    ports:
-      - "8001:8001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/ml/tts/health"]
-      interval: 30s
-      timeout: 15s
-      start_period: 180s
-      retries: 3
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 8G
-        reservations:
-          memory: 4G
-
   # Backend API
   backend:
     build:
@@ -117,11 +61,12 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
-      # STT/TTS Provider Config — 'custom' uses ML services, 'openai' uses OpenAI APIs
+      # STT/TTS Provider: 'custom' calls your ML services, 'openai' calls OpenAI APIs
       - STT_PROVIDER=${STT_PROVIDER:-custom}
       - TTS_PROVIDER=${TTS_PROVIDER:-custom}
-      - STT_SERVICE_URL=http://stt-service:8002
-      - TTS_SERVICE_URL=http://tts-service:8001
+      # Point to your external ML services (from your other project)
+      - STT_SERVICE_URL=${STT_SERVICE_URL:-http://localhost:8002}
+      - TTS_SERVICE_URL=${TTS_SERVICE_URL:-http://localhost:8001}
     volumes:
       - recordings_data:/app/recordings
       - exports_data:/app/recordings/exports
@@ -131,10 +76,6 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      stt-service:
-        condition: service_healthy
-      tts-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
@@ -166,9 +107,6 @@ volumes:
   redis_data:
   recordings_data:
   exports_data:
-  whisper_models:
-  tts_models:
-  tts_output:
 
 networks:
   default:
