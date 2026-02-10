@@ -5,7 +5,6 @@ import {
   useUpdateStoreInfo,
   useDeliveryZones,
   useCreateDeliveryZone,
-  useUpdateDeliveryZone,
   useDeleteDeliveryZone,
   useIsStoreOpen,
   type OperatingHours,
@@ -38,12 +37,10 @@ export const StoreSettingsPage = () => {
 
   const updateStoreMutation = useUpdateStoreInfo();
   const createZoneMutation = useCreateDeliveryZone();
-  const updateZoneMutation = useUpdateDeliveryZone();
   const deleteZoneMutation = useDeleteDeliveryZone();
 
   const [isEditing, setIsEditing] = useState(false);
   const [showZoneModal, setShowZoneModal] = useState(false);
-  const [editingZone, setEditingZone] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({

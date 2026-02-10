@@ -191,7 +191,7 @@ export const useDeleteDeliveryZone = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, teamId }: { id: string; teamId: string }) => {
+    mutationFn: async ({ id }: { id: string; teamId: string }) => {
       await client.delete(`/store/zones/${id}`);
     },
     onSuccess: (_, variables) => {

@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { useWebSocket, WSMessage } from '../hooks/useWebSocket';
+import { useWebSocket, type WSMessage } from '../hooks/useWebSocket';
 import { useAuthStore } from '../store/authStore';
 
 /**

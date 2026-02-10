@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DashboardLayout, Card } from '../components';
-import { useHotLeads, useLeadsByTier, useLeadAnalytics, useRecalculateLeadScore } from '../api/leads';
+import { useLeadsByTier, useLeadAnalytics, useRecalculateLeadScore, type Contact } from '../api/leads';
 import { Users, TrendingUp, Flame, ThermometerSun, Snowflake, RefreshCw, Search } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
@@ -191,21 +191,21 @@ export const LeadsPage = () => {
                       </div>
                     </td>
                   </tr>
-                ) : leadsData?.leads?.length === 0 ? (
+                ) : leadsData?.data?.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                       No leads found in this tier
                     </td>
                   </tr>
                 ) : (
-                  leadsData?.leads
-                    ?.filter((lead) =>
+                  (leadsData?.data ?? [])
+                    .filter((lead: Contact) =>
                       !search ||
                       lead.name?.toLowerCase().includes(search.toLowerCase()) ||
                       lead.phone.includes(search) ||
                       lead.email?.toLowerCase().includes(search.toLowerCase())
                     )
-                    .map((lead) => {
+                    .map((lead: Contact) => {
                       const tier = lead.leadTier as LeadTier;
                       const config = tierConfig[tier] || tierConfig.unknown;
                       const Icon = config.icon;

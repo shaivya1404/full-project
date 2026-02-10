@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DashboardLayout, Card, Button } from '../components';
+import { DashboardLayout, Card } from '../components';
 import {
   useInventory,
   useInventoryStats,
@@ -10,7 +10,6 @@ import {
 import {
   Package,
   AlertTriangle,
-  TrendingDown,
   DollarSign,
   Plus,
   Minus,

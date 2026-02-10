@@ -4,7 +4,6 @@ import {
   useCallbacks,
   useUpcomingCallbacks,
   useCallbackStats,
-  useScheduleCallback,
   useCancelCallback,
   useCompleteCallback,
 } from '../api/callbacks';
@@ -34,7 +33,6 @@ export const CallbacksPage = () => {
 
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('');
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const limit = 20;
 
   const { data: callbacksData, isLoading } = useCallbacks(teamId, page, limit, {

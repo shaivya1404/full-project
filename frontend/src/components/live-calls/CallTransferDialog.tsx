@@ -22,7 +22,7 @@ export const CallTransferDialog = ({ callId, onClose }: CallTransferDialogProps)
   useEffect(() => {
     const fetchAgents = async () => {
       try {
-        const availableAgents = await getAvailableAgents();
+        const availableAgents = await getAvailableAgents('default');
         setAgents(availableAgents.filter(agent => agent.status === 'available'));
       } catch (error) {
         console.error('Error fetching agents:', error);
