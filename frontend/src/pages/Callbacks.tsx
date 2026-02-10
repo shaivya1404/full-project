@@ -33,6 +33,7 @@ export const CallbacksPage = () => {
 
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [_showScheduleModal, setShowScheduleModal] = useState(false);
   const limit = 20;
 
   const { data: callbacksData, isLoading } = useCallbacks(teamId, page, limit, {
