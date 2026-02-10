@@ -27,10 +27,14 @@ WORKDIR /app
 # Install necessary tools
 RUN apk add --no-cache curl
 
-# Copy package files and install production-only dependencies
+# Copy package files and install production-only dependencies (skip postinstall)
 COPY package*.json ./
 COPY prisma ./prisma/
-RUN npm ci --only=production && npx prisma generate
+RUN npm ci --omit=dev --ignore-scripts
+
+# Copy Prisma generated client from builder (already generated there)
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
