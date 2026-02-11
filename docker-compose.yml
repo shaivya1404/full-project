@@ -1,26 +1,26 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: voice_ai_db
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-voiceai}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-voiceai_password}
-      POSTGRES_DB: ${POSTGRES_DB:-voice_ai_dashboard}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-voiceai}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+  # PostgreSQL Database - DISABLED (Using Cloud SQL)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: voice_ai_db
+  #   environment:
+  #     POSTGRES_USER: ${POSTGRES_USER:-voiceai}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-voiceai_password}
+  #     POSTGRES_DB: ${POSTGRES_DB:-voice_ai_dashboard}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-voiceai}"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   restart: unless-stopped
 
-  # Redis Cache (Optional)
+  # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: voice_ai_redis
@@ -45,7 +45,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-voiceai}:${POSTGRES_PASSWORD:-voiceai_password}@postgres:5432/${POSTGRES_DB:-voice_ai_dashboard}
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
@@ -61,10 +61,8 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
-      # STT/TTS Provider: 'custom' calls your ML services, 'openai' calls OpenAI APIs
       - STT_PROVIDER=${STT_PROVIDER:-custom}
       - TTS_PROVIDER=${TTS_PROVIDER:-custom}
-      # Point to your external ML services (from your other project)
       - STT_SERVICE_URL=${STT_SERVICE_URL:-http://localhost:8002}
       - TTS_SERVICE_URL=${TTS_SERVICE_URL:-http://localhost:8001}
     volumes:
@@ -73,8 +71,6 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -97,13 +93,13 @@ services:
       - "443:443"
     depends_on:
       - backend
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+    # volumes:
+    #   - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    #   - ./nginx/ssl:/etc/nginx/ssl:ro
     restart: unless-stopped
 
 volumes:
-  postgres_data:
+  # postgres_data:  # Not needed with Cloud SQL
   redis_data:
   recordings_data:
   exports_data:
