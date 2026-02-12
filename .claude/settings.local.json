@@ -21,7 +21,8 @@
       "Bash(npm install:*)",
       "Bash(powershell:*)",
       "Bash(gcloud sql instances describe:*)",
-      "Bash(gcloud sql instances patch:*)"
+      "Bash(gcloud sql instances patch:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }

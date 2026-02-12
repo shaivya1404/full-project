@@ -33,14 +33,18 @@ interface PaginationParams {
 interface CallFilters {
   caller?: string;
   agent?: string;
+  status?: string;
   sentiment?: string;
+  search?: string;
   startDate?: Date;
   endDate?: Date;
 }
 
 const getPaginationParams = (req: Request): PaginationParams => {
   const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 10, 1), 100);
-  const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
+  // Accept both 'offset' and 'page' params - frontend sends 'page', convert to offset
+  const page = parseInt(req.query.page as string) || 0;
+  const offset = Math.max(parseInt(req.query.offset as string) || (page > 0 ? (page - 1) * limit : 0), 0);
   return { limit, offset };
 };
 
@@ -53,8 +57,14 @@ const getCallFilters = (req: Request): CallFilters => {
   if (req.query.agent && typeof req.query.agent === 'string') {
     filters.agent = req.query.agent;
   }
+  if (req.query.status && typeof req.query.status === 'string') {
+    filters.status = req.query.status;
+  }
   if (req.query.sentiment && typeof req.query.sentiment === 'string') {
     filters.sentiment = req.query.sentiment;
+  }
+  if (req.query.search && typeof req.query.search === 'string') {
+    filters.search = req.query.search;
   }
   if (req.query.startDate && typeof req.query.startDate === 'string') {
     const date = new Date(req.query.startDate);

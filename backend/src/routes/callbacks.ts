@@ -59,7 +59,58 @@ router.get('/upcoming', async (req: Request, res: Response) => {
   }
 });
 
-// Get callback by ID
+// Get callback statistics - MUST be before /:id to avoid route conflict
+router.get('/stats/:teamId', async (req: Request, res: Response) => {
+  try {
+    const { teamId } = req.params;
+    const { days } = req.query;
+
+    const stats = await callbackService.getCallbackStats(
+      teamId,
+      days ? parseInt(days as string, 10) : 30
+    );
+
+    res.status(200).json({ data: stats });
+  } catch (error) {
+    logger.error('Error getting callback stats', error);
+    res.status(500).json({
+      message: 'Error getting callback stats',
+      error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
+    });
+  }
+});
+
+// Get best time to call for a contact - MUST be before /:id to avoid route conflict
+router.get('/best-time/:contactId', async (req: Request, res: Response) => {
+  try {
+    const { contactId } = req.params;
+    const bestTime = await callbackService.getBestTimeToCall(contactId);
+
+    res.status(200).json({ data: { bestTime } });
+  } catch (error) {
+    logger.error('Error getting best time to call', error);
+    res.status(500).json({
+      message: 'Error getting best time to call',
+      error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
+    });
+  }
+});
+
+// Process callback queue (admin/cron endpoint)
+router.post('/process-queue', async (req: Request, res: Response) => {
+  try {
+    const result = await callbackService.processCallbackQueue();
+    res.status(200).json({ data: result });
+  } catch (error) {
+    logger.error('Error processing callback queue', error);
+    res.status(500).json({
+      message: 'Error processing callback queue',
+      error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
+    });
+  }
+});
+
+// Get callback by ID - MUST be after all specific routes
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -177,57 +228,6 @@ router.post('/:id/complete', async (req: Request, res: Response) => {
     logger.error('Error completing callback', error);
     res.status(500).json({
       message: 'Error completing callback',
-      error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
-    });
-  }
-});
-
-// Process callback queue (admin/cron endpoint)
-router.post('/process-queue', async (req: Request, res: Response) => {
-  try {
-    const result = await callbackService.processCallbackQueue();
-    res.status(200).json({ data: result });
-  } catch (error) {
-    logger.error('Error processing callback queue', error);
-    res.status(500).json({
-      message: 'Error processing callback queue',
-      error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
-    });
-  }
-});
-
-// Get callback statistics
-router.get('/stats/:teamId', async (req: Request, res: Response) => {
-  try {
-    const { teamId } = req.params;
-    const { days } = req.query;
-
-    const stats = await callbackService.getCallbackStats(
-      teamId,
-      days ? parseInt(days as string, 10) : 30
-    );
-
-    res.status(200).json({ data: stats });
-  } catch (error) {
-    logger.error('Error getting callback stats', error);
-    res.status(500).json({
-      message: 'Error getting callback stats',
-      error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
-    });
-  }
-});
-
-// Get best time to call for a contact
-router.get('/best-time/:contactId', async (req: Request, res: Response) => {
-  try {
-    const { contactId } = req.params;
-    const bestTime = await callbackService.getBestTimeToCall(contactId);
-
-    res.status(200).json({ data: { bestTime } });
-  } catch (error) {
-    logger.error('Error getting best time to call', error);
-    res.status(500).json({
-      message: 'Error getting best time to call',
       error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
     });
   }

@@ -74,26 +74,6 @@ router.get('/low-stock', async (req: Request, res: Response) => {
   }
 });
 
-// Get product stock info
-router.get('/:productId', async (req: Request, res: Response) => {
-  try {
-    const { productId } = req.params;
-    const product = await inventoryService.getProductWithStock(productId);
-
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
-    }
-
-    res.status(200).json({ data: product });
-  } catch (error) {
-    logger.error('Error getting product stock', error);
-    res.status(500).json({
-      message: 'Error getting product stock',
-      error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
-    });
-  }
-});
-
 // Check product availability
 router.post('/check-availability', async (req: Request, res: Response) => {
   try {
@@ -109,6 +89,46 @@ router.post('/check-availability', async (req: Request, res: Response) => {
     logger.error('Error checking availability', error);
     res.status(500).json({
       message: 'Error checking availability',
+      error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
+    });
+  }
+});
+
+// Bulk update stock
+router.post('/bulk-update', async (req: Request, res: Response) => {
+  try {
+    const { updates, createdBy } = req.body;
+
+    if (!updates || !Array.isArray(updates)) {
+      return res.status(400).json({ message: 'updates array is required' });
+    }
+
+    const result = await inventoryService.bulkUpdateStock(updates, createdBy);
+    res.status(200).json({ data: result });
+  } catch (error) {
+    logger.error('Error bulk updating stock', error);
+    res.status(500).json({
+      message: 'Error bulk updating stock',
+      error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
+    });
+  }
+});
+
+// Get product stock info
+router.get('/:productId', async (req: Request, res: Response) => {
+  try {
+    const { productId } = req.params;
+    const product = await inventoryService.getProductWithStock(productId);
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    res.status(200).json({ data: product });
+  } catch (error) {
+    logger.error('Error getting product stock', error);
+    res.status(500).json({
+      message: 'Error getting product stock',
       error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
     });
   }
@@ -256,26 +276,6 @@ router.get('/:productId/movements', async (req: Request, res: Response) => {
     logger.error('Error getting stock history', error);
     res.status(500).json({
       message: 'Error getting stock history',
-      error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
-    });
-  }
-});
-
-// Bulk update stock
-router.post('/bulk-update', async (req: Request, res: Response) => {
-  try {
-    const { updates, createdBy } = req.body;
-
-    if (!updates || !Array.isArray(updates)) {
-      return res.status(400).json({ message: 'updates array is required' });
-    }
-
-    const result = await inventoryService.bulkUpdateStock(updates, createdBy);
-    res.status(200).json({ data: result });
-  } catch (error) {
-    logger.error('Error bulk updating stock', error);
-    res.status(500).json({
-      message: 'Error bulk updating stock',
       error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
     });
   }

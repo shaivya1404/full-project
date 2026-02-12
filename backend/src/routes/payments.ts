@@ -5,6 +5,7 @@ import { PaymentLinkService, SendPaymentLinkRequest } from '../services/paymentL
 import { InvoiceService, GenerateInvoiceRequest, SendInvoiceRequest } from '../services/invoiceService';
 import { PaymentAnalyticsService, PaymentAnalyticsFilters } from '../services/paymentAnalyticsService';
 import { FraudDetectionService, FraudCheckRequest } from '../services/fraudDetectionService';
+import { PaymentRepository } from '../db/repositories/paymentRepository';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -15,6 +16,7 @@ const paymentLinkService = new PaymentLinkService();
 const invoiceService = new InvoiceService();
 const paymentAnalyticsService = new PaymentAnalyticsService();
 const fraudDetectionService = new FraudDetectionService();
+const paymentRepository = new PaymentRepository();
 
 // Validation schemas
 
@@ -164,20 +166,130 @@ router.post('/:id/confirm', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/payments/:id
- * Get payment details
+ * GET /api/payments/search
+ * Search payments by query string (frontend compatibility)
  */
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/search', async (req: Request, res: Response) => {
   try {
-    const payment = await paymentService.getPaymentDetails(req.params.id);
+    const limit = parseInt(req.query.limit as string) || 20;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const q = (req.query.q as string) || '';
+
+    const filters: any = {};
+    if (req.query.teamId) filters.teamId = req.query.teamId as string;
+    if (req.query.status) filters.status = req.query.status as string;
+    if (req.query.method) filters.method = req.query.method as string;
+    if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
+    if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
+
+    // If query string provided, try to match against transactionId, orderId, or customerId
+    if (q) {
+      filters.transactionId = q;
+    }
+
+    const result = await paymentService.searchPayments(limit, offset, filters);
 
     res.json({
       success: true,
-      data: payment,
+      data: result.payments,
+      total: result.total,
+      limit,
+      offset,
     });
   } catch (error: any) {
-    logger.error('Error getting payment details', error);
-    res.status(404).json({ success: false, error: error.message || 'Payment not found' });
+    logger.error('Error searching payments', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to search payments' });
+  }
+});
+
+/**
+ * GET /api/payments/failed
+ * Get failed payments (frontend compatibility)
+ */
+router.get('/failed', async (req: Request, res: Response) => {
+  try {
+    const teamId = req.query.teamId as string;
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    if (!teamId) {
+      res.status(400).json({ success: false, error: 'Team ID is required' });
+      return;
+    }
+
+    const payments = await paymentRepository.getFailedPayments(teamId, limit);
+
+    // Parse metadata for each payment
+    const parsedPayments = payments.map((payment: any) => ({
+      ...payment,
+      metadata: payment.metadata ? JSON.parse(payment.metadata) : null,
+    }));
+
+    res.json({
+      success: true,
+      data: parsedPayments,
+      count: parsedPayments.length,
+    });
+  } catch (error: any) {
+    logger.error('Error getting failed payments', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to get failed payments' });
+  }
+});
+
+/**
+ * GET /api/payments/status/:status
+ * Get payments filtered by status (frontend compatibility)
+ */
+router.get('/status/:status', async (req: Request, res: Response) => {
+  try {
+    const status = req.params.status;
+    const teamId = req.query.teamId as string;
+    const limit = parseInt(req.query.limit as string) || 50;
+
+    const payments = await paymentRepository.getPaymentsByStatus(status, teamId, limit);
+
+    // Parse metadata for each payment
+    const parsedPayments = payments.map((payment: any) => ({
+      ...payment,
+      metadata: payment.metadata ? JSON.parse(payment.metadata) : null,
+    }));
+
+    res.json({
+      success: true,
+      data: parsedPayments,
+      count: parsedPayments.length,
+    });
+  } catch (error: any) {
+    logger.error('Error getting payments by status', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to get payments by status' });
+  }
+});
+
+/**
+ * GET /api/payments/transaction/:transactionId
+ * Look up a payment by transaction ID (frontend compatibility)
+ */
+router.get('/transaction/:transactionId', async (req: Request, res: Response) => {
+  try {
+    const payment = await paymentRepository.getPaymentByTransactionId(req.params.transactionId);
+
+    if (!payment) {
+      res.status(404).json({ success: false, error: 'Payment not found for transaction ID' });
+      return;
+    }
+
+    // Parse metadata
+    const parsedPayment = {
+      ...payment,
+      metadata: (payment as any).metadata ? JSON.parse((payment as any).metadata) : null,
+    };
+
+    res.json({
+      success: true,
+      data: parsedPayment,
+    });
+  } catch (error: any) {
+    logger.error('Error getting payment by transaction ID', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to get payment by transaction ID' });
   }
 });
 
@@ -369,6 +481,37 @@ router.post('/links/:id/send', async (req: Request, res: Response) => {
     } else {
       res.status(500).json({ success: false, error: error.message || 'Failed to send payment link' });
     }
+  }
+});
+
+/**
+ * POST /api/payment-links/:id/send-sms
+ * Send payment link via SMS (frontend compatibility alias)
+ * Maps { phoneNumber } from frontend to { phone } expected by service
+ */
+router.post('/links/:id/send-sms', async (req: Request, res: Response) => {
+  try {
+    // Map frontend's 'phoneNumber' to service's 'phone'
+    const phone = req.body.phoneNumber || req.body.phone;
+
+    if (!phone) {
+      res.status(400).json({ success: false, error: 'Phone number is required (phoneNumber or phone)' });
+      return;
+    }
+
+    const result = await paymentLinkService.sendPaymentLinkViaSMS({
+      linkId: req.params.id,
+      phone,
+      message: req.body.message,
+    });
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    logger.error('Error sending payment link via SMS', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to send payment link via SMS' });
   }
 });
 
@@ -817,6 +960,131 @@ router.get('/fraud-statistics', async (req: Request, res: Response) => {
   } catch (error: any) {
     logger.error('Error getting fraud statistics', error);
     res.status(500).json({ success: false, error: error.message || 'Failed to get fraud statistics' });
+  }
+});
+
+// --- Parameterized routes (MUST come after all specific single-segment routes) ---
+
+/**
+ * PUT /api/payments/:id/status
+ * Update payment status (frontend compatibility)
+ */
+router.put('/:id/status', async (req: Request, res: Response) => {
+  try {
+    const { status, reason } = req.body;
+
+    if (!status) {
+      res.status(400).json({ success: false, error: 'Status is required' });
+      return;
+    }
+
+    const updateData: any = { status };
+    if (status === 'failed' && reason) {
+      updateData.failureReason = reason;
+    }
+    if (status === 'completed') {
+      updateData.completedAt = new Date();
+    }
+
+    const payment = await paymentRepository.updatePayment(req.params.id, updateData);
+
+    // Parse metadata
+    const parsedPayment = {
+      ...payment,
+      metadata: (payment as any).metadata ? JSON.parse((payment as any).metadata) : null,
+    };
+
+    res.json({
+      success: true,
+      data: parsedPayment,
+    });
+  } catch (error: any) {
+    logger.error('Error updating payment status', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to update payment status' });
+  }
+});
+
+/**
+ * POST /api/payments/:paymentId/refund
+ * Process a refund for a specific payment (frontend compatibility)
+ * Takes paymentId from URL params instead of request body
+ */
+router.post('/:paymentId/refund', async (req: Request, res: Response) => {
+  try {
+    const { amount, reason, notes } = req.body;
+
+    const refundRequest: RefundRequest = {
+      paymentId: req.params.paymentId,
+      amount,
+      reason: reason || notes,
+    };
+
+    const payment = await paymentService.refundPayment(refundRequest);
+
+    res.json({
+      success: true,
+      data: payment,
+      message: 'Refund processed successfully',
+    });
+  } catch (error: any) {
+    logger.error('Error processing refund', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to process refund' });
+  }
+});
+
+/**
+ * GET /api/payments/:paymentId/refunds
+ * Get refund history for a payment (frontend compatibility)
+ * Uses payment logs filtered by refund-related actions
+ */
+router.get('/:paymentId/refunds', async (req: Request, res: Response) => {
+  try {
+    const logs = await paymentRepository.getPaymentLogs(req.params.paymentId, 100);
+
+    // Filter logs for refund-related actions
+    const refundLogs = logs.filter((log: any) => {
+      const action = log.action?.toLowerCase() || '';
+      return action.includes('refund');
+    });
+
+    // Parse metadata for each log
+    const refunds = refundLogs.map((log: any) => ({
+      id: log.id,
+      paymentId: log.paymentId,
+      action: log.action,
+      status: log.status,
+      metadata: log.metadata ? JSON.parse(log.metadata) : null,
+      timestamp: log.timestamp,
+    }));
+
+    res.json({
+      success: true,
+      data: refunds,
+      count: refunds.length,
+    });
+  } catch (error: any) {
+    logger.error('Error getting payment refunds', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to get payment refunds' });
+  }
+});
+
+/**
+ * GET /api/payments/:id
+ * Get payment details
+ * IMPORTANT: This route MUST be the last GET /:param route to avoid
+ * catching specific single-segment paths like /search, /failed, /invoices, etc.
+ */
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const payment = await paymentService.getPaymentDetails(req.params.id);
+
+    res.json({
+      success: true,
+      data: payment,
+    });
+  } catch (error: any) {
+    logger.error('Error getting payment details', error);
+    res.status(404).json({ success: false, error: error.message || 'Payment not found' });
   }
 });
 

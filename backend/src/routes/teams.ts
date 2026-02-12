@@ -37,8 +37,11 @@ const createTeamSchema = z.object({
 });
 
 const addMemberSchema = z.object({
-  userId: z.string().uuid('Invalid user ID'),
+  userId: z.string().uuid('Invalid user ID').optional(),
+  email: z.string().email('Invalid email').optional(),
   role: z.enum(['admin', 'manager', 'agent', 'viewer']).optional(),
+}).refine((data) => data.userId || data.email, {
+  message: 'Either userId or email is required',
 });
 
 const updateRoleSchema = z.object({
@@ -406,19 +409,27 @@ router.post('/:id/members', teamActionRateLimiter, async (req: Request, res: Res
       } as ErrorResponse);
     }
 
-    const { userId, role } = validationResult.data;
+    const { userId: directUserId, email, role } = validationResult.data;
 
     const userRepo = getUserRepository();
-    const userToAdd = await userRepo.getUserById(userId);
+
+    // Resolve user by userId or email
+    let userToAdd;
+    if (directUserId) {
+      userToAdd = await userRepo.getUserById(directUserId);
+    } else if (email) {
+      userToAdd = await userRepo.getUserByEmail(email);
+    }
 
     if (!userToAdd) {
       return res.status(404).json({
         success: false,
-        error: 'User not found',
+        error: email ? `User with email "${email}" not found` : 'User not found',
         code: 'USER_NOT_FOUND',
       } as ErrorResponse);
     }
 
+    const userId = userToAdd.id;
     const existingMember = await teamRepo.getTeamMember(req.params.id, userId);
 
     if (existingMember) {

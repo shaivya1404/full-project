@@ -191,6 +191,25 @@ router.get('/:id/orders', async (req: Request, res: Response, next: NextFunction
   }
 });
 
+// GET /api/customers/:id/call-history - Get customer's call history
+router.get('/:id/call-history', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { CallRepository } = await import('../db/repositories/callRepository');
+    const callRepo = new CallRepository();
+
+    const { calls, total } = await callRepo.searchCalls(50, 0, { caller: id });
+
+    res.status(200).json({
+      data: calls,
+      total,
+    });
+  } catch (error) {
+    logger.error('Error fetching customer call history', error);
+    next(error);
+  }
+});
+
 // PATCH /api/customers/:id - Update customer info
 router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {

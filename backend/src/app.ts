@@ -62,6 +62,7 @@ import loyaltyRoutes from './routes/loyalty';
 import smsRoutes from './routes/sms';
 // Complaint management
 import complaintsRoutes from './routes/complaints';
+import fraudRoutes from './routes/fraud';
 // STT/TTS provider routes
 import sttRoutes from './routes/stt';
 import ttsRoutes from './routes/tts';
@@ -116,6 +117,10 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve uploaded files (avatars, etc.)
+import path from 'path';
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Input sanitization middleware
 app.use(sanitizeInput);
@@ -188,6 +193,9 @@ app.use('/api/sms', smsRoutes);
 
 // Complaint management
 app.use('/api/complaints', complaintsRoutes);
+
+// Fraud detection
+app.use('/api/fraud', fraudRoutes);
 
 // STT/TTS provider APIs (switchable between custom ML services and OpenAI)
 app.use('/api/stt', sttRoutes);

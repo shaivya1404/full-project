@@ -1,10 +1,34 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { getUserRepository } from '../db/repositories/userRepository';
 import { logger } from '../utils/logger';
 
 const router = Router();
 const userRepository = getUserRepository();
+
+// Configure multer for avatar uploads
+const uploadsDir = path.join(__dirname, '../../uploads/avatars');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+const avatarStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.png';
+    cb(null, `avatar_${Date.now()}${ext}`);
+  },
+});
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    cb(null, allowed.includes(file.mimetype));
+  },
+});
 
 class HttpError extends Error {
   status: number;
@@ -39,6 +63,7 @@ const createUserApiKeySchema = z.object({
   userId: z.string().uuid('Invalid user ID').optional(),
   teamId: z.string().uuid('Invalid team ID').optional(),
   name: z.string().min(1, 'Key name is required').max(100),
+  scopes: z.array(z.string()).optional(),
   expiresAt: z.string().datetime().optional(),
 });
 
@@ -179,19 +204,30 @@ router.post('/change-password', async (req: Request, res: Response, next: NextFu
   }
 });
 
-router.post('/avatar', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/avatar', avatarUpload.single('avatar'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const validation = avatarSchema.safeParse(req.body);
-    if (!validation.success) {
-      throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
-    }
-
-    const userId = validation.data.userId || getUserIdFromRequest(req);
+    const userId = getUserIdFromRequest(req);
     if (!userId) {
       throw new HttpError(400, 'userId is required to update avatar', 'USER_REQUIRED');
     }
 
-    await userRepository.updateUser(userId, { avatarUrl: validation.data.avatarUrl });
+    let avatarUrl: string;
+
+    if (req.file) {
+      // Handle FormData file upload from frontend
+      avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    } else if (req.body?.avatarUrl) {
+      // Handle JSON body with avatarUrl string
+      const validation = avatarSchema.safeParse(req.body);
+      if (!validation.success) {
+        throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
+      }
+      avatarUrl = validation.data.avatarUrl;
+    } else {
+      throw new HttpError(400, 'Either a file upload or avatarUrl is required', 'VALIDATION_ERROR');
+    }
+
+    await userRepository.updateUser(userId, { avatarUrl });
     const user = await userRepository.getUserById(userId);
 
     if (!user) {
@@ -201,6 +237,7 @@ router.post('/avatar', async (req: Request, res: Response, next: NextFunction) =
     res.status(200).json({
       success: true,
       data: {
+        avatarUrl,
         user: formatUser(user),
       },
       message: 'Avatar updated successfully',
@@ -226,7 +263,10 @@ router.get('/api-keys', async (req: Request, res: Response, next: NextFunction) 
         apiKeys: apiKeys.map((key) => ({
           id: key.id,
           name: key.name,
+          key: '',
           teamId: key.teamId,
+          scopes: (key as any).scopes || [],
+          lastUsed: key.lastUsedAt?.toISOString() || undefined,
           lastUsedAt: key.lastUsedAt,
           expiresAt: key.expiresAt,
           createdAt: key.createdAt,
@@ -251,6 +291,8 @@ router.post('/api-keys', async (req: Request, res: Response, next: NextFunction)
       throw new HttpError(400, 'userId is required to create API key', 'USER_REQUIRED');
     }
 
+    const scopes = validation.data.scopes || [];
+
     const apiKey = await userRepository.generateApiKey(
       userId,
       validation.data.name,
@@ -268,6 +310,7 @@ router.post('/api-keys', async (req: Request, res: Response, next: NextFunction)
           name: apiKey.name,
           key: fullKey,
           teamId: apiKey.teamId,
+          scopes,
           lastUsedAt: apiKey.lastUsedAt,
           expiresAt: apiKey.expiresAt,
           createdAt: apiKey.createdAt,
@@ -304,17 +347,35 @@ router.get('/sessions', async (req: Request, res: Response, next: NextFunction) 
 
     const sessions = await userRepository.getUserSessions(userId);
 
+    // Parse user agent into device/browser/os for frontend
+    const parseUserAgent = (ua?: string | null) => {
+      if (!ua) return { device: 'Unknown', browser: 'Unknown', os: 'Unknown' };
+      const browser = ua.match(/(Chrome|Firefox|Safari|Edge|Opera|MSIE|Trident)[\/\s]?([\d.]+)?/i)?.[1] || 'Unknown';
+      const os = ua.match(/(Windows|Mac OS X|Linux|Android|iOS|iPhone)[\/\s]?([\d._]+)?/i)?.[1] || 'Unknown';
+      const device = /Mobile|Android|iPhone|iPad/i.test(ua) ? 'Mobile' : 'Desktop';
+      return { device, browser, os };
+    };
+
+    // Determine current session from auth header
+    const currentToken = req.headers.authorization?.replace('Bearer ', '') || '';
+
     res.status(200).json({
       success: true,
       data: {
-        sessions: sessions.map((session) => ({
-          id: session.id,
-          accessTokenExpiresAt: session.accessTokenExpiresAt,
-          refreshTokenExpiresAt: session.refreshTokenExpiresAt,
-          ipAddress: session.ipAddress,
-          userAgent: session.userAgent,
-          createdAt: session.createdAt,
-        })),
+        sessions: sessions.map((session) => {
+          const parsed = parseUserAgent(session.userAgent);
+          return {
+            id: session.id,
+            device: parsed.device,
+            browser: parsed.browser,
+            os: parsed.os,
+            ipAddress: session.ipAddress || '',
+            userAgent: session.userAgent,
+            createdAt: session.createdAt,
+            lastActive: session.accessTokenExpiresAt || session.createdAt,
+            current: false,
+          };
+        }),
       },
     });
   } catch (error) {

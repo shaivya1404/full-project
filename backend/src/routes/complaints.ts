@@ -66,22 +66,9 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-/**
- * GET /api/complaints/:id
- * Get a complaint by ID
- */
-router.get('/:id', async (req: Request, res: Response) => {
-  try {
-    const complaint = await complaintService.getComplaint(req.params.id);
-    if (!complaint) {
-      return res.status(404).json({ error: 'Complaint not found' });
-    }
-    res.json({ data: complaint });
-  } catch (error) {
-    logger.error('Error getting complaint', error);
-    res.status(500).json({ error: 'Failed to get complaint' });
-  }
-});
+// ═══════════════════════════════════════════════════════════════════════════
+// SPECIFIC ROUTES (must come BEFORE /:id to avoid being swallowed)
+// ═══════════════════════════════════════════════════════════════════════════
 
 /**
  * GET /api/complaints/ticket/:ticketNumber
@@ -96,6 +83,161 @@ router.get('/ticket/:ticketNumber', async (req: Request, res: Response) => {
     res.json({ data: complaint });
   } catch (error) {
     logger.error('Error getting complaint by ticket', error);
+    res.status(500).json({ error: 'Failed to get complaint' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SLA
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * POST /api/complaints/sla/check
+ * Check SLA breaches
+ */
+router.post('/sla/check', async (req: Request, res: Response) => {
+  try {
+    const { teamId } = req.body;
+    if (!teamId) {
+      return res.status(400).json({ error: 'teamId is required' });
+    }
+    const breachedCount = await complaintService.checkSlaBreaches(teamId);
+    res.json({ data: { breachedCount } });
+  } catch (error) {
+    logger.error('Error checking SLA', error);
+    res.status(500).json({ error: 'Failed to check SLA' });
+  }
+});
+
+/**
+ * GET /api/complaints/sla/breached
+ * Get SLA-breached complaints
+ */
+router.get('/sla/breached', async (req: Request, res: Response) => {
+  try {
+    const { teamId } = req.query;
+    if (!teamId) {
+      return res.status(400).json({ error: 'teamId is required' });
+    }
+    const complaints = await complaintService.getSlaBreachedComplaints(teamId as string);
+    res.json({ data: complaints });
+  } catch (error) {
+    logger.error('Error getting breached complaints', error);
+    res.status(500).json({ error: 'Failed to get breached complaints' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CATEGORIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/complaints/categories
+ * Get complaint categories
+ */
+router.get('/categories/list', async (req: Request, res: Response) => {
+  try {
+    const { teamId } = req.query;
+    if (!teamId) {
+      return res.status(400).json({ error: 'teamId is required' });
+    }
+    const categories = await complaintService.getCategories(teamId as string);
+    res.json({ data: categories });
+  } catch (error) {
+    logger.error('Error getting categories', error);
+    res.status(500).json({ error: 'Failed to get categories' });
+  }
+});
+
+/**
+ * POST /api/complaints/categories
+ * Create a complaint category
+ */
+router.post('/categories', async (req: Request, res: Response) => {
+  try {
+    const { teamId, ...data } = req.body;
+    if (!teamId) {
+      return res.status(400).json({ error: 'teamId is required' });
+    }
+    const category = await complaintService.createCategory(teamId, data);
+    res.status(201).json({ data: category });
+  } catch (error) {
+    logger.error('Error creating category', error);
+    res.status(500).json({ error: 'Failed to create category' });
+  }
+});
+
+/**
+ * PUT /api/complaints/categories/:id
+ * Update a complaint category
+ */
+router.put('/categories/:id', async (req: Request, res: Response) => {
+  try {
+    const category = await complaintService.updateCategory(req.params.id, req.body);
+    res.json({ data: category });
+  } catch (error) {
+    logger.error('Error updating category', error);
+    res.status(500).json({ error: 'Failed to update category' });
+  }
+});
+
+/**
+ * DELETE /api/complaints/categories/:id
+ * Delete a complaint category
+ */
+router.delete('/categories/:id', async (req: Request, res: Response) => {
+  try {
+    await complaintService.deleteCategory(req.params.id);
+    res.json({ message: 'Category deleted' });
+  } catch (error) {
+    logger.error('Error deleting category', error);
+    res.status(500).json({ error: 'Failed to delete category' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ANALYTICS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/complaints/stats
+ * Get complaint statistics
+ */
+router.get('/stats/overview', async (req: Request, res: Response) => {
+  try {
+    const { teamId, dateFrom, dateTo } = req.query;
+    if (!teamId) {
+      return res.status(400).json({ error: 'teamId is required' });
+    }
+    const stats = await complaintService.getStats(
+      teamId as string,
+      dateFrom ? new Date(dateFrom as string) : undefined,
+      dateTo ? new Date(dateTo as string) : undefined
+    );
+    res.json({ data: stats });
+  } catch (error) {
+    logger.error('Error getting complaint stats', error);
+    res.status(500).json({ error: 'Failed to get stats' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GENERIC :id ROUTES (must come AFTER all specific routes above)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/complaints/:id
+ * Get a complaint by ID
+ */
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const complaint = await complaintService.getComplaint(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ error: 'Complaint not found' });
+    }
+    res.json({ data: complaint });
+  } catch (error) {
+    logger.error('Error getting complaint', error);
     res.status(500).json({ error: 'Failed to get complaint' });
   }
 });
@@ -277,140 +419,6 @@ router.post('/:id/feedback', async (req: Request, res: Response) => {
   } catch (error) {
     logger.error('Error recording feedback', error);
     res.status(500).json({ error: 'Failed to record feedback' });
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SLA
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * POST /api/complaints/sla/check
- * Check SLA breaches
- */
-router.post('/sla/check', async (req: Request, res: Response) => {
-  try {
-    const { teamId } = req.body;
-    if (!teamId) {
-      return res.status(400).json({ error: 'teamId is required' });
-    }
-    const breachedCount = await complaintService.checkSlaBreaches(teamId);
-    res.json({ data: { breachedCount } });
-  } catch (error) {
-    logger.error('Error checking SLA', error);
-    res.status(500).json({ error: 'Failed to check SLA' });
-  }
-});
-
-/**
- * GET /api/complaints/sla/breached
- * Get SLA-breached complaints
- */
-router.get('/sla/breached', async (req: Request, res: Response) => {
-  try {
-    const { teamId } = req.query;
-    if (!teamId) {
-      return res.status(400).json({ error: 'teamId is required' });
-    }
-    const complaints = await complaintService.getSlaBreachedComplaints(teamId as string);
-    res.json({ data: complaints });
-  } catch (error) {
-    logger.error('Error getting breached complaints', error);
-    res.status(500).json({ error: 'Failed to get breached complaints' });
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CATEGORIES
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * GET /api/complaints/categories
- * Get complaint categories
- */
-router.get('/categories/list', async (req: Request, res: Response) => {
-  try {
-    const { teamId } = req.query;
-    if (!teamId) {
-      return res.status(400).json({ error: 'teamId is required' });
-    }
-    const categories = await complaintService.getCategories(teamId as string);
-    res.json({ data: categories });
-  } catch (error) {
-    logger.error('Error getting categories', error);
-    res.status(500).json({ error: 'Failed to get categories' });
-  }
-});
-
-/**
- * POST /api/complaints/categories
- * Create a complaint category
- */
-router.post('/categories', async (req: Request, res: Response) => {
-  try {
-    const { teamId, ...data } = req.body;
-    if (!teamId) {
-      return res.status(400).json({ error: 'teamId is required' });
-    }
-    const category = await complaintService.createCategory(teamId, data);
-    res.status(201).json({ data: category });
-  } catch (error) {
-    logger.error('Error creating category', error);
-    res.status(500).json({ error: 'Failed to create category' });
-  }
-});
-
-/**
- * PUT /api/complaints/categories/:id
- * Update a complaint category
- */
-router.put('/categories/:id', async (req: Request, res: Response) => {
-  try {
-    const category = await complaintService.updateCategory(req.params.id, req.body);
-    res.json({ data: category });
-  } catch (error) {
-    logger.error('Error updating category', error);
-    res.status(500).json({ error: 'Failed to update category' });
-  }
-});
-
-/**
- * DELETE /api/complaints/categories/:id
- * Delete a complaint category
- */
-router.delete('/categories/:id', async (req: Request, res: Response) => {
-  try {
-    await complaintService.deleteCategory(req.params.id);
-    res.json({ message: 'Category deleted' });
-  } catch (error) {
-    logger.error('Error deleting category', error);
-    res.status(500).json({ error: 'Failed to delete category' });
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ANALYTICS
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * GET /api/complaints/stats
- * Get complaint statistics
- */
-router.get('/stats/overview', async (req: Request, res: Response) => {
-  try {
-    const { teamId, dateFrom, dateTo } = req.query;
-    if (!teamId) {
-      return res.status(400).json({ error: 'teamId is required' });
-    }
-    const stats = await complaintService.getStats(
-      teamId as string,
-      dateFrom ? new Date(dateFrom as string) : undefined,
-      dateTo ? new Date(dateTo as string) : undefined
-    );
-    res.json({ data: stats });
-  } catch (error) {
-    logger.error('Error getting complaint stats', error);
-    res.status(500).json({ error: 'Failed to get stats' });
   }
 });
 

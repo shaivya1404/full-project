@@ -38,12 +38,17 @@ const updateSettingsSchema = z.object({
 
 const memberSchema = z.object({
   teamId: z.string().uuid('Invalid team ID').optional(),
-  userId: z.string().uuid('Invalid user ID'),
+  userId: z.string().uuid('Invalid user ID').optional(),
+  email: z.string().email('Invalid email').optional(),
   role: roleEnum.optional(),
+}).refine((data) => data.userId || data.email, {
+  message: 'Either userId or email is required',
 });
 
 const bulkMemberSchema = z.object({
   teamId: z.string().uuid('Invalid team ID').optional(),
+  emails: z.array(z.string().email('Invalid email')).optional(),
+  role: roleEnum.optional(),
   members: z
     .array(
       z.object({
@@ -51,7 +56,9 @@ const bulkMemberSchema = z.object({
         role: roleEnum.optional(),
       }),
     )
-    .min(1, 'At least one member is required'),
+    .optional(),
+}).refine((data) => (data.emails && data.emails.length > 0) || (data.members && data.members.length > 0), {
+  message: 'Either emails or members array is required',
 });
 
 const resendInviteSchema = z.object({
@@ -81,6 +88,7 @@ const createTeamApiKeySchema = z.object({
   teamId: z.string().uuid('Invalid team ID').optional(),
   userId: z.string().uuid('Invalid user ID').optional(),
   name: z.string().min(1, 'Key name is required').max(100),
+  scopes: z.array(z.string()).optional(),
   expiresAt: z.string().datetime().optional(),
 });
 
@@ -308,14 +316,22 @@ router.post('/members', async (req: Request, res: Response, next: NextFunction) 
       throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
     }
 
-    const { teamId: bodyTeamId, userId, role } = validation.data;
+    const { teamId: bodyTeamId, userId: directUserId, email, role } = validation.data;
     const { teamId } = await resolveTeamContext(req, bodyTeamId);
 
-    const user = await userRepository.getUserById(userId);
-    if (!user) {
-      throw new HttpError(404, 'User not found', 'USER_NOT_FOUND');
+    // Resolve user by userId or email
+    let user;
+    if (directUserId) {
+      user = await userRepository.getUserById(directUserId);
+    } else if (email) {
+      user = await userRepository.getUserByEmail(email);
     }
 
+    if (!user) {
+      throw new HttpError(404, email ? `User with email "${email}" not found` : 'User not found', 'USER_NOT_FOUND');
+    }
+
+    const userId = user.id;
     const existingMember = await teamRepository.getTeamMember(teamId, userId);
     if (existingMember) {
       throw new HttpError(409, 'User is already part of the team', 'ALREADY_MEMBER');
@@ -358,33 +374,60 @@ router.post('/members/bulk', async (req: Request, res: Response, next: NextFunct
       throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
     }
 
-    const { members, teamId: bodyTeamId } = validation.data;
+    const { members, emails, role: bulkRole, teamId: bodyTeamId } = validation.data;
     const { teamId } = await resolveTeamContext(req, bodyTeamId);
 
-    const results: Array<{ userId: string; status: 'added' | 'skipped'; reason?: string }> = [];
+    const results: Array<{ userId?: string; email?: string; status: 'added' | 'skipped'; reason?: string }> = [];
 
-    for (const entry of members) {
+    // Build a unified list of entries to process
+    const entries: Array<{ userId?: string; email?: string; role?: string }> = [];
+
+    if (emails && emails.length > 0) {
+      for (const email of emails) {
+        entries.push({ email, role: bulkRole });
+      }
+    }
+
+    if (members && members.length > 0) {
+      for (const m of members) {
+        entries.push({ userId: m.userId, role: m.role });
+      }
+    }
+
+    for (const entry of entries) {
       try {
-        const user = await userRepository.getUserById(entry.userId);
+        let user;
+        if (entry.userId) {
+          user = await userRepository.getUserById(entry.userId);
+        } else if (entry.email) {
+          user = await userRepository.getUserByEmail(entry.email);
+        }
+
         if (!user) {
-          results.push({ userId: entry.userId, status: 'skipped', reason: 'USER_NOT_FOUND' });
+          results.push({
+            userId: entry.userId,
+            email: entry.email,
+            status: 'skipped',
+            reason: 'USER_NOT_FOUND',
+          });
           continue;
         }
 
-        const exists = await teamRepository.getTeamMember(teamId, entry.userId);
+        const exists = await teamRepository.getTeamMember(teamId, user.id);
         if (exists) {
-          results.push({ userId: entry.userId, status: 'skipped', reason: 'ALREADY_MEMBER' });
+          results.push({ userId: user.id, email: entry.email, status: 'skipped', reason: 'ALREADY_MEMBER' });
           continue;
         }
 
         await teamRepository.addTeamMember(teamId, {
-          userId: entry.userId,
+          userId: user.id,
           role: entry.role,
         });
-        results.push({ userId: entry.userId, status: 'added' });
+        results.push({ userId: user.id, email: entry.email, status: 'added' });
       } catch (memberError) {
-        logger.warn(`Unable to add member ${entry.userId} to team ${teamId}`, memberError as Error);
-        results.push({ userId: entry.userId, status: 'skipped', reason: 'ERROR' });
+        const identifier = entry.email || entry.userId || 'unknown';
+        logger.warn(`Unable to add member ${identifier} to team ${teamId}`, memberError as Error);
+        results.push({ userId: entry.userId, email: entry.email, status: 'skipped', reason: 'ERROR' });
       }
     }
 
@@ -394,7 +437,7 @@ router.post('/members/bulk', async (req: Request, res: Response, next: NextFunct
       'team.member.bulk_add',
       'team_member',
       undefined,
-      JSON.stringify({ count: members.length }),
+      JSON.stringify({ count: entries.length }),
       req.ip || undefined,
       req.headers['user-agent'] || undefined,
     );
@@ -658,7 +701,7 @@ router.post('/api-keys', async (req: Request, res: Response, next: NextFunction)
       throw new HttpError(400, validation.error.issues[0]?.message || 'Invalid payload', 'VALIDATION_ERROR');
     }
 
-    const { name, expiresAt, userId: bodyUserId, teamId: bodyTeamId } = validation.data;
+    const { name, scopes, expiresAt, userId: bodyUserId, teamId: bodyTeamId } = validation.data;
     const { teamId } = await resolveTeamContext(req, bodyTeamId);
     const userId = bodyUserId || getUserIdFromRequest(req);
 
@@ -688,6 +731,7 @@ router.post('/api-keys', async (req: Request, res: Response, next: NextFunction)
           name: apiKey.name,
           key: fullKey,
           teamId: apiKey.teamId,
+          scopes: scopes || [],
           lastUsedAt: apiKey.lastUsedAt,
           expiresAt: apiKey.expiresAt,
           createdAt: apiKey.createdAt,
@@ -719,6 +763,34 @@ router.delete('/api-keys/:keyId', async (req: Request, res: Response, next: Next
     });
   } catch (error) {
     logger.error(`Error deleting API key ${req.params.keyId}`, error);
+    handleError(error, res, next);
+  }
+});
+
+// GET /team/schedule - Get team schedule
+router.get('/schedule', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { teamId: queryTeamId, startDate, endDate } = req.query;
+    const { teamId } = await resolveTeamContext(req, queryTeamId as string);
+
+    const members = await teamRepository.getTeamMembers(teamId);
+
+    // Return schedule entries for team members
+    const schedule = members.map((member: any) => ({
+      userId: member.userId,
+      name: member.user?.firstName
+        ? `${member.user.firstName} ${member.user.lastName || ''}`.trim()
+        : member.user?.email || 'Unknown',
+      role: member.role,
+      shifts: [],
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: schedule,
+    });
+  } catch (error) {
+    logger.error('Error fetching team schedule', error);
     handleError(error, res, next);
   }
 });

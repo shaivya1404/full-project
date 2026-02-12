@@ -105,7 +105,9 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orderService = getOrderService();
     const { limit, offset } = getPaginationParams(req);
-    const { customerId, status, campaignId, startDate, endDate } = req.query;
+    const { customerId, status, campaignId } = req.query;
+    const startDate = (req.query.startDate || req.query.dateFrom) as string | undefined;
+    const endDate = (req.query.endDate || req.query.dateTo) as string | undefined;
 
     const teamId = (req as any).user?.teamId || (req.query.teamId as string) || req.headers['x-team-id'] as string;
 
@@ -191,6 +193,93 @@ router.get('/status/completed', async (req: Request, res: Response, next: NextFu
   }
 });
 
+// GET /api/orders/search - Search orders by query string
+router.get('/search', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orderService = getOrderService();
+    const teamId = (req as any).user?.teamId || (req.query.teamId as string) || req.headers['x-team-id'] as string;
+    const q = req.query.q as string;
+
+    if (!teamId) {
+      return res.status(400).json({
+        message: 'Team ID is required',
+        code: 'TEAM_REQUIRED',
+      } as ErrorResponse);
+    }
+
+    if (!q) {
+      return res.status(400).json({
+        message: 'Search query is required',
+        code: 'QUERY_REQUIRED',
+      } as ErrorResponse);
+    }
+
+    const { orders } = await orderService.searchOrders({
+      limit: 50,
+      offset: 0,
+      status: q,
+    }, teamId);
+
+    // Also search by order number / customer name via a broader search
+    const { orders: ordersByOther } = await orderService.searchOrders({
+      limit: 50,
+      offset: 0,
+    }, teamId);
+
+    // Combine and deduplicate: filter the broader set to match the query
+    const lowerQ = q.toLowerCase();
+    const matchedOrders = ordersByOther.filter((order: any) =>
+      (order.orderNumber && order.orderNumber.toLowerCase().includes(lowerQ)) ||
+      (order.customerName && order.customerName.toLowerCase().includes(lowerQ)) ||
+      (order.phone && order.phone.includes(q)) ||
+      (order.email && order.email.toLowerCase().includes(lowerQ)) ||
+      (order.status && order.status.toLowerCase().includes(lowerQ))
+    );
+
+    // Merge status-matched orders and text-matched orders, deduplicate by id
+    const seen = new Set<string>();
+    const combined: any[] = [];
+    for (const order of [...orders, ...matchedOrders]) {
+      if (!seen.has(order.id)) {
+        seen.add(order.id);
+        combined.push(order);
+      }
+    }
+
+    res.status(200).json({
+      data: combined,
+    });
+  } catch (error) {
+    logger.error('Error searching orders', error);
+    next(error);
+  }
+});
+
+// POST /api/orders/validate - Validate order without creating
+router.post('/validate', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orderService = getOrderService();
+    const { items, phone, email, deliveryAddress } = req.body;
+
+    const validation = await orderService.validateOrder({
+      items,
+      phone,
+      email,
+      deliveryAddress,
+      validateOnly: true,
+    });
+
+    res.status(200).json({
+      valid: validation.valid,
+      errors: validation.errors,
+      warnings: validation.warnings,
+    });
+  } catch (error) {
+    logger.error('Error validating order', error);
+    next(error);
+  }
+});
+
 // GET /api/orders/:id - Get order details
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -266,8 +355,8 @@ router.get('/:id/transcript', async (req: Request, res: Response, next: NextFunc
   }
 });
 
-// PATCH /api/orders/:id - Update order status
-router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => {
+// Shared handler for PATCH and PUT /api/orders/:id - Update order
+const updateOrderHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { status, deliveryAddress, phone, email, notes, specialInstructions, cancelReason } = req.body;
@@ -311,7 +400,13 @@ router.patch('/:id', async (req: Request, res: Response, next: NextFunction) => 
     logger.error('Error updating order', error);
     next(error);
   }
-});
+};
+
+// PATCH /api/orders/:id - Update order
+router.patch('/:id', updateOrderHandler);
+
+// PUT /api/orders/:id - Update order (frontend uses PUT)
+router.put('/:id', updateOrderHandler);
 
 // POST /api/orders/:id/confirm - Mark as confirmed
 router.post('/:id/confirm', async (req: Request, res: Response, next: NextFunction) => {
@@ -336,6 +431,59 @@ router.post('/:id/confirm', async (req: Request, res: Response, next: NextFuncti
     });
   } catch (error) {
     logger.error('Error confirming order', error);
+    next(error);
+  }
+});
+
+// POST /api/orders/:id/status - Update order status
+router.post('/:id/status', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { status, note } = req.body;
+
+    if (!status) {
+      return res.status(400).json({
+        message: 'Status is required',
+        code: 'STATUS_REQUIRED',
+      } as ErrorResponse);
+    }
+
+    const orderService = getOrderService();
+    const existingOrder = await orderService.getOrder(id);
+
+    if (!existingOrder) {
+      return res.status(404).json({
+        message: 'Order not found',
+        code: 'ORDER_NOT_FOUND',
+      } as ErrorResponse);
+    }
+
+    let order;
+    if (status === 'cancelled') {
+      order = await orderService.cancelOrder(id, note || 'Status updated via API');
+    } else {
+      const statusMethods: Record<string, (id: string) => Promise<any>> = {
+        confirmed: orderService.confirmOrder.bind(orderService),
+        processing: orderService.processOrder.bind(orderService),
+        ready: orderService.markOrderReady.bind(orderService),
+        delivered: orderService.markOrderDelivered.bind(orderService),
+      };
+
+      if (statusMethods[status]) {
+        order = await statusMethods[status](id);
+      } else {
+        order = await orderService.updateOrder(id, { status });
+      }
+    }
+
+    logger.info(`Order ${id} status updated to ${status}${note ? ': ' + note : ''}`);
+
+    res.status(200).json({
+      data: order,
+      message: `Order status updated to ${status}`,
+    });
+  } catch (error) {
+    logger.error('Error updating order status', error);
     next(error);
   }
 });
@@ -390,31 +538,6 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     });
   } catch (error) {
     logger.error('Error deleting order', error);
-    next(error);
-  }
-});
-
-// POST /api/orders/validate - Validate order without creating
-router.post('/validate', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const orderService = getOrderService();
-    const { items, phone, email, deliveryAddress } = req.body;
-
-    const validation = await orderService.validateOrder({
-      items,
-      phone,
-      email,
-      deliveryAddress,
-      validateOnly: true,
-    });
-
-    res.status(200).json({
-      valid: validation.valid,
-      errors: validation.errors,
-      warnings: validation.warnings,
-    });
-  } catch (error) {
-    logger.error('Error validating order', error);
     next(error);
   }
 });
