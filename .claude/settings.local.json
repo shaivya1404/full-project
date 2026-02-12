@@ -18,7 +18,10 @@
       "Bash(npx vite build)",
       "Bash(node:*)",
       "Bash(node -e:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(powershell:*)",
+      "Bash(gcloud sql instances describe:*)",
+      "Bash(gcloud sql instances patch:*)"
     ]
   }
 }
