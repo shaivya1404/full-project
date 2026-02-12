@@ -65,6 +65,7 @@ services:
       - TTS_PROVIDER=${TTS_PROVIDER:-custom}
       - STT_SERVICE_URL=${STT_SERVICE_URL:-http://localhost:8002}
       - TTS_SERVICE_URL=${TTS_SERVICE_URL:-http://localhost:8001}
+      - ALLOWED_ORIGINS=http://136.109.131.37,http://localhost:5173,http://localhost:3000
     volumes:
       - recordings_data:/app/recordings
       - exports_data:/app/recordings/exports
