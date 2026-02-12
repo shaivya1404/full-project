@@ -13,8 +13,16 @@ export const useCalls = (filter: CallFilter) => {
       params.append('page', filter.page.toString());
       params.append('limit', filter.limit.toString());
 
-      const response = await client.get<PaginatedResponse<Call>>(`/calls?${params.toString()}`);
-      return response.data;
+      const response = await client.get(`/calls?${params.toString()}`);
+      const raw = response.data;
+      // Backend returns { data: Call[], pagination: { total, limit, offset, hasMore } }
+      // Frontend expects { data: Call[], total, page, limit }
+      return {
+        data: raw.data || [],
+        total: raw.pagination?.total ?? raw.total ?? 0,
+        page: raw.pagination ? Math.floor(raw.pagination.offset / raw.pagination.limit) + 1 : (raw.page ?? 1),
+        limit: raw.pagination?.limit ?? raw.limit ?? filter.limit,
+      } as PaginatedResponse<Call>;
     },
   });
 };
@@ -24,8 +32,9 @@ export const useCall = (id: string | null) => {
     queryKey: ['call', id],
     queryFn: async () => {
       if (!id) throw new Error('Call ID is required');
-      const response = await client.get<Call>(`/calls/${id}`);
-      return response.data;
+      const response = await client.get(`/calls/${id}`);
+      const raw = response.data;
+      return (raw.data || raw) as Call;
     },
     enabled: !!id,
   });
@@ -39,8 +48,10 @@ export const useCallStats = (dateRange?: DateRange) => {
       if (dateRange?.startDate) params.append('startDate', dateRange.startDate);
       if (dateRange?.endDate) params.append('endDate', dateRange.endDate);
 
-      const response = await client.get<CallStats>(`/analytics/calls?${params.toString()}`);
-      return response.data;
+      const response = await client.get(`/analytics/calls?${params.toString()}`);
+      // Backend wraps in { success, data: CallStats, message }
+      const raw = response.data;
+      return (raw.data || raw) as CallStats;
     },
   });
 };

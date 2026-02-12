@@ -114,7 +114,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         }
       };
 
-      ws.onclose = (event) => {
+      ws.onclose = (_event) => {
         setState((prev) => ({ ...prev, isConnected: false }));
         onDisconnect?.();
 
