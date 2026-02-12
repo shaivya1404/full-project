@@ -90,6 +90,16 @@ router.post('/register', authRateLimiter, async (req: AuthRequest, res: Response
       lastName,
     });
 
+    // Auto-create a default team for the new user
+    const teamRepo = getTeamRepository();
+    const teamName = firstName ? `${firstName}'s Team` : `${email.split('@')[0]}'s Team`;
+    const team = await teamRepo.createTeam({
+      name: teamName,
+      description: 'Default team created during registration',
+      ownerId: user.id,
+    });
+    logger.info(`Default team created for user ${user.id}: ${team.id}`);
+
     const accessTokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
     const refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
@@ -117,6 +127,10 @@ router.post('/register', authRateLimiter, async (req: AuthRequest, res: Response
           firstName: user.firstName,
           lastName: user.lastName,
           avatarUrl: user.avatarUrl,
+        },
+        team: {
+          id: team.id,
+          name: team.name,
         },
         accessToken,
         refreshToken,
@@ -173,6 +187,21 @@ router.post('/login', authRateLimiter, async (req: AuthRequest, res: Response, n
       } as ErrorResponse);
     }
 
+    // Ensure user has at least one team (auto-create if missing)
+    const teamRepo = getTeamRepository();
+    const existingTeams = await teamRepo.getTeamsByUserId(user.id);
+    let primaryTeam = existingTeams[0] || null;
+
+    if (!primaryTeam) {
+      const teamName = user.firstName ? `${user.firstName}'s Team` : `${user.email.split('@')[0]}'s Team`;
+      primaryTeam = await teamRepo.createTeam({
+        name: teamName,
+        description: 'Default team created on first login',
+        ownerId: user.id,
+      });
+      logger.info(`Default team auto-created for user ${user.id}: ${primaryTeam.id}`);
+    }
+
     const accessTokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
     const refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
@@ -201,6 +230,10 @@ router.post('/login', authRateLimiter, async (req: AuthRequest, res: Response, n
           lastName: user.lastName,
           lastLoginAt: user.lastLoginAt,
           avatarUrl: user.avatarUrl,
+        },
+        team: {
+          id: primaryTeam.id,
+          name: primaryTeam.name,
         },
         accessToken,
         refreshToken,
