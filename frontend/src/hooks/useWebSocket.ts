@@ -48,6 +48,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const { accessToken: token, isAuthenticated } = useAuthStore();
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const retryCountRef = useRef<number>(0);
   const [state, setState] = useState<WebSocketState>({
     isConnected: false,
     lastMessage: null,
@@ -67,10 +68,14 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     const host = import.meta.env.VITE_WS_URL || window.location.host;
     const wsUrl = `${protocol}//${host}/ws?token=${token}`;
 
+    let wasConnected = false;
+
     try {
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
+        wasConnected = true;
+        retryCountRef.current = 0;
         setState((prev) => ({ ...prev, isConnected: true }));
         onConnect?.();
 
@@ -109,15 +114,27 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         setState((prev) => ({ ...prev, isConnected: false }));
         onDisconnect?.();
 
-        // Auto-reconnect
+        // If the connection was rejected before opening (auth failure),
+        // don't retry — the token is invalid
+        if (!wasConnected) {
+          retryCountRef.current++;
+          // Stop retrying after 3 failed attempts (token is likely invalid)
+          if (retryCountRef.current >= 3) {
+            console.warn('WebSocket: stopping reconnect after repeated auth failures');
+            return;
+          }
+        }
+
+        // Auto-reconnect with exponential backoff
         if (autoReconnect && isAuthenticated) {
+          const backoff = Math.min(reconnectInterval * Math.pow(2, retryCountRef.current - 1), 30000);
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
-          }, reconnectInterval);
+          }, wasConnected ? reconnectInterval : backoff);
         }
       };
 
