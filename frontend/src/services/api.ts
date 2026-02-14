@@ -256,8 +256,10 @@ export const handleApiError = (error: unknown): string => {
  */
 
 export const getTeam = async (): Promise<Team> => {
-  const response = await client.get<Team>('/team');
-  return response.data;
+  const response = await client.get('/team');
+  const body = response.data;
+  // Backend wraps in { success, data: { team } }
+  return body?.data?.team || body?.data || body;
 };
 
 export const updateTeamSettings = async (settings: TeamSettings): Promise<Team> => {
@@ -287,8 +289,27 @@ export const getTeamMembers = async (
   if (filters?.role) params.append('role', filters.role);
   if (filters?.status) params.append('status', filters.status);
 
-  const response = await client.get<PaginatedResponse<TeamMember>>(`/team/members?${params.toString()}`);
-  return response.data;
+  const response = await client.get(`/team/members?${params.toString()}`);
+  const body = response.data;
+  // Backend returns { success, data: { members: [{ id, user: { email, firstName, ... }, role, joinedAt }], myRole } }
+  // Frontend expects { data: TeamMember[] } where TeamMember has flat name, email, avatarUrl
+  const rawMembers = body?.data?.members || body?.members || [];
+  const members = rawMembers.map((m: any) => ({
+    id: m.id,
+    name: m.user ? `${m.user.firstName || ''} ${m.user.lastName || ''}`.trim() || m.user.email : 'Unknown',
+    email: m.user?.email || m.email || '',
+    role: m.role || 'viewer',
+    status: m.user?.isActive ? 'active' : 'inactive',
+    avatarUrl: m.user?.avatarUrl || m.avatarUrl,
+    lastActive: m.user?.lastLoginAt,
+    joinedAt: m.joinedAt || m.createdAt,
+  }));
+  return {
+    data: members,
+    total: members.length,
+    page: page,
+    limit: limit,
+  };
 };
 
 export const addMember = async (email: string, role: Role): Promise<{ success: boolean; memberId: string }> => {
@@ -330,8 +351,17 @@ export const getInvitations = async (
   params.append('limit', limit.toString());
   if (filters?.status) params.append('status', filters.status);
 
-  const response = await client.get<PaginatedResponse<Invitation>>(`/team/invitations?${params.toString()}`);
-  return response.data;
+  const response = await client.get(`/team/invitations?${params.toString()}`);
+  const body = response.data;
+  // Backend returns { success, data: { invitations: [...], pagination } }
+  // Frontend expects { data: Invitation[], total, page, limit }
+  const invitations = body?.data?.invitations || body?.invitations || [];
+  return {
+    data: invitations,
+    total: body?.data?.pagination?.total || invitations.length,
+    page: page,
+    limit: limit,
+  };
 };
 
 export const revokeInvite = async (inviteId: string): Promise<{ success: boolean }> => {
