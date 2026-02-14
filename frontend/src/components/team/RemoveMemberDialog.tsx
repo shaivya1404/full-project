@@ -64,7 +64,7 @@ export const RemoveMemberDialog = ({
           ) : (
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center">
               <span className="text-lg font-semibold text-white">
-                {member.name.charAt(0).toUpperCase()}
+                {(member.name || 'U').charAt(0).toUpperCase()}
               </span>
             </div>
           )}

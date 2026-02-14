@@ -68,7 +68,7 @@ export const SentimentPieChart: React.FC<SentimentPieChartProps> = ({ data, isLo
 
   const chartData = data.map((item) => ({
     ...item,
-    name: item.sentiment.charAt(0).toUpperCase() + item.sentiment.slice(1),
+    name: (item.sentiment || 'unknown').charAt(0).toUpperCase() + (item.sentiment || 'unknown').slice(1),
   }));
 
   return (

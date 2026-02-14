@@ -187,7 +187,7 @@ export const TeamSettingsPage = () => {
                 ) : (
                   <div className="w-24 h-24 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center">
                     <span className="text-3xl font-bold text-white">
-                      {settings.name.charAt(0).toUpperCase()}
+                      {(settings.name || 'T').charAt(0).toUpperCase()}
                     </span>
                   </div>
                 )}

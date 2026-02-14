@@ -106,7 +106,7 @@ export const CallQualityIndicator = ({ quality }: CallQualityIndicatorProps) => 
           Call Quality
         </h3>
         <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(quality.status)}`}>
-          {quality.status.charAt(0).toUpperCase() + quality.status.slice(1)}
+          {(quality.status || 'unknown').charAt(0).toUpperCase() + (quality.status || 'unknown').slice(1)}
         </div>
       </div>
 

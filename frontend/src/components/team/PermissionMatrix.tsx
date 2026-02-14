@@ -54,7 +54,7 @@ export const PermissionMatrix = ({ rolePermissions, currentRole }: PermissionMat
                     rp.role === currentRole ? 'bg-primary/10 text-primary' : 'text-gray-600 dark:text-gray-400'
                   }`}
                 >
-                  {rp.role.charAt(0).toUpperCase() + rp.role.slice(1)}
+                  {(rp.role || '').charAt(0).toUpperCase() + (rp.role || '').slice(1)}
                   {rp.role === currentRole && (
                     <span className="ml-2 text-xs">(Current)</span>
                   )}

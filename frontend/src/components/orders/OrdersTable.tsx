@@ -156,7 +156,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <Badge variant={getStatusBadgeVariant(order.status)}>
-                    {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                    {(order.status || 'unknown').charAt(0).toUpperCase() + (order.status || 'unknown').slice(1)}
                   </Badge>
                   {order.estimatedDelivery && order.status !== 'delivered' && order.status !== 'cancelled' && (
                     <div className="text-xs text-gray-500 mt-1">
@@ -166,7 +166,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <Badge variant={getPaymentStatusBadgeVariant(order.paymentStatus)}>
-                    {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
+                    {(order.paymentStatus || 'unknown').charAt(0).toUpperCase() + (order.paymentStatus || 'unknown').slice(1)}
                   </Badge>
                   {order.paymentMethod && (
                     <div className="text-xs text-gray-500 mt-1">{order.paymentMethod}</div>

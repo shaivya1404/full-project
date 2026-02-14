@@ -105,7 +105,7 @@ export const AgentDetailPage = () => {
 
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <Badge variant={agent.status === 'online' ? 'success' : 'neutral'}>
-                  {agent.status.charAt(0).toUpperCase() + agent.status.slice(1)}
+                  {(agent.status || 'unknown').charAt(0).toUpperCase() + (agent.status || 'unknown').slice(1)}
                 </Badge>
                 <Badge variant="primary">{agent.department || 'No Department'}</Badge>
               </div>

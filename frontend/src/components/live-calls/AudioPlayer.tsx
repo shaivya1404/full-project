@@ -287,7 +287,7 @@ export const AudioPlayer = ({
           ))}
         </div>
         <span className={`text-xs font-medium ${getQualityColor(networkQuality)}`}>
-          {networkQuality.charAt(0).toUpperCase() + networkQuality.slice(1)}
+          {(networkQuality || 'unknown').charAt(0).toUpperCase() + (networkQuality || 'unknown').slice(1)}
         </span>
       </div>
     </div>

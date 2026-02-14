@@ -187,7 +187,7 @@ export const OrdersPage: React.FC = () => {
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1).replace('-', ' ')}
+            {(tab || '').charAt(0).toUpperCase() + (tab || '').slice(1).replace('-', ' ')}
           </button>
         ))}
       </div>

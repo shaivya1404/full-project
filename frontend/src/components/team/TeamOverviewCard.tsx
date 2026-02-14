@@ -29,7 +29,7 @@ export const TeamOverviewCard = ({ team, onSettingsClick }: TeamOverviewCardProp
           ) : (
             <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center">
               <span className="text-2xl font-bold text-white">
-                {team.name.charAt(0).toUpperCase()}
+                {(team.name || 'T').charAt(0).toUpperCase()}
               </span>
             </div>
           )}

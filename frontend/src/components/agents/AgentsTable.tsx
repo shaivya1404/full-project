@@ -200,7 +200,7 @@ export const AgentsTable = ({
                   </td>
                   <td className="px-6 py-4">
                     <Badge variant={getStatusColor(agent.status)}>
-                      {agent.status.charAt(0).toUpperCase() + agent.status.slice(1)}
+                      {(agent.status || 'unknown').charAt(0).toUpperCase() + (agent.status || 'unknown').slice(1)}
                     </Badge>
                   </td>
                   <td className="px-6 py-4">

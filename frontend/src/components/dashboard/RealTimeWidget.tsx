@@ -23,8 +23,7 @@ export const RealTimeWidget = () => {
     if (!token) return;
 
     const baseUrl =
-      import.meta.env.VITE_API_BASE_URL ||
-      "https://backend-v2wh.onrender.com/api";
+      import.meta.env.VITE_API_BASE_URL || "/api";
     // Using a fake URL that won't actually work without a backend,
     // but demonstrating the integration point.
     const eventSource = new EventSource(

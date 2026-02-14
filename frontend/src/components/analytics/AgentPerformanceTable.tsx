@@ -114,7 +114,7 @@ export const AgentPerformanceTable: React.FC<AgentPerformanceTableProps> = ({ da
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
-                      {agent.agentName.charAt(0).toUpperCase()}
+                      {(agent.agentName || 'A').charAt(0).toUpperCase()}
                     </div>
                     <span className="font-medium text-gray-900 dark:text-white">
                       {agent.agentName}

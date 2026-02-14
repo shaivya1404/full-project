@@ -88,6 +88,7 @@ export const truncateText = (text: string, maxLength: number): string => {
  * Capitalize first letter
  */
 export const capitalize = (str: string): string => {
+  if (!str) return '';
   return str.charAt(0).toUpperCase() + str.slice(1);
 };
 
@@ -105,8 +106,10 @@ export const camelCaseToReadable = (str: string): string => {
  * Generate initials from name
  */
 export const getInitials = (name: string): string => {
+  if (!name) return '';
   return name
     .split(' ')
+    .filter(word => word.length > 0)
     .map(word => word.charAt(0))
     .join('')
     .toUpperCase()

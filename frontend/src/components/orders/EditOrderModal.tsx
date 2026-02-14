@@ -86,7 +86,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ order, onClose, 
               <label className="block text-sm font-medium text-gray-700 mb-1">Order Status</label>
               <input
                 type="text"
-                value={order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                value={(order.status || 'unknown').charAt(0).toUpperCase() + (order.status || 'unknown').slice(1)}
                 disabled
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
               />
@@ -95,7 +95,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ order, onClose, 
               <label className="block text-sm font-medium text-gray-700 mb-1">Payment Status</label>
               <input
                 type="text"
-                value={order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
+                value={(order.paymentStatus || 'unknown').charAt(0).toUpperCase() + (order.paymentStatus || 'unknown').slice(1)}
                 disabled
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
               />

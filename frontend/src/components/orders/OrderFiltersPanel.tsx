@@ -55,7 +55,7 @@ export const OrderFiltersPanel: React.FC<OrderFiltersPanelProps> = ({
           >
             {statusOptions.map(status => (
               <option key={status} value={status}>
-                {status.charAt(0).toUpperCase() + status.slice(1)}
+                {(status || '').charAt(0).toUpperCase() + (status || '').slice(1)}
               </option>
             ))}
           </select>

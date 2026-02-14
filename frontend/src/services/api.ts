@@ -884,7 +884,9 @@ export const createLiveCallWebSocket = (teamId: string, callbacks: {
   onAlert?: (alert: CallAlert) => void;
   onAgentStatusChange?: (agent: AgentAvailability) => void;
 }): WebSocket => {
-  const wsUrl = `${client.defaults.baseURL?.replace('http', 'ws')}/live-calls/ws?teamId=${teamId}`;
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.host;
+  const wsUrl = `${protocol}//${host}/api/live-calls/ws?teamId=${teamId}`;
   const ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {

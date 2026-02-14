@@ -98,7 +98,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({
                 <p className="text-xs text-gray-500 uppercase tracking-wider">Status</p>
                 <div className="mt-1">
                   <Badge variant={getStatusBadgeVariant(order.status)}>
-                    {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                    {(order.status || 'unknown').charAt(0).toUpperCase() + (order.status || 'unknown').slice(1)}
                   </Badge>
                 </div>
               </div>
@@ -106,7 +106,7 @@ export const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({
                 <p className="text-xs text-gray-500 uppercase tracking-wider">Payment</p>
                 <div className="mt-1">
                   <Badge variant={getPaymentStatusBadgeVariant(order.paymentStatus)}>
-                    {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
+                    {(order.paymentStatus || 'unknown').charAt(0).toUpperCase() + (order.paymentStatus || 'unknown').slice(1)}
                   </Badge>
                 </div>
               </div>

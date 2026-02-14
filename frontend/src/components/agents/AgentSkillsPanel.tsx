@@ -122,7 +122,7 @@ export const AgentSkillsPanel = ({
                     </p>
                     <div className="flex items-center mt-1">
                       <Badge variant={getProficiencyColor(skill.proficiencyLevel)}>
-                        {skill.proficiencyLevel.charAt(0).toUpperCase() + skill.proficiencyLevel.slice(1)}
+                        {(skill.proficiencyLevel || 'unknown').charAt(0).toUpperCase() + (skill.proficiencyLevel || 'unknown').slice(1)}
                       </Badge>
                       {skill.validationDate && (
                         <span className="ml-3 text-xs text-gray-500">Validated: {new Date(skill.validationDate).toLocaleDateString()}</span>
