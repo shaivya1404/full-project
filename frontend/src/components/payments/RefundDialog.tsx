@@ -160,7 +160,7 @@ export const RefundDialog: React.FC<RefundDialogProps> = ({
               </div>
               <div className="bg-gray-50 p-4 rounded-xl inline-flex items-center text-sm font-medium text-gray-600">
                 <Clock className="w-4 h-4 mr-2" />
-                Processing through: {payment.method.toUpperCase()}
+                Processing through: {(payment.method || 'unknown').toUpperCase()}
               </div>
             </div>
           )}

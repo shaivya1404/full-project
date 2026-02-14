@@ -8,18 +8,33 @@ import { websocketService } from './services/websocketService';
 
 const server = http.createServer(app);
 
-// Twilio Media Streams WebSocket (/streams)
-const wss = new WebSocketServer({ server, path: '/streams' });
+// Twilio Media Streams WebSocket (/streams) - noServer mode
+const twilioWss = new WebSocketServer({ noServer: true });
 
-wss.on('connection', (ws, req) => {
-  logger.info('New WebSocket connection', { path: req.url });
+twilioWss.on('connection', (ws, req) => {
+  logger.info('New Twilio WebSocket connection', { path: req.url });
 
   const twilioStream = new TwilioStreamService(ws);
   twilioStream.handleConnection();
 });
 
-// Real-time Notifications WebSocket (/ws)
-websocketService.initialize(server);
+// Real-time Notifications WebSocket (/ws) - noServer mode
+websocketService.initialize(server, { noServer: true });
+
+// Handle upgrade requests manually to prevent Express from intercepting them
+server.on('upgrade', (request, socket, head) => {
+  const pathname = request.url?.split('?')[0];
+
+  if (pathname === '/ws') {
+    websocketService.handleUpgrade(request, socket, head);
+  } else if (pathname === '/streams') {
+    twilioWss.handleUpgrade(request, socket, head, (ws) => {
+      twilioWss.emit('connection', ws, request);
+    });
+  } else {
+    socket.destroy();
+  }
+});
 
 const PORT = config.PORT;
 

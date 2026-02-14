@@ -93,7 +93,7 @@ export const UsersPage = () => {
                             ) : (
                               <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                                 <span className="text-blue-600 dark:text-blue-400 font-medium text-sm">
-                                  {(user.firstName?.[0] || user.email[0]).toUpperCase()}
+                                  {(user.firstName?.[0] || user.email?.[0] || 'U').toUpperCase()}
                                 </span>
                               </div>
                             )}

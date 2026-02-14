@@ -116,7 +116,7 @@ export const PaymentDetailPanel: React.FC<PaymentDetailPanelProps> = ({
             payment.status === 'failed' ? 'bg-red-100 text-red-800' :
               'bg-blue-100 text-blue-800'
             }`}>
-            {payment.status.toUpperCase()}
+            {(payment.status || 'unknown').toUpperCase()}
           </div>
         </div>
       </div>
@@ -330,7 +330,7 @@ export const PaymentDetailPanel: React.FC<PaymentDetailPanelProps> = ({
                       <span className="text-sm font-bold text-gray-900">{refund.id}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${refund.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                         }`}>
-                        {refund.status.toUpperCase()}
+                        {(refund.status || 'unknown').toUpperCase()}
                       </span>
                     </div>
                     <div className="p-4">

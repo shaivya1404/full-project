@@ -99,14 +99,18 @@ export class WebSocketService {
   /**
    * Initialize WebSocket server
    */
-  initialize(server: HttpServer): void {
-    this.wss = new WebSocketServer({
-      server,
-      path: '/ws',
-      verifyClient: (info, callback) => {
-        this.verifyConnection(info, callback);
-      },
-    });
+  initialize(server: HttpServer, options?: { noServer?: boolean }): void {
+    if (options?.noServer) {
+      this.wss = new WebSocketServer({ noServer: true });
+    } else {
+      this.wss = new WebSocketServer({
+        server,
+        path: '/ws',
+        verifyClient: (info, callback) => {
+          this.verifyConnection(info, callback);
+        },
+      });
+    }
 
     this.wss.on('connection', (ws, req) => {
       this.handleConnection(ws, req);
@@ -125,7 +129,36 @@ export class WebSocketService {
   }
 
   /**
-   * Verify WebSocket connection
+   * Handle HTTP upgrade for noServer mode
+   */
+  handleUpgrade(request: any, socket: any, head: any): void {
+    if (!this.wss) return;
+
+    // Verify token before upgrading
+    try {
+      const url = new URL(request.url, `http://${request.headers.host}`);
+      const token = url.searchParams.get('token') || request.headers['authorization']?.replace('Bearer ', '');
+
+      if (!token) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+
+      verify(token, config.JWT_SECRET || 'default-secret');
+
+      this.wss.handleUpgrade(request, socket, head, (ws) => {
+        this.wss!.emit('connection', ws, request);
+      });
+    } catch (error) {
+      logger.warn('WebSocket connection rejected: invalid token');
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+    }
+  }
+
+  /**
+   * Verify WebSocket connection (used in non-noServer mode)
    */
   private verifyConnection(
     info: { origin: string; secure: boolean; req: any },

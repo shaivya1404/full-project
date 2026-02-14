@@ -106,7 +106,7 @@ export const FraudDetectionPanel: React.FC<FraudDetectionPanelProps> = ({
         </div>
         <div className="p-6">
           <p className="text-gray-600 text-sm leading-relaxed">
-            Based on our automated analysis, we recommend <span className="font-bold text-gray-900">{fraudCheck.recommendation.toUpperCase()}</span> this transaction. 
+            Based on our automated analysis, we recommend <span className="font-bold text-gray-900">{(fraudCheck.recommendation || 'unknown').toUpperCase()}</span> this transaction. 
             {fraudCheck.recommendation === 'block' && " High risk indicators detected suggest potential fraudulent activity."}
             {fraudCheck.recommendation === 'review' && " Some anomalies were detected that require manual verification."}
             {fraudCheck.recommendation === 'allow' && " No significant risk indicators were found for this transaction."}

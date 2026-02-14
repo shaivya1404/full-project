@@ -100,7 +100,7 @@ export const RealTimeWidget = () => {
               "bg-gray-100 text-gray-700": data.systemStatus === "maintenance",
             })}
           >
-            {data.systemStatus.toUpperCase()}
+            {(data.systemStatus || 'unknown').toUpperCase()}
           </span>
         </div>
       </div>
