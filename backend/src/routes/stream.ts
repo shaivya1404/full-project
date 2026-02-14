@@ -3,25 +3,52 @@ import { logger } from '../utils/logger';
 
 const router = Router();
 
-// This route handles the request that redirected the WebSocket to /streams
-// It might be called by the frontend or internal services trying to "stream" a call
+const sseClients = new Set<Response>();
+
+export const broadcastCallUpdate = (data: any) => {
+    const message = `data: ${JSON.stringify(data)}\n\n`;
+    sseClients.forEach((client) => {
+        try {
+            client.write(message);
+        } catch {
+            sseClients.delete(client);
+        }
+    });
+};
+
 router.get('/', (req: Request, res: Response) => {
     const { token } = req.query;
 
     if (!token) {
-        return res.status(400).json({
-            success: false,
-            error: 'Token is required',
-        });
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.status(400).end();
+        return;
     }
 
-    logger.info('Received request for call stream', { token });
+    logger.info('New SSE client connected for call stream');
 
-    // For real-time streaming, we typically use WebSockets (which are handled in server.ts at /streams)
-    // This HTTP endpoint can act as a handshake or verification point
-    res.status(200).json({
-        success: true,
-        message: 'Stream endpoint ready. Use WebSocket connection at /streams for audio.',
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    res.write('data: {"type":"connected","message":"Connected to call stream"}\n\n');
+
+    sseClients.add(res);
+
+    const keepAlive = setInterval(() => {
+        try {
+            res.write(': keepalive\n\n');
+        } catch {
+            clearInterval(keepAlive);
+            sseClients.delete(res);
+        }
+    }, 30000);
+
+    req.on('close', () => {
+        clearInterval(keepAlive);
+        sseClients.delete(res);
+        logger.info('SSE client disconnected from call stream');
     });
 });
 

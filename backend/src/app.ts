@@ -133,6 +133,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api', apiKeysRoutes);
 app.use('/api/teams', authMiddleware, teamsRoutes);
 app.use('/api/team', authMiddleware, teamPortalRoutes);
+app.use('/api/users', authMiddleware, userRoutes);
 app.use('/api/user', authMiddleware, userRoutes);
 app.use('/api/live-calls', liveCallsRoutes);
 app.use('/api/calls/stream', streamRoutes);

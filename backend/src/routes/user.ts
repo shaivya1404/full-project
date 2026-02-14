@@ -4,6 +4,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { getUserRepository } from '../db/repositories/userRepository';
+import { getPrismaClient } from '../db/client';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -106,6 +107,30 @@ const formatUser = (user: any) => ({
       teamName: membership.team.name,
       role: membership.role,
     })) || [],
+});
+
+// List all users (for admin/team views)
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const prisma = getPrismaClient();
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        avatarUrl: true,
+        phone: true,
+        isActive: true,
+        emailVerified: true,
+        createdAt: true,
+      },
+    });
+    res.json(users);
+  } catch (error) {
+    return next(error);
+  }
 });
 
 router.get('/profile', async (req: Request, res: Response, next: NextFunction) => {
