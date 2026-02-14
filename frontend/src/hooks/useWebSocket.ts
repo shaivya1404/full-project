@@ -47,25 +47,54 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
   const { accessToken: token, isAuthenticated } = useAuthStore();
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryCountRef = useRef<number>(0);
+  const mountedRef = useRef(true);
+
+  // Store callbacks in refs to avoid re-creating the connect function
+  const onMessageRef = useRef(onMessage);
+  const onConnectRef = useRef(onConnect);
+  const onDisconnectRef = useRef(onDisconnect);
+  const channelsRef = useRef(channels);
+
+  onMessageRef.current = onMessage;
+  onConnectRef.current = onConnect;
+  onDisconnectRef.current = onDisconnect;
+  channelsRef.current = channels;
+
   const [state, setState] = useState<WebSocketState>({
     isConnected: false,
     lastMessage: null,
     subscribedChannels: [],
   });
 
+  const disconnect = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
+    if (wsRef.current) {
+      wsRef.current.onclose = null; // Prevent reconnect on intentional close
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+  }, []);
+
   const connect = useCallback(() => {
     if (!isAuthenticated || !token) return;
+    if (!mountedRef.current) return;
 
     // Close existing connection
     if (wsRef.current) {
+      wsRef.current.onclose = null;
       wsRef.current.close();
+      wsRef.current = null;
     }
 
-    // Build WebSocket URL - connect directly to backend port to bypass proxy
+    // Build WebSocket URL - go through nginx proxy
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsHost = import.meta.env.VITE_WS_URL || `${window.location.hostname}:3000`;
+    const wsHost = import.meta.env.VITE_WS_URL || window.location.host;
     const wsUrl = `${wsProtocol}//${wsHost}/ws?token=${token}`;
 
     let wasConnected = false;
@@ -76,15 +105,15 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       ws.onopen = () => {
         wasConnected = true;
         retryCountRef.current = 0;
-        setState((prev) => ({ ...prev, isConnected: true }));
-        onConnect?.();
+        if (mountedRef.current) {
+          setState((prev) => ({ ...prev, isConnected: true }));
+        }
+        onConnectRef.current?.();
 
         // Subscribe to channels
-        if (channels.length > 0) {
-          ws.send(JSON.stringify({
-            type: 'subscribe',
-            channels,
-          }));
+        const ch = channelsRef.current;
+        if (ch.length > 0) {
+          ws.send(JSON.stringify({ type: 'subscribe', channels: ch }));
         }
       };
 
@@ -92,45 +121,51 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         try {
           const message: WSMessage = JSON.parse(event.data);
 
-          // Handle system events
           if (message.type === 'system') {
             if (message.event === 'connected') {
-              setState((prev) => ({
-                ...prev,
-                subscribedChannels: message.payload.subscribedChannels || [],
-              }));
+              if (mountedRef.current) {
+                setState((prev) => ({
+                  ...prev,
+                  subscribedChannels: message.payload.subscribedChannels || [],
+                }));
+              }
             } else if (message.event === 'subscribed') {
-              setState((prev) => ({
-                ...prev,
-                subscribedChannels: message.payload.channels || [],
-              }));
+              if (mountedRef.current) {
+                setState((prev) => ({
+                  ...prev,
+                  subscribedChannels: message.payload.channels || [],
+                }));
+              }
             }
           }
 
-          setState((prev) => ({ ...prev, lastMessage: message }));
-          onMessage?.(message);
+          if (mountedRef.current) {
+            setState((prev) => ({ ...prev, lastMessage: message }));
+          }
+          onMessageRef.current?.(message);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
         }
       };
 
-      ws.onclose = (_event) => {
-        setState((prev) => ({ ...prev, isConnected: false }));
-        onDisconnect?.();
+      ws.onclose = () => {
+        if (mountedRef.current) {
+          setState((prev) => ({ ...prev, isConnected: false }));
+        }
+        onDisconnectRef.current?.();
 
-        // Track failed connection attempts
         if (!wasConnected) {
           retryCountRef.current++;
         }
 
-        // Stop retrying after 3 failed attempts (server unreachable or auth invalid)
+        // Stop retrying after 3 failed attempts
         if (retryCountRef.current >= 3) {
           console.warn('WebSocket: stopped reconnecting after 3 failed attempts');
           return;
         }
 
-        // Auto-reconnect with exponential backoff (only if previously connected or under retry limit)
-        if (autoReconnect && isAuthenticated) {
+        // Auto-reconnect
+        if (autoReconnect && mountedRef.current) {
           const backoff = Math.min(reconnectInterval * Math.pow(2, retryCountRef.current), 30000);
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
@@ -139,42 +174,25 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       };
 
       ws.onerror = () => {
-        // Error details are not useful in browser - onclose handles reconnect
+        // onclose handles reconnect
       };
 
       wsRef.current = ws;
     } catch (error) {
       console.error('Error creating WebSocket:', error);
     }
-  }, [isAuthenticated, token, channels, onMessage, onConnect, onDisconnect, autoReconnect, reconnectInterval]);
-
-  const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-  }, []);
+  // Only reconnect when token or auth status changes
+  }, [isAuthenticated, token, autoReconnect, reconnectInterval]);
 
   const subscribe = useCallback((newChannels: NotificationChannel[]) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'subscribe',
-        channels: newChannels,
-      }));
+      wsRef.current.send(JSON.stringify({ type: 'subscribe', channels: newChannels }));
     }
   }, []);
 
   const unsubscribe = useCallback((channelsToRemove: NotificationChannel[]) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'unsubscribe',
-        channels: channelsToRemove,
-      }));
+      wsRef.current.send(JSON.stringify({ type: 'unsubscribe', channels: channelsToRemove }));
     }
   }, []);
 
@@ -184,11 +202,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     }
   }, []);
 
-  // Connect on mount
+  // Connect on mount, disconnect on unmount
   useEffect(() => {
+    mountedRef.current = true;
     connect();
 
     return () => {
+      mountedRef.current = false;
       disconnect();
     };
   }, [connect, disconnect]);
