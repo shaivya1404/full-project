@@ -118,28 +118,28 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         setState((prev) => ({ ...prev, isConnected: false }));
         onDisconnect?.();
 
-        // If the connection was rejected before opening (auth failure),
-        // don't retry — the token is invalid
+        // Track failed connection attempts
         if (!wasConnected) {
           retryCountRef.current++;
-          // Stop retrying after 3 failed attempts (token is likely invalid)
-          if (retryCountRef.current >= 3) {
-            console.warn('WebSocket: stopping reconnect after repeated auth failures');
-            return;
-          }
         }
 
-        // Auto-reconnect with exponential backoff
+        // Stop retrying after 3 failed attempts (server unreachable or auth invalid)
+        if (retryCountRef.current >= 3) {
+          console.warn('WebSocket: stopped reconnecting after 3 failed attempts');
+          return;
+        }
+
+        // Auto-reconnect with exponential backoff (only if previously connected or under retry limit)
         if (autoReconnect && isAuthenticated) {
-          const backoff = Math.min(reconnectInterval * Math.pow(2, retryCountRef.current - 1), 30000);
+          const backoff = Math.min(reconnectInterval * Math.pow(2, retryCountRef.current), 30000);
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, wasConnected ? reconnectInterval : backoff);
         }
       };
 
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+      ws.onerror = () => {
+        // Error details are not useful in browser - onclose handles reconnect
       };
 
       wsRef.current = ws;
