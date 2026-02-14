@@ -34,7 +34,7 @@ export const useNotifications = (options?: { unreadOnly?: boolean; limit?: numbe
       if (options?.limit) params.append('limit', options.limit.toString());
 
       const response = await client.get(`/notifications?${params.toString()}`);
-      return response.data.data as { notifications: Notification[]; unreadCount: number };
+      return response.data as { notifications: Notification[]; unreadCount: number };
     },
     refetchInterval: 30000, // Refetch every 30 seconds
   });
@@ -46,7 +46,7 @@ export const useUnreadCount = () => {
     queryKey: ['notifications', 'unreadCount'],
     queryFn: async () => {
       const response = await client.get('/notifications/unread-count');
-      return response.data.data.count as number;
+      return response.data.count as number;
     },
     refetchInterval: 15000, // Refetch every 15 seconds
   });
@@ -100,7 +100,7 @@ export const useNotificationPreferences = () => {
     queryKey: ['notificationPreferences'],
     queryFn: async () => {
       const response = await client.get('/notifications/preferences');
-      return response.data.data as NotificationPreferences;
+      return response.data as NotificationPreferences;
     },
   });
 };
@@ -112,7 +112,7 @@ export const useUpdateNotificationPreferences = () => {
   return useMutation({
     mutationFn: async (preferences: Partial<NotificationPreferences>) => {
       const response = await client.put('/notifications/preferences', preferences);
-      return response.data.data as NotificationPreferences;
+      return response.data as NotificationPreferences;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notificationPreferences'] });

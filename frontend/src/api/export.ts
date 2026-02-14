@@ -43,7 +43,7 @@ export const useCreateExport = () => {
       filters?: ExportFilters;
     }) => {
       const response = await client.post('/export', { type, format, filters });
-      return response.data.data as { jobId: string; statusUrl: string };
+      return response.data as { jobId: string; statusUrl: string };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['exportJobs'] });
@@ -58,7 +58,7 @@ export const useExportJob = (jobId: string | null) => {
     queryFn: async () => {
       if (!jobId) throw new Error('Job ID is required');
       const response = await client.get(`/export/${jobId}`);
-      return response.data.data as ExportJob;
+      return response.data as ExportJob;
     },
     enabled: !!jobId,
     refetchInterval: (query) => {
@@ -78,7 +78,7 @@ export const useExportJobs = (limit = 20) => {
     queryKey: ['exportJobs', limit],
     queryFn: async () => {
       const response = await client.get(`/export?limit=${limit}`);
-      return response.data.data as ExportJob[];
+      return response.data as ExportJob[];
     },
   });
 };

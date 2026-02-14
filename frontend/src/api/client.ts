@@ -55,9 +55,16 @@ client.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor with token refresh
+// Response interceptor with auto-unwrap and token refresh
 client.interceptors.response.use(
-  (response: AxiosResponse) => response,
+  (response: AxiosResponse) => {
+    // Auto-unwrap backend's { success: true, data: { ... } } wrapper
+    // so that response.data gives the actual payload
+    if (response.data && typeof response.data === 'object' && response.data.success === true && 'data' in response.data) {
+      response.data = response.data.data;
+    }
+    return response;
+  },
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 

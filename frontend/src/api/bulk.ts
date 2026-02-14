@@ -32,7 +32,7 @@ export const useImportContacts = () => {
       const response = await client.post('/bulk/import/contacts', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      return response.data.data as BulkOperationResult;
+      return response.data as BulkOperationResult;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
@@ -62,7 +62,7 @@ export const useImportProducts = () => {
       const response = await client.post('/bulk/import/products', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      return response.data.data as BulkOperationResult;
+      return response.data as BulkOperationResult;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -92,7 +92,7 @@ export const useImportCustomers = () => {
       const response = await client.post('/bulk/import/customers', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      return response.data.data as BulkOperationResult;
+      return response.data as BulkOperationResult;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
@@ -113,7 +113,7 @@ export const useBulkUpdateOrders = () => {
       updates: { status?: string; notes?: string };
     }) => {
       const response = await client.post('/bulk/orders/update', { orderIds, updates });
-      return response.data.data as BulkOperationResult;
+      return response.data as BulkOperationResult;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -134,7 +134,7 @@ export const useBulkUpdateAgents = () => {
       updates: { availabilityStatus?: string; maxConcurrentCalls?: number };
     }) => {
       const response = await client.post('/bulk/agents/update', { agentIds, updates });
-      return response.data.data as BulkOperationResult;
+      return response.data as BulkOperationResult;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agents'] });
@@ -155,7 +155,7 @@ export const useBulkDelete = () => {
       ids: string[];
     }) => {
       const response = await client.post('/bulk/delete', { type, ids });
-      return response.data.data as BulkOperationResult;
+      return response.data as BulkOperationResult;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [variables.type] });

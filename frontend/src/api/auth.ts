@@ -36,7 +36,7 @@ export const useCurrentUser = () => {
     queryKey: ['currentUser'],
     queryFn: async () => {
       const response = await client.get('/auth/me');
-      return response.data.data as { user: User; teams: Team[] };
+      return response.data as { user: User; teams: Team[] };
     },
     enabled: isAuthenticated,
     staleTime: 60000, // Cache for 1 minute
@@ -174,7 +174,7 @@ export const useSessions = () => {
     queryKey: ['sessions'],
     queryFn: async () => {
       const response = await client.get('/auth/sessions');
-      return response.data.data.sessions as Session[];
+      return response.data.sessions as Session[];
     },
   });
 };
@@ -199,7 +199,7 @@ export const use2FAStatus = () => {
     queryKey: ['2faStatus'],
     queryFn: async () => {
       const response = await client.get('/auth/2fa/status');
-      return response.data.data as { enabled: boolean };
+      return response.data as { enabled: boolean };
     },
   });
 };
@@ -209,7 +209,7 @@ export const useSetup2FA = () => {
   return useMutation({
     mutationFn: async () => {
       const response = await client.post('/auth/2fa/setup');
-      return response.data.data as {
+      return response.data as {
         secret: string;
         otpauthUrl: string;
         backupCodes: string[];

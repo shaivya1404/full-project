@@ -48,7 +48,7 @@ export const useSearch = (options: SearchOptions | null) => {
       if (options.dateTo) params.append('dateTo', options.dateTo);
 
       const response = await client.get(`/search?${params.toString()}`);
-      return response.data.data as SearchResponse;
+      return response.data as SearchResponse;
     },
     enabled: !!options?.query && options.query.length >= 2,
     staleTime: 30000, // Cache for 30 seconds
@@ -65,7 +65,7 @@ export const useQuickSearch = (query: string) => {
       }
 
       const response = await client.get(`/search/quick?q=${encodeURIComponent(query)}`);
-      return response.data.data as SearchResponse;
+      return response.data as SearchResponse;
     },
     enabled: query.length >= 2,
     staleTime: 10000, // Cache for 10 seconds

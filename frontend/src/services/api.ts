@@ -257,9 +257,8 @@ export const handleApiError = (error: unknown): string => {
 
 export const getTeam = async (): Promise<Team> => {
   const response = await client.get('/team');
-  const body = response.data;
-  // Backend wraps in { success, data: { team } }
-  return body?.data?.team || body?.data || body;
+  // After interceptor unwrap: { team: {...} }
+  return response.data?.team || response.data;
 };
 
 export const updateTeamSettings = async (settings: TeamSettings): Promise<Team> => {
@@ -290,10 +289,8 @@ export const getTeamMembers = async (
   if (filters?.status) params.append('status', filters.status);
 
   const response = await client.get(`/team/members?${params.toString()}`);
-  const body = response.data;
-  // Backend returns { success, data: { members: [{ id, user: { email, firstName, ... }, role, joinedAt }], myRole } }
-  // Frontend expects { data: TeamMember[] } where TeamMember has flat name, email, avatarUrl
-  const rawMembers = body?.data?.members || body?.members || [];
+  // After interceptor unwrap: { members: [...], myRole }
+  const rawMembers = response.data?.members || [];
   const members = rawMembers.map((m: any) => ({
     id: m.id,
     name: m.user ? `${m.user.firstName || ''} ${m.user.lastName || ''}`.trim() || m.user.email : 'Unknown',
@@ -352,13 +349,11 @@ export const getInvitations = async (
   if (filters?.status) params.append('status', filters.status);
 
   const response = await client.get(`/team/invitations?${params.toString()}`);
-  const body = response.data;
-  // Backend returns { success, data: { invitations: [...], pagination } }
-  // Frontend expects { data: Invitation[], total, page, limit }
-  const invitations = body?.data?.invitations || body?.invitations || [];
+  // After interceptor unwrap: { invitations: [...], pagination }
+  const invitations = response.data?.invitations || [];
   return {
     data: invitations,
-    total: body?.data?.pagination?.total || invitations.length,
+    total: response.data?.pagination?.total || invitations.length,
     page: page,
     limit: limit,
   };
@@ -386,8 +381,16 @@ export const getAuditLogs = async (
   if (filters?.startDate) params.append('startDate', filters.startDate);
   if (filters?.endDate) params.append('endDate', filters.endDate);
 
-  const response = await client.get<PaginatedResponse<AuditLog>>(`/team/audit-logs?${params.toString()}`);
-  return response.data;
+  const response = await client.get(`/team/audit-logs?${params.toString()}`);
+  // After interceptor unwrap: { logs: [...], pagination: { total, limit, offset } }
+  const body = response.data;
+  const logs = body?.logs || [];
+  return {
+    data: logs,
+    total: body?.pagination?.total || logs.length,
+    page: page,
+    limit: limit,
+  };
 };
 
 export const exportAuditLogs = async (filters?: { startDate?: string; endDate?: string }): Promise<Blob> => {
@@ -484,8 +487,9 @@ export const getRolePermissions = async (): Promise<RolePermissions[]> => {
  */
 
 export const getTeamApiKeys = async (): Promise<ApiKey[]> => {
-  const response = await client.get<ApiKey[]>('/team/api-keys');
-  return response.data;
+  const response = await client.get('/team/api-keys');
+  // After interceptor unwrap: { apiKeys: [...] }
+  return response.data?.apiKeys || [];
 };
 
 export const createTeamApiKey = async (name: string, scopes: string[]): Promise<ApiKey> => {
