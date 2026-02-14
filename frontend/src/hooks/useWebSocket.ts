@@ -63,10 +63,10 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       wsRef.current.close();
     }
 
-    // Build WebSocket URL
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = import.meta.env.VITE_WS_URL || window.location.host;
-    const wsUrl = `${protocol}//${host}/ws?token=${token}`;
+    // Build WebSocket URL - connect directly to backend port to bypass proxy
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = import.meta.env.VITE_WS_URL || `${window.location.hostname}:3000`;
+    const wsUrl = `${wsProtocol}//${wsHost}/ws?token=${token}`;
 
     let wasConnected = false;
 
