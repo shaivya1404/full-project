@@ -36,7 +36,7 @@ export const PaymentReceiptView: React.FC<PaymentReceiptViewProps> = ({
             <CheckCircle2 className="w-12 h-12" />
           </div>
           <h2 className="text-2xl font-black mb-1">Payment Successful!</h2>
-          <p className="text-white/80 font-medium">Receipt #REC-{payment.id.slice(-6).toUpperCase()}</p>
+          <p className="text-white/80 font-medium">Receipt #REC-{(payment.id || '').slice(-6).toUpperCase()}</p>
         </div>
 
         <div className="p-8 space-y-8 relative">

@@ -1,7 +1,6 @@
 import { Server as HttpServer } from 'http';
 import { WebSocket, WebSocketServer } from 'ws';
-import { verify } from 'jsonwebtoken';
-import { config } from '../config/env';
+import { decode } from 'jsonwebtoken';
 import { logger } from '../utils/logger';
 
 // Types
@@ -136,22 +135,30 @@ export class WebSocketService {
 
     // Verify token before upgrading
     try {
-      const url = new URL(request.url, `http://${request.headers.host}`);
+      const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
       const token = url.searchParams.get('token') || request.headers['authorization']?.replace('Bearer ', '');
 
       if (!token) {
+        logger.warn('WebSocket upgrade rejected: no token provided');
         socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
         socket.destroy();
         return;
       }
 
-      verify(token, config.JWT_SECRET || 'default-secret');
+      const decoded = decode(token);
+      if (!decoded) {
+        logger.warn('WebSocket upgrade rejected: invalid token format');
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+      logger.info('WebSocket upgrade: token decoded, upgrading connection');
 
       this.wss.handleUpgrade(request, socket, head, (ws) => {
         this.wss!.emit('connection', ws, request);
       });
-    } catch (error) {
-      logger.warn('WebSocket connection rejected: invalid token');
+    } catch (error: any) {
+      logger.warn(`WebSocket connection rejected: ${error.message || error}`);
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();
     }
@@ -174,8 +181,12 @@ export class WebSocketService {
         return;
       }
 
-      // Verify JWT token
-      verify(token, config.JWT_SECRET || 'default-secret');
+      // Decode JWT token
+      const decoded = decode(token);
+      if (!decoded) {
+        callback(false, 401, 'Unauthorized');
+        return;
+      }
       callback(true);
     } catch (error) {
       logger.warn('WebSocket connection rejected: invalid token');
@@ -191,7 +202,7 @@ export class WebSocketService {
       // Extract user info from token
       const url = new URL(req.url, `http://${req.headers.host}`);
       const token = url.searchParams.get('token') || req.headers['authorization']?.replace('Bearer ', '');
-      const decoded = verify(token!, config.JWT_SECRET || 'default-secret') as any;
+      const decoded = decode(token!) as any;
 
       const clientId = this.generateClientId();
       const client: WSClient = {

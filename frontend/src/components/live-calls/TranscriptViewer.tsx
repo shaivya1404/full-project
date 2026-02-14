@@ -78,7 +78,7 @@ export const TranscriptViewer = ({
 
   const handleCopyTranscript = async () => {
     const transcriptText = transcript
-      .map(line => `[${formatDuration(line.timestamp)}] ${line.speaker.toUpperCase()}: ${line.text}`)
+      .map(line => `[${formatDuration(line.timestamp)}] ${(line.speaker || 'unknown').toUpperCase()}: ${line.text}`)
       .join('\n');
 
     try {
@@ -91,7 +91,7 @@ export const TranscriptViewer = ({
 
   const handleDownloadTranscript = () => {
     const transcriptText = transcript
-      .map(line => `[${formatDuration(line.timestamp)}] ${line.speaker.toUpperCase()}: ${line.text}`)
+      .map(line => `[${formatDuration(line.timestamp)}] ${(line.speaker || 'unknown').toUpperCase()}: ${line.text}`)
       .join('\n');
 
     const blob = new Blob([transcriptText], { type: 'text/plain' });
