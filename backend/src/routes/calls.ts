@@ -1,8 +1,39 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import * as fs from 'fs';
+import path from 'path';
 import { CallRepository } from '../db/repositories/callRepository';
 import { StorageService } from '../services/storageService';
 import { logger } from '../utils/logger';
+
+/**
+ * Map a raw Prisma call (with relations) to the flat shape the frontend expects.
+ * Frontend Call interface wants:
+ *   recordingUrl?: string  — a URL the browser can fetch
+ *   transcript?: string    — a single flat string of the conversation
+ *   sentiment?: string     — from analytics relation
+ *   duration: number       — already on the model
+ */
+const mapCallToFrontend = (call: any) => {
+  const recording = call.recordings?.[0];
+  const recordingUrl = recording?.filePath
+    ? `/api/recordings/download/${path.basename(recording.filePath)}`
+    : undefined;
+
+  const transcripts: any[] = call.transcripts || [];
+  const transcript = transcripts.length > 0
+    ? transcripts.map((t: any) => `${t.speaker}: ${t.text}`).join('\n')
+    : undefined;
+
+  const sentiment = call.analytics?.[0]?.sentiment || 'neutral';
+
+  return {
+    ...call,
+    recordingUrl,
+    transcript,
+    sentiment,
+    duration: call.duration || 0,
+  };
+};
 
 const router = Router();
 
@@ -92,7 +123,7 @@ router.get('/search', async (req: Request, res: Response, next: NextFunction) =>
     const { calls, total } = await repo.searchCalls(limit, offset, filters);
 
     res.status(200).json({
-      data: calls,
+      data: calls.map(mapCallToFrontend),
       pagination: {
         total,
         limit,
@@ -116,7 +147,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const { calls, total } = await repo.searchCalls(limit, offset, filters);
 
     res.status(200).json({
-      data: calls,
+      data: calls.map(mapCallToFrontend),
       pagination: {
         total,
         limit,
@@ -144,7 +175,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
       } as ErrorResponse);
     }
 
-    res.status(200).json({ data: call });
+    res.status(200).json({ data: mapCallToFrontend(call) });
   } catch (error) {
     logger.error('Error fetching call', error);
     next(error);
