@@ -75,6 +75,7 @@ export class CallRepository {
         callSid: data.callSid,
         caller: data.caller,
         agent: data.agent,
+        teamId: data.teamId,
       },
     });
   }
@@ -321,19 +322,18 @@ export class CallRepository {
     })
     | null
   > {
-    return this.prisma.call.findUnique({
-      where: { id },
-      include: {
-        recordings: true,
-        transcripts: {
-          orderBy: { createdAt: 'asc' },
-        },
-        analytics: {
-          orderBy: { snapshotTime: 'asc' },
-        },
-        metadata: true,
-      },
-    });
+    const include = {
+      recordings: true,
+      transcripts: { orderBy: { createdAt: 'asc' } as const },
+      analytics: { orderBy: { snapshotTime: 'asc' } as const },
+      metadata: true,
+    };
+
+    // Try database UUID first, then fall back to Twilio callSid
+    const byId = await this.prisma.call.findUnique({ where: { id }, include });
+    if (byId) return byId;
+
+    return this.prisma.call.findUnique({ where: { callSid: id }, include });
   }
 
 
