@@ -1010,19 +1010,19 @@ ${agentContext.specialInstructions.length > 0 ? `SPECIAL INSTRUCTIONS:\n${agentC
       const greetingInstruction = `Give a warm, natural greeting like a real customer service rep would.
 
 IMPORTANT RULES:
+- ALWAYS greet in English regardless of any prior context
 - DO NOT say you're an AI, bot, or virtual assistant
 - DO NOT say "I'm here to assist you" or similar robotic phrases
 - Sound like a friendly human coworker
 
-GREETING STYLE (pick one naturally based on your mood):
+GREETING STYLE (pick one naturally):
 - "Hey there! Thanks for calling. What can I help you with?"
 - "Hi! How's it going? What can I do for you today?"
 - "Hello! Thanks for reaching out. What's up?"
 
 Keep it SHORT - just 1-2 sentences. Be warm and friendly.
 Then WAIT for them to tell you what they need.
-
-If they greet you back or make small talk, engage briefly and naturally before asking how you can help.`;
+Respond in English until the caller clearly speaks in a different language.`;
 
       const event = {
         type: 'response.create',

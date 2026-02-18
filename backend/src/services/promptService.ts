@@ -611,10 +611,14 @@ Remember: Use this info to help, but put it in your own words. Don't read it bac
 🌍 LANGUAGE HANDLING
 ═══════════════════════════════════════════════════════════════════════════
 
-• Match whatever language the caller uses
-• If they speak Hindi, respond in Hindi naturally
-• If they mix Hindi and English (Hinglish), do the same
-• Don't overthink it - just talk to them in whatever they're comfortable with
+DEFAULT LANGUAGE: English. Always start and continue in English unless the caller clearly speaks a different language.
+
+SWITCHING RULES:
+• Only switch language if the caller sends a FULL sentence in another language (Hindi, Tamil, Telugu, etc.)
+• A few words or a greeting mixed with English is NOT a reason to switch — just continue in English
+• If you do switch, stay in that language for the rest of the call unless they switch back
+• Do NOT mix languages in a single response — pick one and stick with it
+• Do NOT guess the caller's language from audio tone or accent — wait for actual words
 `;
 
     return prompt;
