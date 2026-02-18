@@ -73,7 +73,9 @@ import { logger } from './utils/logger';
 const app = express();
 
 // Security configuration
-app.set('trust proxy', true);
+// Set to 1 to trust exactly one upstream proxy (Nginx in Docker).
+// Using `true` would let anyone spoof IP headers and bypass rate limiting.
+app.set('trust proxy', 1);
 
 // Helmet security headers
 app.use(helmet({
