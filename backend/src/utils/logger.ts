@@ -11,8 +11,10 @@ const levels = {
 
 const level = () => {
   const env = config.NODE_ENV || 'development';
-  const isDevelopment = env === 'development';
-  return isDevelopment ? 'debug' : 'warn';
+  if (env === 'development') return 'debug';
+  // In production show info+ so Twilio webhooks, call events, and errors
+  // are all visible in docker logs. Use LOG_LEVEL env var to override.
+  return process.env.LOG_LEVEL || 'info';
 };
 
 const colors = {

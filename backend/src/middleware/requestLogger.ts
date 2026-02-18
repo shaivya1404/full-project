@@ -5,9 +5,11 @@ const stream = {
   write: (message: string) => logger.http(message.trim()),
 };
 
-const skip = () => {
-  const env = process.env.NODE_ENV || 'development';
-  return env !== 'development';
+const skip = (req: any) => {
+  // Always log in development. In production, skip noisy health checks
+  // but keep all real API/webhook requests visible.
+  if ((process.env.NODE_ENV || 'development') === 'development') return false;
+  return req.url === '/health' || req.url.startsWith('/health/');
 };
 
 export const requestLogger = morgan(
