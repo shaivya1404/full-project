@@ -75,7 +75,9 @@ export class CallRepository {
         callSid: data.callSid,
         caller: data.caller,
         agent: data.agent,
-        teamId: data.teamId,
+        // Treat empty string the same as undefined so we never hit the FK constraint
+        // with a non-existent team ID string like 'default-team'
+        teamId: data.teamId || undefined,
       },
     });
   }

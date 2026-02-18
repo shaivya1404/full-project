@@ -2,10 +2,11 @@ import { Router, Request, Response } from 'express';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
 import { TwilioOutboundService } from '../services/twilioOutbound';
+import { prisma } from '../db/client';
 
 const router = Router();
 
-router.post('/incoming-call', (req: Request, res: Response) => {
+router.post('/incoming-call', async (req: Request, res: Response) => {
   try {
     logger.info('Received incoming call webhook from Twilio', {
       from: req.body.From,
@@ -18,7 +19,18 @@ router.post('/incoming-call', (req: Request, res: Response) => {
     const publicUrl = process.env.PUBLIC_SERVER_URL || `${req.protocol}://${req.get('host')}`;
     const wsProtocol = publicUrl.startsWith('https') ? 'wss' : 'ws';
     const wsHost = publicUrl.replace(/^https?:\/\//, '');
-    const teamId = req.body.teamId || 'default-team';
+
+    // Resolve real team ID — Twilio never sends one in the webhook body.
+    // Look up the first team in the DB so the Call FK is satisfied.
+    let teamId: string | undefined = req.body.teamId;
+    if (!teamId) {
+      const firstTeam = await prisma.team.findFirst({ select: { id: true } });
+      teamId = firstTeam?.id;
+      if (!teamId) {
+        logger.warn('No team found in database — call will be saved without a teamId');
+      }
+    }
+
     const streamUrl = `${wsProtocol}://${wsHost}/streams`;
 
     logger.info('Generated stream TwiML', { streamUrl, teamId, publicUrl });
@@ -31,7 +43,7 @@ router.post('/incoming-call', (req: Request, res: Response) => {
 <Response>
   <Connect>
     <Stream url="${streamUrl}" track="inbound_track" statusCallbackEvent="stream-started stream-stopped stream-error">
-      <Parameter name="teamId" value="${teamId}" />
+      <Parameter name="teamId" value="${teamId || ''}" />
       <Parameter name="caller" value="${req.body.From || 'unknown'}" />
       <Parameter name="callSid" value="${req.body.CallSid || ''}" />
     </Stream>
