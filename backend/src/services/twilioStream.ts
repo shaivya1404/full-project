@@ -39,7 +39,7 @@ export class TwilioStreamService {
             const customParameters = data.start.customParameters || {};
 
             // Read parameters passed from TwiML <Parameter> elements
-            const teamId = customParameters.teamId || 'default-team';
+            const teamId = customParameters.teamId || '';
             const caller = customParameters.caller || data.start.caller || 'Inbound Call';
             const passedCallSid = customParameters.callSid || callSid;
 
@@ -49,6 +49,12 @@ export class TwilioStreamService {
               caller,
               customParameters
             });
+
+            // ⭐ Connect to OpenAI IMMEDIATELY (non-blocking) so the connection
+            // is established in parallel with the DB/AI-agent initialization below.
+            // This shaves ~1-2s off the time until the AI can greet the caller.
+            logger.info('Initiating OpenAI Realtime connection...');
+            this.openAIService.connect();
 
             // Initialize call in database with proper caller info
             await this.callManager.startCall(this.streamSid!, caller, passedCallSid, teamId);
@@ -63,10 +69,6 @@ export class TwilioStreamService {
               await this.callManager.addAudioChunk(this.streamSid!, payload);
             }
             this.audioBuffer = [];
-
-            // Connect to OpenAI Realtime API
-            logger.info('Initiating OpenAI Realtime connection...');
-            this.openAIService.connect();
             break;
           case 'media':
             // ⭐ CRITICAL FIX: Convert Twilio μ-law 8kHz to OpenAI PCM16 24kHz before sending

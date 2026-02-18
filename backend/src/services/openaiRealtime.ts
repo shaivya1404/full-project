@@ -306,14 +306,26 @@ export class OpenAIRealtimeService {
    */
   private detectLanguage(text: string): string {
     // Basic language detection using Unicode ranges and patterns
-    const hindiPattern = /[\u0900-\u097F]/; // Devanagari script (Hindi)
+    const hindiPattern = /[\u0900-\u097F]/; // Devanagari script (Hindi/Marathi)
     const arabicPattern = /[\u0600-\u06FF]/; // Arabic script
     const chinesePattern = /[\u4E00-\u9FFF]/; // Chinese characters
     const japanesePattern = /[\u3040-\u309F\u30A0-\u30FF]/; // Hiragana and Katakana
+    const tamilPattern = /[\u0B80-\u0BFF]/; // Tamil script
+    const teluguPattern = /[\u0C00-\u0C7F]/; // Telugu script
+    const kannadaPattern = /[\u0C80-\u0CFF]/; // Kannada script
+    const malayalamPattern = /[\u0D00-\u0D7F]/; // Malayalam script
 
     // Check for non-Latin scripts first
     if (hindiPattern.test(text)) {
       return 'hindi';
+    } else if (tamilPattern.test(text)) {
+      return 'tamil';
+    } else if (teluguPattern.test(text)) {
+      return 'telugu';
+    } else if (kannadaPattern.test(text)) {
+      return 'kannada';
+    } else if (malayalamPattern.test(text)) {
+      return 'malayalam';
     } else if (arabicPattern.test(text)) {
       return 'arabic';
     } else if (chinesePattern.test(text)) {
@@ -342,42 +354,53 @@ export class OpenAIRealtimeService {
   }
 
   /**
-   * Reinforce language context when language changes
+   * Reinforce language context when language changes.
+   * Uses session.update (the correct Realtime API approach) to update the
+   * session instructions. conversation.item.create with role:'system' is NOT
+   * a valid Realtime API operation and is silently ignored by OpenAI.
    */
   private async reinforceLanguageContext(streamSid: string, language: string): Promise<void> {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      const languageMap: { [key: string]: string } = {
-        hindi: 'Hindi (हिंदी)',
-        'hindi-romanized': 'Hindi (in Roman script)',
-        english: 'English',
-        arabic: 'Arabic',
-        chinese: 'Chinese',
-        japanese: 'Japanese',
-      };
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
-      const languageName = languageMap[language] || language;
+    const languageMap: { [key: string]: string } = {
+      hindi: 'Hindi (हिंदी)',
+      'hindi-romanized': 'Hindi (in Roman script)',
+      english: 'English',
+      tamil: 'Tamil (தமிழ்)',
+      telugu: 'Telugu (తెలుగు)',
+      kannada: 'Kannada (ಕನ್ನಡ)',
+      malayalam: 'Malayalam (മലയാളം)',
+      arabic: 'Arabic',
+      chinese: 'Chinese',
+      japanese: 'Japanese',
+    };
 
-      const reinforcementInstruction = `IMPORTANT: The user is now speaking in ${languageName}. 
-You MUST respond in ${languageName} for all subsequent responses. 
-Continue the conversation naturally in ${languageName}.`;
+    const languageName = languageMap[language] || language;
+    const context = this.conversationContexts.get(streamSid);
+    if (!context) return;
 
-      const event = {
-        type: 'conversation.item.create',
-        item: {
-          type: 'message',
-          role: 'system',
-          content: [
-            {
-              type: 'input_text',
-              text: reinforcementInstruction,
-            },
-          ],
-        },
-      };
+    // Regenerate the full system prompt and prepend a hard language override.
+    // session.update is the correct way to change instructions mid-call.
+    const dynamicPrompt = await this.promptService.generateDynamicPrompt(
+      context.callId,
+      context.teamId,
+      context.campaignId,
+    );
 
-      this.ws.send(JSON.stringify(event));
-      logger.info(`Reinforced language context to ${languageName}`);
-    }
+    const languageOverride =
+      `🚨 LANGUAGE OVERRIDE: The customer is NOW speaking in ${languageName}. ` +
+      `You MUST reply ONLY in ${languageName} for ALL subsequent messages. ` +
+      `Do NOT reply in any other language regardless of what language you used before.\n\n`;
+
+    const event = {
+      type: 'session.update',
+      session: {
+        instructions: languageOverride + dynamicPrompt.systemPrompt,
+      },
+    };
+
+    this.ws.send(JSON.stringify(event));
+    logger.info(`Reinforced language context to ${languageName}`);
   }
 
   private async handleTextResponse(textDelta: string) {
