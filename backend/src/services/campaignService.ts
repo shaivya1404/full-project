@@ -16,7 +16,9 @@ export class CampaignService {
     startDate?: Date,
     endDate?: Date,
     dailyLimit?: number,
-    retryAttempts?: number
+    retryAttempts?: number,
+    status?: string,
+    teamId?: string | null,
   ): Promise<Campaign> {
     return this.campaignRepository.createCampaign({
       name,
@@ -26,6 +28,8 @@ export class CampaignService {
       endDate,
       dailyLimit,
       retryAttempts,
+      ...(status ? { status } : {}),
+      ...(teamId !== undefined ? { teamId } : {}),
     });
   }
 

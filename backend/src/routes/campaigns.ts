@@ -7,11 +7,24 @@ const router = Router();
 
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, description, script, startDate, endDate, dailyLimit, retryAttempts } = req.body;
+    const {
+      name,
+      description,
+      // accept both "script" (backend) and "prompt" (frontend)
+      script, prompt,
+      startDate, endDate,
+      // accept both "dailyLimit" (backend) and "callLimit" (frontend)
+      dailyLimit, callLimit,
+      // accept both "retryAttempts" (backend) and "retryCount" (frontend)
+      retryAttempts, retryCount,
+      status, teamId,
+    } = req.body;
 
-    if (!name || !script) {
-      return res.status(400).json({ 
-        message: 'Name and script are required',
+    const resolvedScript = script || prompt;
+
+    if (!name || !resolvedScript) {
+      return res.status(400).json({
+        message: 'Name and script/prompt are required',
         error: 'NAME_AND_SCRIPT_REQUIRED'
       });
     }
@@ -21,11 +34,13 @@ router.post('/', async (req: Request, res: Response) => {
     const campaign = await campaignService.createCampaign(
       name,
       description,
-      script,
+      resolvedScript,
       startDate ? new Date(startDate) : undefined,
       endDate ? new Date(endDate) : undefined,
-      dailyLimit,
-      retryAttempts
+      dailyLimit || callLimit,
+      retryAttempts || retryCount,
+      status,
+      teamId || null,
     );
 
     logger.info(`Created new campaign: ${campaign.id}`);
@@ -91,13 +106,20 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, script, startDate, endDate, dailyLimit, retryAttempts, status } = req.body;
+    const {
+      name, description,
+      script, prompt,
+      startDate, endDate,
+      dailyLimit, callLimit,
+      retryAttempts, retryCount,
+      status,
+    } = req.body;
 
     const campaignService = new CampaignService();
-    
+
     const existing = await campaignService.getCampaignById(id);
     if (!existing) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         message: 'Campaign not found',
         error: 'CAMPAIGN_NOT_FOUND'
       });
@@ -106,11 +128,11 @@ router.put('/:id', async (req: Request, res: Response) => {
     const campaign = await campaignService.updateCampaign(id, {
       name,
       description,
-      script,
+      script: script || prompt,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
-      dailyLimit,
-      retryAttempts,
+      dailyLimit: dailyLimit || callLimit,
+      retryAttempts: retryAttempts || retryCount,
       status,
     });
 
