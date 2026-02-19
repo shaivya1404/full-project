@@ -10,7 +10,10 @@ import {
   MessageSquare,
   Play,
   Pause,
-  RefreshCw
+  RefreshCw,
+  X,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -23,6 +26,7 @@ import {
   getContacts,
   updateContact,
   deleteContact,
+  addContacts,
   bulkUpdateContacts,
   bulkDeleteContacts,
   uploadContactList,
@@ -48,6 +52,8 @@ export const CampaignDetailPage = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabType>('analytics');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isAddContactOpen, setIsAddContactOpen] = useState(false);
+  const [newContacts, setNewContacts] = useState([{ name: '', phone: '', email: '' }]);
 
   // Queries
   const { data: campaign, isLoading: isLoadingCampaign } = useQuery({
@@ -130,6 +136,33 @@ export const CampaignDetailPage = () => {
       toast.success('Contact deleted');
     },
   });
+
+  const addContactsMutation = useMutation({
+    mutationFn: (contacts: Array<{ name: string; phone: string; email?: string }>) =>
+      addContacts(id!, contacts),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['campaign-contacts', id] });
+      setIsAddContactOpen(false);
+      setNewContacts([{ name: '', phone: '', email: '' }]);
+      toast.success(`Added ${data.data?.added ?? 0} contact(s) successfully`);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to add contacts');
+    },
+  });
+
+  const handleAddContactsSubmit = () => {
+    const valid = newContacts.filter(c => c.name.trim() && c.phone.trim());
+    if (valid.length === 0) {
+      toast.error('Please enter at least one contact with name and phone');
+      return;
+    }
+    addContactsMutation.mutate(valid.map(c => ({
+      name: c.name.trim(),
+      phone: c.phone.trim(),
+      email: c.email.trim() || undefined,
+    })));
+  };
 
   if (isLoadingCampaign) {
     return (
@@ -229,15 +262,24 @@ export const CampaignDetailPage = () => {
           )}
 
           {activeTab === 'contacts' && (
-            <ContactManagement
-              contacts={contactsData?.data || []}
-              loading={isLoadingContacts}
-              onUpdate={(contactId, data) => updateContactMutation.mutate({ contactId, data })}
-              onDelete={(contactId) => deleteContactMutation.mutate(contactId)}
-              onBulkUpdate={(ids, data) => bulkUpdateContacts(id!, ids, data)}
-              onBulkDelete={(ids) => bulkDeleteContacts(id!, ids)}
-              onAddContact={() => setIsUploadModalOpen(true)}
-            />
+            <>
+              <div className="flex justify-end gap-2 mb-4">
+                <Button variant="ghost" size="sm" onClick={() => setIsUploadModalOpen(true)}>
+                  Import CSV
+                </Button>
+                <Button variant="primary" size="sm" onClick={() => setIsAddContactOpen(true)}>
+                  <Plus size={16} className="mr-1" /> Add Contact
+                </Button>
+              </div>
+              <ContactManagement
+                contacts={contactsData?.data || []}
+                loading={isLoadingContacts}
+                onUpdate={(contactId, data) => updateContactMutation.mutate({ contactId, data })}
+                onDelete={(contactId) => deleteContactMutation.mutate(contactId)}
+                onBulkUpdate={(ids, data) => bulkUpdateContacts(id!, ids, data)}
+                onBulkDelete={(ids) => bulkDeleteContacts(id!, ids)}
+              />
+            </>
           )}
 
           {activeTab === 'config' && (
@@ -270,6 +312,67 @@ export const CampaignDetailPage = () => {
           onImport={(file) => uploadMutation.mutate(file)}
           loading={uploadMutation.isPending}
         />
+
+        {/* Add Contact Modal */}
+        {isAddContactOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg">
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Add Contacts</h2>
+                <button onClick={() => { setIsAddContactOpen(false); setNewContacts([{ name: '', phone: '', email: '' }]); }}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                {newContacts.map((contact, idx) => (
+                  <div key={idx} className="flex gap-2 items-start">
+                    <div className="flex-1 grid grid-cols-3 gap-2">
+                      <input
+                        placeholder="Name *"
+                        value={contact.name}
+                        onChange={e => setNewContacts(prev => prev.map((c, i) => i === idx ? { ...c, name: e.target.value } : c))}
+                        className="col-span-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                      <input
+                        placeholder="Phone * (+91...)"
+                        value={contact.phone}
+                        onChange={e => setNewContacts(prev => prev.map((c, i) => i === idx ? { ...c, phone: e.target.value } : c))}
+                        className="col-span-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                      <input
+                        placeholder="Email (optional)"
+                        value={contact.email}
+                        onChange={e => setNewContacts(prev => prev.map((c, i) => i === idx ? { ...c, email: e.target.value } : c))}
+                        className="col-span-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    {newContacts.length > 1 && (
+                      <button onClick={() => setNewContacts(prev => prev.filter((_, i) => i !== idx))}
+                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded">
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  onClick={() => setNewContacts(prev => [...prev, { name: '', phone: '', email: '' }])}
+                  className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                >
+                  <Plus size={16} /> Add another row
+                </button>
+              </div>
+              <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+                <Button variant="ghost" onClick={() => { setIsAddContactOpen(false); setNewContacts([{ name: '', phone: '', email: '' }]); }}>
+                  Cancel
+                </Button>
+                <Button variant="primary" onClick={handleAddContactsSubmit} isLoading={addContactsMutation.isPending}>
+                  Add Contacts
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

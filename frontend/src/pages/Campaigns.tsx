@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
 
 import {
   CampaignsTable,
@@ -21,7 +22,8 @@ import type { Campaign } from '../types';
 export const CampaignsPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const teamId = 'team-1'; // In a real app, get this from auth or context
+  const { teamId: authTeamId } = useAuthStore();
+  const teamId = authTeamId || '';
 
   const [page, setPage] = useState(1);
   const [limit] = useState(10);

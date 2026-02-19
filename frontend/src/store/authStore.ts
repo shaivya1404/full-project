@@ -11,6 +11,7 @@ export interface User {
 
 export interface AuthState {
   user: User | null;
+  teamId: string | null;
   accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
@@ -50,18 +51,20 @@ const resolveApiUrl = (path: string) => {
   return `${normalizedBase}${path.startsWith('/') ? path : `/${path}`}`;
 };
 
-const extractToken = (data: any): { accessToken: string | null; refreshToken: string | null; user: User | null } => {
+const extractToken = (data: any): { accessToken: string | null; refreshToken: string | null; user: User | null; teamId: string | null } => {
   const payload = data?.data ?? data ?? {};
   const accessToken =
     payload.accessToken ?? payload.token ?? payload.access_token ?? payload.data?.accessToken ?? null;
   const refreshToken =
     payload.refreshToken ?? payload.refresh_token ?? payload.data?.refreshToken ?? null;
   const user = payload.user ?? payload.data?.user ?? null;
+  const teamId = payload.team?.id ?? payload.teamId ?? null;
 
   return {
     accessToken: accessToken || null,
     refreshToken: refreshToken || null,
     user: user ?? null,
+    teamId: teamId ?? null,
   };
 };
 
@@ -69,6 +72,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
+      teamId: null,
       accessToken: null,
       refreshToken: null,
       isAuthenticated: false,
@@ -98,7 +102,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const data = await response.json();
-          const { accessToken, refreshToken, user } = extractToken(data);
+          const { accessToken, refreshToken, user, teamId } = extractToken(data);
 
           if (!accessToken) {
             throw new Error('No access token found in response');
@@ -106,6 +110,7 @@ export const useAuthStore = create<AuthState>()(
 
           set({
             user: user ?? null,
+            teamId: teamId ?? null,
             accessToken,
             refreshToken,
             isAuthenticated: true,
@@ -129,6 +134,7 @@ export const useAuthStore = create<AuthState>()(
       logout: () => {
         set({
           user: null,
+          teamId: null,
           accessToken: null,
           refreshToken: null,
           isAuthenticated: false,
@@ -159,6 +165,7 @@ export const useAuthStore = create<AuthState>()(
       storage,
       partialize: (state) => ({
         user: state.user,
+        teamId: state.teamId,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,

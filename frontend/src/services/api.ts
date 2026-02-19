@@ -714,6 +714,17 @@ export const getContactCallHistory = async (contactId: string): Promise<Call[]> 
   return response.data;
 };
 
+export const addContacts = async (
+  campaignId: string,
+  contacts: Array<{ name: string; phone: string; email?: string }>
+): Promise<{ message: string; data: { added: number } }> => {
+  const response = await client.post<{ message: string; data: { added: number } }>(
+    `/campaigns/${campaignId}/contacts`,
+    { contacts }
+  );
+  return response.data;
+};
+
 export const bulkUpdateContacts = async (campaignId: string, contactIds: string[], data: Partial<CampaignContact>): Promise<{ success: boolean }> => {
   const response = await client.put<{ success: boolean }>(`/campaigns/${campaignId}/contacts/bulk`, { contactIds, data });
   return response.data;

@@ -43,8 +43,8 @@ export const LiveCallsList = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
 
-  const { user } = useAuthStore();
-  const teamId = user?.id || '';
+  const { teamId: authTeamId } = useAuthStore();
+  const teamId = authTeamId || '';
 
   // Auto-refresh calls every 3 seconds
   useEffect(() => {
