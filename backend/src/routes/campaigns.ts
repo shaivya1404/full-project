@@ -64,12 +64,15 @@ router.get('/', async (req: Request, res: Response) => {
     const campaigns = await campaignService.getAllCampaigns();
 
     res.status(200).json({
-      data: campaigns
+      data: campaigns,
+      total: campaigns.length,
+      limit: campaigns.length,
+      offset: 0,
     });
   } catch (error) {
     logger.error('Error getting campaigns', error);
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       message: 'Error getting campaigns',
       error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
     });

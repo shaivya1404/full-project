@@ -250,10 +250,10 @@ export const CampaignDetailPage = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items - center gap - 2 py - 4 border - b - 2 transition - colors ${activeTab === tab.id
+                className={`flex items-center gap-2 py-4 border-b-2 transition-colors ${activeTab === tab.id
                     ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                  } `}
+                  }`}
               >
                 <tab.icon size={18} />
                 <span className="font-medium">{tab.label}</span>
