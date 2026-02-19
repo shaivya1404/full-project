@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { ContactService } from '../services/contactService';
 import { CampaignService } from '../services/campaignService';
+import { getPrismaClient } from '../db/client';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -78,6 +79,43 @@ router.post('/upload', upload.single('file'), async (req: Request, res: Response
       message: 'Error uploading contacts',
       error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
     });
+  }
+});
+
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const prisma = getPrismaClient();
+    const contact = await prisma.contact.findUnique({ where: { id } });
+    if (!contact) return res.status(404).json({ message: 'Contact not found' });
+    res.status(200).json({ success: true, data: contact });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching contact', error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' });
+  }
+});
+
+router.put('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const data = req.body;
+    const prisma = getPrismaClient();
+    const updated = await prisma.contact.update({ where: { id }, data });
+    res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    logger.error(`Error updating contact ${req.params.id}`, error);
+    res.status(500).json({ message: 'Error updating contact', error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' });
+  }
+});
+
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const prisma = getPrismaClient();
+    await prisma.contact.delete({ where: { id } });
+    res.status(200).json({ success: true });
+  } catch (error) {
+    logger.error(`Error deleting contact ${req.params.id}`, error);
+    res.status(500).json({ message: 'Error deleting contact', error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' });
   }
 });
 

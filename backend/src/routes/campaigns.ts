@@ -1,9 +1,14 @@
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
+import fs from 'fs';
 import { CampaignService } from '../services/campaignService';
+import { ContactService } from '../services/contactService';
 import { TwilioOutboundService } from '../services/twilioOutbound';
+import { getPrismaClient } from '../db/client';
 import { logger } from '../utils/logger';
 
 const router = Router();
+const upload = multer({ dest: 'uploads/' });
 
 router.post('/', async (req: Request, res: Response) => {
   try {
@@ -94,6 +99,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     }
 
     res.status(200).json({
+      success: true,
       data: campaign
     });
   } catch (error) {
@@ -302,20 +308,56 @@ router.get('/:id/progress', async (req: Request, res: Response) => {
 router.get('/:id/contacts', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const { search, status, limit, offset } = req.query;
 
     const campaignService = new CampaignService();
-    const contacts = await campaignService.getContactsForCampaign(id);
+    let contacts = await campaignService.getContactsForCampaign(id);
 
-    res.status(200).json({
-      data: contacts
+    // Apply search filter
+    if (search) {
+      const q = (search as string).toLowerCase();
+      contacts = contacts.filter((c: any) =>
+        c.name?.toLowerCase().includes(q) ||
+        c.phone?.toLowerCase().includes(q) ||
+        c.email?.toLowerCase().includes(q)
+      );
+    }
+
+    // Compute status from contact fields (Contact model has no status column)
+    const enriched = contacts.map((c: any) => {
+      let computedStatus = 'pending';
+      if (c.isDoNotCall) computedStatus = 'failed';
+      else if (c.successfulCalls > 0) computedStatus = 'completed';
+      else if (c.totalCalls > 0) computedStatus = 'called';
+
+      return {
+        id: c.id,
+        campaignId: c.campaignId,
+        name: c.name,
+        phone: c.phone,
+        email: c.email,
+        status: computedStatus,
+        lastCalled: c.lastContactedAt || null,
+        callCount: c.totalCalls || 0,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+      };
     });
+
+    // Apply status filter after computing
+    const filtered = status
+      ? enriched.filter((c: any) => c.status === status)
+      : enriched;
+
+    const total = filtered.length;
+    const lim = limit ? parseInt(limit as string) : filtered.length;
+    const off = offset ? parseInt(offset as string) : 0;
+    const page = filtered.slice(off, off + lim);
+
+    res.status(200).json({ data: page, total });
   } catch (error) {
     logger.error(`Error getting contacts for campaign ${req.params.id}`, error);
-    
-    res.status(500).json({ 
-      message: 'Error getting contacts',
-      error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
-    });
+    res.status(500).json({ message: 'Error getting contacts', error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' });
   }
 });
 
@@ -370,7 +412,10 @@ router.get('/:id/analytics/contacts', async (req: Request, res: Response) => {
 
     const statusCounts: Record<string, number> = {};
     contacts.forEach((c: any) => {
-      const s = c.status || 'pending';
+      let s = 'pending';
+      if (c.isDoNotCall) s = 'failed';
+      else if (c.successfulCalls > 0) s = 'completed';
+      else if (c.totalCalls > 0) s = 'called';
       statusCounts[s] = (statusCounts[s] || 0) + 1;
     });
 
@@ -403,8 +448,11 @@ router.get('/:id/analytics', async (req: Request, res: Response) => {
     // Build statusBreakdown from actual contacts
     const statusBreakdown = { pending: 0, called: 0, completed: 0, failed: 0, transferred: 0 };
     contacts.forEach((c: any) => {
-      const s = (c.status || 'pending') as keyof typeof statusBreakdown;
-      if (s in statusBreakdown) statusBreakdown[s]++;
+      let s = 'pending';
+      if (c.isDoNotCall) s = 'failed';
+      else if (c.successfulCalls > 0) s = 'completed';
+      else if (c.totalCalls > 0) s = 'called';
+      if (s in statusBreakdown) statusBreakdown[s as keyof typeof statusBreakdown]++;
     });
 
     res.status(200).json({
@@ -426,6 +474,94 @@ router.get('/:id/analytics', async (req: Request, res: Response) => {
       error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
     });
   }
+});
+
+// CSV import for a campaign
+router.post('/:id/contacts/import', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const file = req.file;
+    if (!file) return res.status(400).json({ message: 'No file uploaded', error: 'FILE_REQUIRED' });
+
+    const campaignService = new CampaignService();
+    const campaign = await campaignService.getCampaignById(id);
+    if (!campaign) {
+      fs.unlinkSync(file.path);
+      return res.status(404).json({ message: 'Campaign not found', error: 'CAMPAIGN_NOT_FOUND' });
+    }
+
+    const contactService = new ContactService();
+    const contacts = await contactService.uploadContactsFromCSV(id, file.path);
+    try { fs.unlinkSync(file.path); } catch (_) {}
+
+    res.status(200).json({
+      success: true,
+      data: { imported: contacts.length, failed: 0 }
+    });
+  } catch (error) {
+    if (req.file) try { fs.unlinkSync(req.file.path); } catch (_) {}
+    logger.error(`Error importing contacts for campaign ${req.params.id}`, error);
+    res.status(500).json({ message: 'Error importing contacts', error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' });
+  }
+});
+
+// Bulk update contacts
+router.put('/:id/contacts/bulk', async (req: Request, res: Response) => {
+  try {
+    const { contactIds, data } = req.body;
+    if (!contactIds || !Array.isArray(contactIds)) {
+      return res.status(400).json({ message: 'contactIds array required', error: 'INVALID_REQUEST' });
+    }
+    const prisma = getPrismaClient();
+    await prisma.contact.updateMany({ where: { id: { in: contactIds } }, data });
+    res.status(200).json({ success: true });
+  } catch (error) {
+    logger.error(`Error bulk updating contacts`, error);
+    res.status(500).json({ message: 'Error bulk updating contacts', error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' });
+  }
+});
+
+// Bulk delete contacts
+router.post('/:id/contacts/bulk-delete', async (req: Request, res: Response) => {
+  try {
+    const { contactIds } = req.body;
+    if (!contactIds || !Array.isArray(contactIds)) {
+      return res.status(400).json({ message: 'contactIds array required', error: 'INVALID_REQUEST' });
+    }
+    const prisma = getPrismaClient();
+    await prisma.contact.deleteMany({ where: { id: { in: contactIds } } });
+    res.status(200).json({ success: true });
+  } catch (error) {
+    logger.error(`Error bulk deleting contacts`, error);
+    res.status(500).json({ message: 'Error bulk deleting contacts', error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' });
+  }
+});
+
+// Campaign status summary
+router.get('/:id/status', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const campaignService = new CampaignService();
+    const campaign = await campaignService.getCampaignById(id);
+    if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
+    const progress = await campaignService.getCampaignProgress(id);
+    res.status(200).json({
+      success: true,
+      data: { status: campaign.status, callsMade: progress.completedCalls, successRate: progress.successRate }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error getting campaign status', error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' });
+  }
+});
+
+// Analytics export stub
+router.get('/:id/analytics/export', async (req: Request, res: Response) => {
+  res.status(200).json({ success: true, data: { url: null, message: 'Export feature coming soon' } });
+});
+
+// Analytics agents stub
+router.get('/:id/analytics/agents', async (req: Request, res: Response) => {
+  res.status(200).json({ success: true, data: [] });
 });
 
 router.post('/:id/contacts', async (req: Request, res: Response) => {

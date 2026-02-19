@@ -198,6 +198,7 @@ export class CampaignService {
           name: contact.name,
           phone: contact.phone,
           email: contact.email,
+          isValid: true,  // manually added contacts are valid by default
           metadata: contact.metadata ? JSON.stringify(contact.metadata) : undefined,
         });
         added++;
