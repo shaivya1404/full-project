@@ -22,7 +22,11 @@
       "Bash(powershell:*)",
       "Bash(gcloud sql instances describe:*)",
       "Bash(gcloud sql instances patch:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

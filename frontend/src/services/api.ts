@@ -646,6 +646,11 @@ export const deleteCampaign = async (id: string): Promise<{ success: boolean }> 
   return response.data;
 };
 
+export const startCampaign = async (id: string, limit?: number): Promise<{ callsMade: number; status: string }> => {
+  const response = await client.post<{ data: { callsMade: number; status: string } }>(`/campaigns/${id}/start`, { limit });
+  return response.data.data;
+};
+
 export const pauseCampaign = async (id: string): Promise<{ success: boolean }> => {
   const response = await client.post<{ success: boolean }>(`/campaigns/${id}/pause`);
   return response.data;

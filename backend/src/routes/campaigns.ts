@@ -161,6 +161,40 @@ router.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/:id/pause', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const campaignService = new CampaignService();
+    const campaign = await campaignService.getCampaignById(id);
+    if (!campaign) {
+      return res.status(404).json({ message: 'Campaign not found', error: 'CAMPAIGN_NOT_FOUND' });
+    }
+    await campaignService.updateCampaign(id, { status: 'paused' });
+    logger.info(`Paused campaign ${id}`);
+    res.status(200).json({ success: true, data: { campaignId: id, status: 'paused' } });
+  } catch (error) {
+    logger.error(`Error pausing campaign ${req.params.id}`, error);
+    res.status(500).json({ message: 'Error pausing campaign', error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' });
+  }
+});
+
+router.post('/:id/resume', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const campaignService = new CampaignService();
+    const campaign = await campaignService.getCampaignById(id);
+    if (!campaign) {
+      return res.status(404).json({ message: 'Campaign not found', error: 'CAMPAIGN_NOT_FOUND' });
+    }
+    await campaignService.updateCampaign(id, { status: 'active' });
+    logger.info(`Resumed campaign ${id}`);
+    res.status(200).json({ success: true, data: { campaignId: id, status: 'active' } });
+  } catch (error) {
+    logger.error(`Error resuming campaign ${req.params.id}`, error);
+    res.status(500).json({ message: 'Error resuming campaign', error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' });
+  }
+});
+
 router.post('/:id/start', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

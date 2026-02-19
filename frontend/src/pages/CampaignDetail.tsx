@@ -31,7 +31,8 @@ import {
   bulkDeleteContacts,
   uploadContactList,
   pauseCampaign,
-  resumeCampaign
+  resumeCampaign,
+  startCampaign
 } from '../services/api';
 import {
   CampaignAnalytics,
@@ -104,6 +105,17 @@ export const CampaignDetailPage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaign', id] });
       toast.success(`Campaign ${campaign?.status === 'active' ? 'paused' : 'resumed'} successfully`);
+    },
+  });
+
+  const startCampaignMutation = useMutation({
+    mutationFn: () => startCampaign(id!),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['campaign', id] });
+      toast.success(`Campaign started — ${data.callsMade} call(s) initiated`);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to start campaign');
     },
   });
 
@@ -293,7 +305,7 @@ export const CampaignDetailPage = () => {
           {activeTab === 'scheduler' && (
             <CampaignScheduler
               campaign={campaign}
-              onStartManual={() => toast.success('Campaign manually triggered')}
+              onStartManual={() => startCampaignMutation.mutate()}
             />
           )}
 
