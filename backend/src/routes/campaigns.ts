@@ -336,29 +336,89 @@ router.get('/:id/calls', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/:id/analytics/trends', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const campaignService = new CampaignService();
+    const callLogs = await campaignService.getCallLogsForCampaign(id);
+
+    const byDay: Record<string, number> = {};
+    callLogs.forEach((log) => {
+      const date = new Date(log.createdAt).toISOString().split('T')[0];
+      byDay[date] = (byDay[date] || 0) + 1;
+    });
+
+    const trends = Object.entries(byDay)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => ({ date, count }));
+
+    res.status(200).json({ success: true, data: trends });
+  } catch (error) {
+    logger.error(`Error getting call trends for ${req.params.id}`, error);
+    res.status(500).json({ message: 'Error getting call trends', error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' });
+  }
+});
+
+router.get('/:id/analytics/contacts', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const campaignService = new CampaignService();
+    const contacts = await campaignService.getContactsForCampaign(id);
+
+    const statusCounts: Record<string, number> = {};
+    contacts.forEach((c: any) => {
+      const s = c.status || 'pending';
+      statusCounts[s] = (statusCounts[s] || 0) + 1;
+    });
+
+    const result = Object.entries(statusCounts).map(([status, count]) => ({ status, count }));
+
+    res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    logger.error(`Error getting contact status for ${req.params.id}`, error);
+    res.status(500).json({ message: 'Error getting contact status', error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' });
+  }
+});
+
 router.get('/:id/analytics', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
     const campaignService = new CampaignService();
     const campaign = await campaignService.getCampaignById(id);
-    
+
     if (!campaign) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         message: 'Campaign not found',
         error: 'CAMPAIGN_NOT_FOUND'
       });
     }
 
-    const analytics = await campaignService.getCampaignAnalytics(id);
+    const raw = await campaignService.getCampaignAnalytics(id);
+    const contacts = await campaignService.getContactsForCampaign(id);
+
+    // Build statusBreakdown from actual contacts
+    const statusBreakdown = { pending: 0, called: 0, completed: 0, failed: 0, transferred: 0 };
+    contacts.forEach((c: any) => {
+      const s = (c.status || 'pending') as keyof typeof statusBreakdown;
+      if (s in statusBreakdown) statusBreakdown[s]++;
+    });
 
     res.status(200).json({
-      data: analytics
+      success: true,
+      data: {
+        totalContacts: raw.totalContacts,
+        callsMade: raw.totalCalls,
+        callsCompleted: raw.completedCalls,
+        successRate: raw.successRate,
+        averageDuration: raw.averageDuration,
+        statusBreakdown,
+      }
     });
   } catch (error) {
     logger.error(`Error getting campaign analytics for ${req.params.id}`, error);
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       message: 'Error getting campaign analytics',
       error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
     });
