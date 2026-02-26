@@ -1000,14 +1000,37 @@ ${agentContext.specialInstructions.length > 0 ? `SPECIAL INSTRUCTIONS:\n${agentC
 
   private async triggerGreeting(streamSid: string): Promise<void> {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      logger.info('Triggering human-like greeting');
+      const context = this.conversationContexts.get(streamSid);
+      const isOutbound = !!(context?.campaignId);
 
-      // ═══════════════════════════════════════════════════════════════════════════
-      // HUMAN-LIKE GREETING
-      // This greeting sounds like a real customer service rep, not a bot
-      // ═══════════════════════════════════════════════════════════════════════════
+      logger.info(`Triggering ${isOutbound ? 'outbound campaign' : 'inbound'} greeting`);
 
-      const greetingInstruction = `Give a warm, natural greeting like a real customer service rep would.
+      let greetingInstruction: string;
+
+      if (isOutbound) {
+        // ═══════════════════════════════════════════════════════════════════════
+        // OUTBOUND CALL GREETING
+        // YOU called THEM — greet proactively using the campaign script context
+        // ═══════════════════════════════════════════════════════════════════════
+        greetingInstruction = `You just made an OUTBOUND call and the person picked up. Start speaking immediately.
+
+OUTBOUND GREETING RULES:
+- YOU called THEM — introduce yourself and why you're calling
+- Use your name and reference the company/context from your instructions above
+- Keep it SHORT (2-3 sentences max) and natural — NOT a scripted monologue
+- Sound warm and human — like a real person making a call
+- End with an open question to engage them
+
+EXAMPLE OUTBOUND STYLE:
+"Hi there, this is Sarah calling! I'm reaching out today about [topic from your script]. Do you have just a minute to chat?"
+
+Start speaking NOW. Be warm, friendly, and natural. Do NOT say you're an AI.`;
+      } else {
+        // ═══════════════════════════════════════════════════════════════════════
+        // INBOUND CALL GREETING
+        // They called YOU — greet them and wait for their request
+        // ═══════════════════════════════════════════════════════════════════════
+        greetingInstruction = `Give a warm, natural greeting like a real customer service rep would.
 
 IMPORTANT RULES:
 - ALWAYS greet in English regardless of any prior context
@@ -1023,6 +1046,7 @@ GREETING STYLE (pick one naturally):
 Keep it SHORT - just 1-2 sentences. Be warm and friendly.
 Then WAIT for them to tell you what they need.
 Respond in English until the caller clearly speaks in a different language.`;
+      }
 
       const event = {
         type: 'response.create',

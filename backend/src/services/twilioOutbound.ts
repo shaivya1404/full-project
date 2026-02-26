@@ -73,15 +73,40 @@ export class TwilioOutboundService {
     try {
       logger.info(`Handling outbound call webhook for call SID: ${callSid}`);
 
-      // Get campaign and script
+      // Get campaign to verify it exists and get team info
       const campaign = await this.campaignService.getCampaignById(campaignId);
-
       if (!campaign) {
         throw new Error('Campaign not found');
       }
 
-      // Generate TwiML response with AI script
-      const twiml = this.generateTwiMLResponse(campaign.script);
+      // Get team ID from campaign, or fall back to first team in DB
+      let teamId = (campaign as any).teamId as string | undefined;
+      if (!teamId) {
+        const { prisma } = await import('../db/client');
+        const firstTeam = await prisma.team.findFirst({ select: { id: true } });
+        teamId = firstTeam?.id || '';
+      }
+
+      const publicUrl = process.env.PUBLIC_SERVER_URL || process.env.BASE_URL || 'http://localhost:3000';
+      const wsProtocol = publicUrl.startsWith('https') ? 'wss' : 'ws';
+      const wsHost = publicUrl.replace(/^https?:\/\//, '');
+      const streamUrl = `${wsProtocol}://${wsHost}/streams`;
+
+      logger.info(`Connecting outbound call to AI stream: ${streamUrl}`, { teamId, campaignId, contactId });
+
+      // Connect call to AI WebSocket stream — same as inbound, but with campaign context
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Connect>
+    <Stream url="${streamUrl}" track="inbound_track" statusCallbackEvent="stream-started stream-stopped stream-error">
+      <Parameter name="teamId" value="${teamId}" />
+      <Parameter name="campaignId" value="${campaignId}" />
+      <Parameter name="contactId" value="${contactId}" />
+      <Parameter name="callSid" value="${callSid}" />
+      <Parameter name="callType" value="outbound" />
+    </Stream>
+  </Connect>
+</Response>`;
 
       return twiml;
     } catch (error) {
@@ -94,17 +119,6 @@ export class TwilioOutboundService {
   <Hangup />
 </Response>`;
     }
-  }
-
-  private generateTwiMLResponse(script: string): string {
-    // For now, use basic Twilio text-to-speech
-    // In future phases, we'll integrate with OpenAI for more advanced voice generation
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say voice="alice">${this.escapeXml(script)}</Say>
-  <Record action="/twilio/recording-complete" maxLength="3600" />
-  <Hangup />
-</Response>`;
   }
 
   private escapeXml(text: string): string {

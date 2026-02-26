@@ -42,11 +42,15 @@ export class TwilioStreamService {
             const teamId = customParameters.teamId || '';
             const caller = customParameters.caller || data.start.caller || 'Inbound Call';
             const passedCallSid = customParameters.callSid || callSid;
+            const campaignId = customParameters.campaignId || undefined;
+            const callType = customParameters.callType || 'inbound';
 
             logger.info(`Twilio Media Stream started: ${this.streamSid}`, {
               callSid: passedCallSid,
               teamId,
               caller,
+              callType,
+              campaignId,
               customParameters
             });
 
@@ -57,7 +61,8 @@ export class TwilioStreamService {
             this.openAIService.connect();
 
             // Initialize call in database with proper caller info
-            await this.callManager.startCall(this.streamSid!, caller, passedCallSid, teamId);
+            // Pass campaignId so the AI uses the campaign script as context
+            await this.callManager.startCall(this.streamSid!, caller, passedCallSid, teamId, campaignId);
 
             this.isCallInitialized = true;
             logger.info(
