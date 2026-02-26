@@ -32,7 +32,7 @@ function transformCampaign(c: any) {
     retryCount: c.retryAttempts,          // frontend calls it "retryCount"
     retryAttempts: c.retryAttempts,
     retryDelay: c.retryDelay || 60,
-    operatingHours: c.operatingHours || null,
+    operatingHours: c.operatingHours || { startTime: '09:00', endTime: '17:00', timezone: 'UTC' },
     knowledgeBaseId: c.knowledgeBaseId || null,
     contactsCount: contacts.length,
     callsMade,

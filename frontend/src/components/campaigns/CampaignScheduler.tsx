@@ -75,11 +75,10 @@ export const CampaignScheduler = ({
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
             Force start the campaign outside of scheduled hours. This will ignore operating hour restrictions for 1 hour.
           </p>
-          <Button 
-            variant="primary" 
-            className="w-full" 
+          <Button
+            variant="primary"
+            className="w-full"
             onClick={onStartManual}
-            disabled={campaign.status === 'active'}
           >
             <Play size={18} className="mr-2" />
             Manual Trigger
