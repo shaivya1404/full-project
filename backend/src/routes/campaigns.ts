@@ -10,6 +10,38 @@ import { logger } from '../utils/logger';
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
 
+// Transform DB campaign → frontend-expected shape
+function transformCampaign(c: any) {
+  const contacts: any[] = c.contacts || [];
+  const callLogs: any[] = c.callLogs || [];
+  const callsMade = callLogs.length;
+  const successfulCalls = callLogs.filter((l: any) => l.result === 'completed').length;
+  const successRate = callsMade > 0 ? Math.round((successfulCalls / callsMade) * 100) : 0;
+
+  return {
+    id: c.id,
+    teamId: c.teamId || '',
+    name: c.name,
+    description: c.description,
+    type: c.type || 'outbound',           // DB has no type field — default outbound
+    status: c.status,
+    prompt: c.script,                     // frontend calls it "prompt"
+    script: c.script,
+    callLimit: c.dailyLimit,              // frontend calls it "callLimit"
+    dailyLimit: c.dailyLimit,
+    retryCount: c.retryAttempts,          // frontend calls it "retryCount"
+    retryAttempts: c.retryAttempts,
+    retryDelay: c.retryDelay || 60,
+    operatingHours: c.operatingHours || null,
+    knowledgeBaseId: c.knowledgeBaseId || null,
+    contactsCount: contacts.length,
+    callsMade,
+    successRate,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+  };
+}
+
 router.post('/', async (req: Request, res: Response) => {
   try {
     const {
@@ -68,10 +100,11 @@ router.get('/', async (req: Request, res: Response) => {
     const campaignService = new CampaignService();
     const campaigns = await campaignService.getAllCampaigns();
 
+    const transformed = campaigns.map(transformCampaign);
     res.status(200).json({
-      data: campaigns,
-      total: campaigns.length,
-      limit: campaigns.length,
+      data: transformed,
+      total: transformed.length,
+      limit: transformed.length,
       offset: 0,
     });
   } catch (error) {
@@ -100,7 +133,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     res.status(200).json({
       success: true,
-      data: campaign
+      data: transformCampaign(campaign)
     });
   } catch (error) {
     logger.error(`Error getting campaign ${req.params.id}`, error);

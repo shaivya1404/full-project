@@ -9,6 +9,8 @@ export interface CreateCampaignInput {
   endDate?: Date;
   dailyLimit?: number;
   retryAttempts?: number;
+  status?: string;
+  teamId?: string | null;
 }
 
 export interface UpdateCampaignInput {
@@ -59,6 +61,8 @@ export class CampaignRepository {
         endDate: data.endDate,
         dailyLimit: data.dailyLimit || 100,
         retryAttempts: data.retryAttempts || 3,
+        ...(data.status ? { status: data.status } : {}),
+        ...(data.teamId !== undefined ? { teamId: data.teamId } : {}),
       },
     });
   }

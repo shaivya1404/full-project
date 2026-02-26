@@ -118,10 +118,15 @@ router.post('/outbound-call-handler', async (req: Request, res: Response) => {
       to: req.body.To,
     });
 
-    // In a real implementation, we would extract campaignId and contactId from the request
-    // For now, we'll use dummy values
-    const campaignId = req.body.campaignId || 'default-campaign';
-    const contactId = req.body.contactId || 'default-contact';
+    // campaignId and contactId are passed as query params in the webhook URL
+    const campaignId = (req.query.campaignId as string) || req.body.campaignId;
+    const contactId = (req.query.contactId as string) || req.body.contactId;
+
+    if (!campaignId) {
+      logger.warn('No campaignId in outbound call handler — returning fallback TwiML');
+      res.type('text/xml').send(`<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice">Hello, thank you for answering. Please hold while we connect you.</Say><Hangup /></Response>`);
+      return;
+    }
 
     const twilioOutboundService = new TwilioOutboundService();
     const twiml = await twilioOutboundService.handleOutboundCallWebhook(

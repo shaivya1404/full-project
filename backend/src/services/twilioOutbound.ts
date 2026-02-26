@@ -35,15 +35,17 @@ export class TwilioOutboundService {
         'pending'
       );
 
+      const publicUrl = process.env.PUBLIC_SERVER_URL || process.env.BASE_URL || 'http://localhost:3000';
+
       // Make Twilio call
       const call = await this.twilioClient.calls.create({
-        url: `${process.env.BASE_URL || 'http://localhost:3000'}/twilio/outbound-call-handler`,
+        url: `${publicUrl}/twilio/outbound-call-handler?campaignId=${encodeURIComponent(campaignId)}&contactId=${encodeURIComponent(contactId)}`,
         to: phoneNumber,
         from: config.TWILIO_PHONE_NUMBER,
         method: 'POST',
         record: true,
-        recordingStatusCallback: `${process.env.BASE_URL || 'http://localhost:3000'}/twilio/recording-complete`,
-        statusCallback: `${process.env.BASE_URL || 'http://localhost:3000'}/twilio/call-status`,
+        recordingStatusCallback: `${publicUrl}/twilio/recording-complete`,
+        statusCallback: `${publicUrl}/twilio/call-status`,
         statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
         statusCallbackMethod: 'POST',
       });
