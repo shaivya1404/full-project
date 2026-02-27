@@ -112,15 +112,17 @@ router.post('/recording-complete', async (req: Request, res: Response) => {
 
 router.post('/outbound-call-handler', async (req: Request, res: Response) => {
   try {
+    const body = req.body || {};
+
     logger.info('Received outbound call handler request', {
-      callSid: req.body.CallSid,
-      from: req.body.From,
-      to: req.body.To,
+      callSid: body.CallSid,
+      from: body.From,
+      to: body.To,
     });
 
     // campaignId and contactId are passed as query params in the webhook URL
-    const campaignId = (req.query.campaignId as string) || req.body.campaignId;
-    const contactId = (req.query.contactId as string) || req.body.contactId;
+    const campaignId = (req.query.campaignId as string) || body.campaignId;
+    const contactId = (req.query.contactId as string) || body.contactId;
 
     if (!campaignId) {
       logger.warn('No campaignId in outbound call handler — returning fallback TwiML');
@@ -130,7 +132,7 @@ router.post('/outbound-call-handler', async (req: Request, res: Response) => {
 
     const twilioOutboundService = new TwilioOutboundService();
     const twiml = await twilioOutboundService.handleOutboundCallWebhook(
-      req.body.CallSid,
+      body.CallSid,
       campaignId,
       contactId
     );
