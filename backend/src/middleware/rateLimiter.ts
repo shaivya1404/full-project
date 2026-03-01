@@ -50,6 +50,7 @@ export const apiRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false, keyGeneratorIpFallback: false },
   keyGenerator: (req: Request): string => {
     const apiKey = req.headers['x-api-key'] as string;
     if (apiKey) return `apikey:${apiKey.substring(0, 10)}`;
@@ -79,6 +80,7 @@ export const teamActionRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false, keyGeneratorIpFallback: false },
   keyGenerator: (req: Request): string => {
     return `team:${req.params.id || 'unknown'}:${req.ip || 'unknown'}`;
   },

@@ -1,43 +1,33 @@
 import bcrypt from 'bcryptjs';
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
 
 async function main(): Promise<void> {
-  const orgName = process.env.SEED_ORG_NAME || 'Acme Corp';
-  const orgSlug = process.env.SEED_ORG_SLUG || 'acme-corp';
-  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'owner@acme.dev';
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'ChangeMe123!';
+  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'demo@example.com';
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'demo123';
 
-  const passwordHash = await bcrypt.hash(adminPassword, 10);
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
 
-  const organization = await prisma.organization.upsert({
-    where: { slug: orgSlug },
-    update: { name: orgName },
+  // Create or update demo user
+  const user = await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: { passwordHash },
     create: {
-      name: orgName,
-      slug: orgSlug,
-    },
-  });
-
-  await prisma.user.upsert({
-    where: {
-      orgId_email: {
-        orgId: organization.id,
-        email: adminEmail,
-      },
-    },
-    update: {
-      role: UserRole.owner,
-      passwordHash,
-    },
-    create: {
-      orgId: organization.id,
+      id: randomUUID(),
       email: adminEmail,
       passwordHash,
-      role: UserRole.owner,
+      firstName: 'Demo',
+      lastName: 'User',
+      isActive: true,
+      emailVerified: true,
+      updatedAt: new Date(),
     },
   });
+
+  // eslint-disable-next-line no-console
+  console.log(`Seeded user: ${user.email} (id: ${user.id})`);
 
   // Seed baseline ML models so management endpoints respond with data
   await prisma.mlModel.upsert({
@@ -63,7 +53,7 @@ async function main(): Promise<void> {
   });
 
   // eslint-disable-next-line no-console
-  console.log('Seeded organization and admin user.');
+  console.log('Seed complete.');
 }
 
 main()

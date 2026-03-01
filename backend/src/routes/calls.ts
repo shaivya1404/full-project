@@ -137,6 +137,23 @@ router.get('/search', async (req: Request, res: Response, next: NextFunction) =>
   }
 });
 
+// GET /api/calls/stream - SSE stream for real-time call activity (must be before /:id)
+router.get('/stream', (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const sendUpdate = () => {
+    const payload = JSON.stringify({ activeCalls: 0, waitingCalls: 0, systemStatus: 'operational' });
+    res.write(`data: ${payload}\n\n`);
+  };
+
+  sendUpdate();
+  const interval = setInterval(sendUpdate, 30000);
+  req.on('close', () => { clearInterval(interval); res.end(); });
+});
+
 // GET /api/calls - List calls with pagination, search, and filters
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {

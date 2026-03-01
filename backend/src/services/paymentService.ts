@@ -103,10 +103,10 @@ export class PaymentService {
       logger.warn('Razorpay credentials not configured. Payment processing will not work.');
     }
 
-    this.razorpay = new Razorpay({
+    this.razorpay = keyId && keySecret ? new Razorpay({
       key_id: keyId,
       key_secret: keySecret,
-    });
+    }) : null as any;
   }
 
   // Get available payment methods
