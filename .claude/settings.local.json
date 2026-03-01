@@ -29,7 +29,10 @@
       "mcp__ide__getDiagnostics",
       "Bash(__NEW_LINE_983a9c4dbb3193fd__ echo -e \"\\\\n=== Routes in contacts.ts ===\")",
       "Bash(taskkill:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npm run:*)",
+      "Bash(netstat -ano)",
+      "Bash(cmd:*)"
     ]
   }
 }

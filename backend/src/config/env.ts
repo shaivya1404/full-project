@@ -87,6 +87,8 @@ const envSchema = z.object({
   STT_SERVICE_URL: z.string().default('http://localhost:8002'),
   TTS_SERVICE_URL: z.string().default('http://localhost:8001'),
   TTS_VOICE: z.string().default('default'),
+  VOICE_PROVIDER: z.enum(['openai', 'custom']).default('openai'),
+  CUSTOM_PIPELINE_URL: z.string().default('ws://localhost:8765'),
 
   // Feature Flags
   ENABLE_SWAGGER: z.string().default('true').transform((v) => v === 'true'),

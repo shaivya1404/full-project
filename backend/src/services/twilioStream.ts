@@ -1,24 +1,30 @@
 import WebSocket from 'ws';
 import { logger } from '../utils/logger';
-import { OpenAIRealtimeService } from './openaiRealtime';
 import { CallManager } from './callManager';
 import { AudioNormalizer } from '../utils/audioNormalizer';
+import { VoiceAIProvider } from './voiceAIProvider';
+import { createVoiceProvider, getActiveProviderType } from './voiceProviderFactory';
+import { OpenAIRealtimeProvider } from './openaiRealtimeProvider';
 
 export class TwilioStreamService {
   private ws: WebSocket;
-  private openAIService: OpenAIRealtimeService;
+  private voiceProvider: VoiceAIProvider;
   public callManager: CallManager;
   public streamSid: string | null = null;
   private audioBuffer: string[] = [];
   private isCallInitialized: boolean = false;
   private audioConversionBuffer: Buffer = Buffer.alloc(0);
-  private readonly AUDIO_CHUNK_THRESHOLD = 2400; // Buffer ~100ms of 24kHz audio before conversion
+  private readonly AUDIO_CHUNK_THRESHOLD = 2400;
+  private readonly providerType = getActiveProviderType();
 
   constructor(ws: WebSocket) {
     this.ws = ws;
-    this.openAIService = new OpenAIRealtimeService(this);
+    this.voiceProvider = createVoiceProvider(this);
     this.callManager = CallManager.getInstance();
-    this.callManager.setOpenAIService(this.openAIService);
+    // Legacy: callManager still needs the OpenAI service for transfer/escalation logic
+    if (this.voiceProvider instanceof OpenAIRealtimeProvider) {
+      this.callManager.setOpenAIService(this.voiceProvider.getUnderlyingService());
+    }
   }
 
   public handleConnection() {
@@ -54,15 +60,25 @@ export class TwilioStreamService {
               customParameters
             });
 
-            // ⭐ Connect to OpenAI IMMEDIATELY (non-blocking) so the connection
+            // ⭐ Connect to the AI provider IMMEDIATELY (non-blocking) so the connection
             // is established in parallel with the DB/AI-agent initialization below.
             // This shaves ~1-2s off the time until the AI can greet the caller.
-            logger.info('Initiating OpenAI Realtime connection...');
-            this.openAIService.connect();
+            logger.info(`Initiating ${this.providerType} provider connection...`);
+            this.voiceProvider.connect();
 
             // Initialize call in database with proper caller info
             // Pass campaignId so the AI uses the campaign script as context
             await this.callManager.startCall(this.streamSid!, caller, passedCallSid, teamId, campaignId);
+
+            // Initialize AI conversation context with call metadata
+            await this.voiceProvider.initializeConversation({
+              streamSid: this.streamSid!,
+              callId: passedCallSid,
+              teamId,
+              campaignId,
+              caller,
+              callType: (callType as 'inbound' | 'outbound') || 'inbound',
+            });
 
             this.isCallInitialized = true;
             logger.info(
@@ -76,11 +92,15 @@ export class TwilioStreamService {
             this.audioBuffer = [];
             break;
           case 'media':
-            // ⭐ CRITICAL FIX: Convert Twilio μ-law 8kHz to OpenAI PCM16 24kHz before sending
-            // Twilio sends: μ-law encoded audio at 8kHz
-            // OpenAI expects: PCM16 audio at 24kHz
-            const convertedAudio = AudioNormalizer.convertToOpenAIFormat(data.media.payload);
-            this.openAIService.sendAudio(convertedAudio);
+            // Route audio to the AI provider.
+            // OpenAI Realtime needs PCM16 24kHz; custom pipeline takes raw mulaw 8kHz.
+            if (this.providerType === 'openai') {
+              const convertedAudio = AudioNormalizer.convertToOpenAIFormat(data.media.payload);
+              this.voiceProvider.sendAudio(convertedAudio);
+            } else {
+              // Custom pipeline receives mulaw 8kHz directly from Twilio
+              this.voiceProvider.sendAudio(data.media.payload);
+            }
 
             // Also add to recording
             if (this.streamSid) {
@@ -127,14 +147,14 @@ export class TwilioStreamService {
             if (this.streamSid) {
               await this.callManager.endCall(this.streamSid);
             }
-            this.openAIService.disconnect();
+            await this.voiceProvider.disconnect();
             break;
 
           case 'test_input':
             // 🧪 TEST ONLY: Allow injecting text input (simulating user speech)
             if (data.text) {
               logger.info(`Received test input text: "${data.text}"`);
-              this.openAIService.sendUserText(data.text);
+              this.voiceProvider.sendUserText(data.text);
             }
             break;
         }
@@ -145,7 +165,7 @@ export class TwilioStreamService {
 
     this.ws.on('close', () => {
       logger.info('Twilio Stream connection closed');
-      this.openAIService.disconnect();
+      this.voiceProvider.disconnect();
     });
   }
 
@@ -197,6 +217,23 @@ export class TwilioStreamService {
       }
     } catch (err) {
       logger.error('Failed to convert and send audio to Twilio', err);
+    }
+  }
+
+  /**
+   * Send a raw mulaw 8kHz base64 payload directly to Twilio.
+   * Used by the custom pipeline provider which already outputs Twilio-compatible audio.
+   */
+  public sendRawMulawAudio(base64Payload: string) {
+    if (this.ws.readyState !== WebSocket.OPEN) return;
+    const mulawBuffer = Buffer.from(base64Payload, 'base64');
+    for (let i = 0; i < mulawBuffer.length; i += 160) {
+      const frame = mulawBuffer.slice(i, i + 160);
+      this.ws.send(JSON.stringify({
+        event: 'media',
+        streamSid: this.streamSid,
+        media: { payload: frame.toString('base64'), track: 'outbound' },
+      }));
     }
   }
 
