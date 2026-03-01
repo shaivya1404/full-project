@@ -26,8 +26,9 @@ Environment variables:
   PIPELINE_HOST            = 0.0.0.0  (default)
   PIPELINE_PORT            = 8765     (default)
   WHISPER_MODEL            = small    (default, or path to fine-tuned model)
-  QWEN_BASE_URL            = http://localhost:11434/v1  (Ollama or compatible)
-  QWEN_MODEL               = qwen2.5:7b
+  LLM_BASE_URL             = https://api.groq.com/openai/v1  (any OpenAI-compat endpoint)
+  LLM_API_KEY              = <required>   (Groq / OpenAI / vLLM key)
+  LLM_MODEL                = qwen-qwq-32b (model name on the provider)
   CARTESIA_API_KEY         = <required>
   CARTESIA_VOICE_ID        = <required>
   CARTESIA_MODEL           = sonic-2024-10-19  (default)
@@ -41,7 +42,17 @@ import os
 import struct
 import tempfile
 import wave
+from pathlib import Path
 from typing import Optional
+
+# Load .env from the same directory as this script
+_env_file = Path(__file__).parent / ".env"
+if _env_file.exists():
+    for _line in _env_file.read_text().splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _k, _, _v = _line.partition("=")
+            os.environ.setdefault(_k.strip(), _v.strip())
 
 import numpy as np
 import websockets
@@ -59,11 +70,15 @@ log = logging.getLogger("pipeline")
 HOST = os.getenv("PIPELINE_HOST", "0.0.0.0")
 PORT = int(os.getenv("PIPELINE_PORT", "8765"))
 WHISPER_MODEL_NAME = os.getenv("WHISPER_MODEL", "small")
-QWEN_BASE_URL = os.getenv("QWEN_BASE_URL", "http://localhost:11434/v1")
-QWEN_MODEL = os.getenv("QWEN_MODEL", "qwen2.5:7b")
+# STT provider: "local" = local Whisper on GPU, "groq" = Groq Whisper API
+STT_PROVIDER = os.getenv("STT_PROVIDER", "local")
+STT_MODEL = os.getenv("STT_MODEL", "whisper-large-v3-turbo")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "")
+LLM_MODEL = os.getenv("LLM_MODEL", "qwen/qwen3-32b")
 CARTESIA_API_KEY = os.getenv("CARTESIA_API_KEY", "")
 CARTESIA_VOICE_ID = os.getenv("CARTESIA_VOICE_ID", "")
-CARTESIA_MODEL = os.getenv("CARTESIA_MODEL", "sonic-2024-10-19")
+CARTESIA_MODEL = os.getenv("CARTESIA_MODEL", "sonic-3")
 
 # ---------------------------------------------------------------------------
 # Audio helpers
@@ -168,14 +183,49 @@ def load_models():
 # ---------------------------------------------------------------------------
 # Cartesia TTS
 # ---------------------------------------------------------------------------
+# STT — Groq Whisper (fast, cloud) or local Whisper (slow, CPU)
+# ---------------------------------------------------------------------------
+async def transcribe_audio(wav_bytes: bytes) -> str:
+    """Transcribe audio using Groq Whisper API or local Whisper."""
+    if STT_PROVIDER == "groq" and LLM_API_KEY:
+        import aiohttp, io
+        url = "https://api.groq.com/openai/v1/audio/transcriptions"
+        headers = {"Authorization": f"Bearer {LLM_API_KEY}"}
+        data = aiohttp.FormData()
+        data.add_field("file", io.BytesIO(wav_bytes), filename="audio.wav", content_type="audio/wav")
+        data.add_field("model", STT_MODEL)
+        data.add_field("language", "en")
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, data=data) as resp:
+                if resp.status != 200:
+                    body = await resp.text()
+                    raise RuntimeError(f"Groq STT error {resp.status}: {body}")
+                result = await resp.json()
+                return result.get("text", "").strip()
+    else:
+        # Fallback: local Whisper (slow on CPU)
+        loop = asyncio.get_event_loop()
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            f.write(wav_bytes)
+            tmp_path = f.name
+        try:
+            result = await loop.run_in_executor(
+                None, lambda: _whisper_model.transcribe(tmp_path, language="en")
+            )
+            return result["text"].strip()
+        finally:
+            os.unlink(tmp_path)
+
+
+# ---------------------------------------------------------------------------
 async def cartesia_tts(text: str) -> bytes:
-    """Call Cartesia Sonic 3 API and return raw PCM audio bytes (16kHz, int16)."""
+    """Call Cartesia Sonic 3 API and return raw PCM16 bytes at 16kHz."""
     import aiohttp
 
     url = "https://api.cartesia.ai/tts/bytes"
     headers = {
         "X-API-Key": CARTESIA_API_KEY,
-        "Cartesia-Version": "2024-06-10",
+        "Cartesia-Version": "2025-04-16",
         "Content-Type": "application/json",
     }
     payload = {
@@ -187,6 +237,8 @@ async def cartesia_tts(text: str) -> bytes:
             "encoding": "pcm_s16le",
             "sample_rate": 16000,
         },
+        "speed": "normal",
+        "generation_config": {"speed": 1, "volume": 1},
     }
 
     async with aiohttp.ClientSession() as session:
@@ -201,14 +253,16 @@ async def cartesia_tts(text: str) -> bytes:
 # Qwen LLM (via OpenAI-compatible API — Ollama or vLLM)
 # ---------------------------------------------------------------------------
 async def qwen_chat(messages: list[dict], system_prompt: str) -> str:
-    """Call Qwen via OpenAI-compatible /chat/completions endpoint."""
+    """Call Qwen (or any OpenAI-compatible LLM) via /chat/completions."""
     import aiohttp
 
-    url = f"{QWEN_BASE_URL.rstrip('/')}/chat/completions"
+    url = f"{LLM_BASE_URL.rstrip('/')}/chat/completions"
     headers = {"Content-Type": "application/json"}
+    if LLM_API_KEY:
+        headers["Authorization"] = f"Bearer {LLM_API_KEY}"
     full_messages = [{"role": "system", "content": system_prompt}] + messages
     payload = {
-        "model": QWEN_MODEL,
+        "model": LLM_MODEL,
         "messages": full_messages,
         "temperature": 0.7,
         "max_tokens": 200,
@@ -220,7 +274,11 @@ async def qwen_chat(messages: list[dict], system_prompt: str) -> str:
                 body = await resp.text()
                 raise RuntimeError(f"Qwen error {resp.status}: {body}")
             data = await resp.json()
-            return data["choices"][0]["message"]["content"]
+            content = data["choices"][0]["message"]["content"]
+            # Strip <think>...</think> reasoning blocks (Qwen3 thinking mode)
+            import re
+            content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+            return content
 
 
 # ---------------------------------------------------------------------------
@@ -228,7 +286,7 @@ async def qwen_chat(messages: list[dict], system_prompt: str) -> str:
 # ---------------------------------------------------------------------------
 class PipelineSession:
     SAMPLE_RATE = 8000
-    SILENCE_THRESHOLD_MS = 600   # ms of silence to trigger STT
+    SILENCE_THRESHOLD_MS = 400   # ms of silence to trigger STT
     CHUNK_BYTES = 160             # 20ms of mulaw @ 8kHz
 
     def __init__(self, ws):
@@ -269,6 +327,7 @@ class PipelineSession:
 
     async def handle_audio(self, base64_payload: str):
         """Process incoming mulaw 8kHz audio through VAD → STT pipeline."""
+        import torch
         mulaw_bytes = base64.b64decode(base64_payload)
         pcm16 = mulaw_decode(mulaw_bytes)
 
@@ -276,16 +335,18 @@ class PipelineSession:
         pcm_float = pcm16.astype(np.float32) / 32768.0
         self._audio_pcm_buffer = np.concatenate([self._audio_pcm_buffer, pcm_float])
 
-        # Silero-VAD runs on 512-sample chunks at 16kHz (or 256 at 8kHz)
-        # We use 8kHz mode (chunk size 256 or 512)
         chunk_size = 256  # 32ms at 8kHz
-        import torch
+        loop = asyncio.get_event_loop()
+
         while len(self._audio_pcm_buffer) >= chunk_size:
             chunk = self._audio_pcm_buffer[:chunk_size]
             self._audio_pcm_buffer = self._audio_pcm_buffer[chunk_size:]
 
+            # Run Silero-VAD in thread pool — non-blocking
             tensor = torch.from_numpy(chunk).unsqueeze(0)
-            speech_prob = _silero_model(tensor, self.SAMPLE_RATE).item()
+            speech_prob = await loop.run_in_executor(
+                None, lambda t=tensor: _silero_model(t, self.SAMPLE_RATE).item()
+            )
 
             if speech_prob > 0.5:
                 self._in_speech = True
@@ -293,36 +354,29 @@ class PipelineSession:
                 self._speech_chunks.append(chunk)
             elif self._in_speech:
                 self._silence_frames += 1
-                self._speech_chunks.append(chunk)  # include trailing silence
+                self._speech_chunks.append(chunk)
                 if self._silence_frames >= self._silence_threshold_frames:
-                    # End of utterance — run STT
-                    await self._process_utterance()
+                    # End of utterance — snapshot chunks and process async
+                    chunks = self._speech_chunks[:]
                     self._in_speech = False
                     self._speech_chunks = []
                     self._silence_frames = 0
+                    asyncio.ensure_future(self._process_utterance(chunks))
 
-    async def _process_utterance(self):
-        """Run Whisper STT on buffered speech, then LLM → TTS."""
-        if not self._speech_chunks:
+    async def _process_utterance(self, speech_chunks: list):
+        """Transcribe speech then run LLM → TTS."""
+        if not speech_chunks:
             return
 
-        pcm_8k = np.concatenate(self._speech_chunks)
+        pcm_8k = np.concatenate(speech_chunks)
         pcm_16k = resample_8k_to_16k(pcm_8k).astype(np.int16)
         wav_bytes = pcm_to_wav_bytes(pcm_16k, 16000)
 
-        # Write to temp file for Whisper
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            f.write(wav_bytes)
-            tmp_path = f.name
-
         try:
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
-                None, lambda: _whisper_model.transcribe(tmp_path, language="en")
-            )
-            transcript = result["text"].strip()
-        finally:
-            os.unlink(tmp_path)
+            transcript = await transcribe_audio(wav_bytes)
+        except Exception as e:
+            log.error(f"STT error: {e}")
+            return
 
         if not transcript:
             return

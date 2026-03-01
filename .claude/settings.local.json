@@ -32,7 +32,10 @@
       "Bash(curl:*)",
       "Bash(npm run:*)",
       "Bash(netstat -ano)",
-      "Bash(cmd:*)"
+      "Bash(cmd:*)",
+      "Bash(mkdir:*)",
+      "Bash(pip show:*)",
+      "Bash(python:*)"
     ]
   }
 }
