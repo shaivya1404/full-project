@@ -1,0 +1,21 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Audio processing deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsndfile1 ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY agent/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY agent/ ./agent/
+
+ENV PYTHONPATH=/app
+ENV AGENT_HOST=0.0.0.0
+ENV AGENT_PORT=8010
+
+# WS server: 8010, HTTP REST: 8011
+EXPOSE 8010 8011
+CMD ["python", "-m", "agent.main"]

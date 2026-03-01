@@ -1,0 +1,81 @@
+version: '3.9'
+
+# Overlay — run alongside dev.yml:
+#   docker compose -f infra/docker/docker-compose.dev.yml -f infra/docker/docker-compose.agent.yml up
+
+services:
+  emotion-service:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.emotion
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      DEVICE: cpu                    # change to cuda on T4 VM
+      MODEL_CACHE_DIR: /models/emotion
+    ports:
+      - '8003:8003'
+    volumes:
+      - emotion-models:/models/emotion
+    depends_on:
+      - redis
+
+  tool-middleware:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.tool_middleware
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql://tts_stt:tts_stt_password@postgres:5432/tts_stt
+    ports:
+      - '8005:8005'
+    depends_on:
+      - postgres
+
+  admin-api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.admin_api
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql://tts_stt:tts_stt_password@postgres:5432/tts_stt
+    ports:
+      - '8006:8006'
+    depends_on:
+      - postgres
+
+  agent:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.agent
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql://tts_stt:tts_stt_password@postgres:5432/tts_stt
+      REDIS_URL: redis://redis:6379
+      STT_SERVICE_URL: http://stt-service:8002
+      EMOTION_SERVICE_URL: http://emotion-service:8003
+      TOOL_MIDDLEWARE_URL: http://tool-middleware:8005
+      ADMIN_API_URL: http://admin-api:8006
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.groq.com/openai/v1}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_MODEL: ${LLM_MODEL:-qwen-qwq-32b}
+      CARTESIA_API_KEY: ${CARTESIA_API_KEY}
+      AGENT_HOST: 0.0.0.0
+      AGENT_PORT: 8010
+      VAD_SILENCE_MS: 600
+    ports:
+      - '8010:8010'   # WebSocket
+      - '8011:8011'   # HTTP REST
+    depends_on:
+      - postgres
+      - redis
+      - stt-service
+      - emotion-service
+      - tool-middleware
+      - admin-api
+
+volumes:
+  emotion-models:

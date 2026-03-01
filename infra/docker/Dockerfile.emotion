@@ -1,0 +1,21 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# System deps for audio
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsndfile1 ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY emotion-service/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY emotion-service/ ./emotion_service/
+COPY emotion-service/app.py ./app.py
+
+ENV PYTHONPATH=/app
+ENV DEVICE=cpu
+ENV EMOTION_PORT=8003
+
+EXPOSE 8003
+CMD ["uvicorn", "emotion_service.app:app", "--host", "0.0.0.0", "--port", "8003"]
