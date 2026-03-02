@@ -24,6 +24,8 @@ import { VoiceAIProvider, CallSessionParams } from './voiceAIProvider';
 import { TwilioStreamService } from './twilioStream';
 import { logger } from '../utils/logger';
 import { config } from '../config/env';
+import { prisma } from '../db/client';
+import { runPostCallAnalysis } from './postCallAnalysisService';
 
 export class CustomPipelineProvider implements VoiceAIProvider {
   private ws: WebSocket | null = null;
@@ -32,6 +34,8 @@ export class CustomPipelineProvider implements VoiceAIProvider {
   private isReady = false;
   private isClosing = false;
   private serverUrl: string;
+  private sessionParams: CallSessionParams | null = null;
+  private transcriptLog: Array<{ role: string; text: string }> = [];
 
   constructor(twilioService: TwilioStreamService) {
     this.twilioService = twilioService;
@@ -88,6 +92,17 @@ export class CustomPipelineProvider implements VoiceAIProvider {
 
       case 'transcript':
         logger.info(`[CustomPipeline] ${msg.role}: ${msg.text}`);
+        this.transcriptLog.push({ role: msg.role, text: msg.text });
+        // Persist to DB — use streamSid to connect to the Call record
+        if (this.sessionParams?.streamSid) {
+          prisma.transcript.create({
+            data: {
+              call: { connect: { streamSid: this.sessionParams.streamSid } },
+              speaker: msg.role,
+              text: msg.text,
+            },
+          }).catch(err => logger.error('[CustomPipeline] Failed to save transcript', err));
+        }
         break;
 
       case 'emotion':
@@ -102,6 +117,7 @@ export class CustomPipelineProvider implements VoiceAIProvider {
 
   async initializeConversation(params: CallSessionParams) {
     logger.info(`[CustomPipeline] Initializing session for call ${params.callId}`);
+    this.sessionParams = params;
     this.sendRaw({ type: 'config', session: params });
   }
 
@@ -122,6 +138,16 @@ export class CustomPipelineProvider implements VoiceAIProvider {
     this.sendRaw({ type: 'close' });
     this.ws?.close();
     this.ws = null;
+
+    // Run post-call analysis in the background — extract customer memories from transcript
+    if (this.sessionParams && this.transcriptLog.length > 0) {
+      runPostCallAnalysis({
+        transcript: this.transcriptLog,
+        caller: this.sessionParams.caller,
+        teamId: this.sessionParams.teamId,
+        callType: this.sessionParams.callType,
+      }).catch(err => logger.error('[CustomPipeline] Post-call analysis failed', err));
+    }
   }
 
   private sendRaw(msg: object) {

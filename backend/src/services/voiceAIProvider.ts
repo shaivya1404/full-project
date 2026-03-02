@@ -18,6 +18,7 @@ export interface CallSessionParams {
   customerId?: string;
   caller?: string;
   callType?: 'inbound' | 'outbound';
+  systemPrompt?: string;  // built by Node.js from DB, sent to Python pipeline
 }
 
 export interface VoiceAIProvider {

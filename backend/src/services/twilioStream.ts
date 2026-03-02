@@ -5,6 +5,8 @@ import { AudioNormalizer } from '../utils/audioNormalizer';
 import { VoiceAIProvider } from './voiceAIProvider';
 import { createVoiceProvider, getActiveProviderType } from './voiceProviderFactory';
 import { OpenAIRealtimeProvider } from './openaiRealtimeProvider';
+import { buildSystemPrompt } from './systemPromptBuilder';
+import { prisma } from '../db/client';
 
 export class TwilioStreamService {
   private ws: WebSocket;
@@ -13,6 +15,8 @@ export class TwilioStreamService {
   public streamSid: string | null = null;
   private audioBuffer: string[] = [];
   private isCallInitialized: boolean = false;
+  private callerPhone: string | null = null;
+  private teamId: string | null = null;
   private audioConversionBuffer: Buffer = Buffer.alloc(0);
   private readonly AUDIO_CHUNK_THRESHOLD = 2400;
   private readonly providerType = getActiveProviderType();
@@ -51,6 +55,10 @@ export class TwilioStreamService {
             const campaignId = customParameters.campaignId || undefined;
             const callType = customParameters.callType || 'inbound';
 
+            // Store for use in stop handler (auto-save customer)
+            this.callerPhone = caller;
+            this.teamId = teamId;
+
             logger.info(`Twilio Media Stream started: ${this.streamSid}`, {
               callSid: passedCallSid,
               teamId,
@@ -66,11 +74,21 @@ export class TwilioStreamService {
             logger.info(`Initiating ${this.providerType} provider connection...`);
             this.voiceProvider.connect();
 
-            // Initialize call in database with proper caller info
-            // Pass campaignId so the AI uses the campaign script as context
-            await this.callManager.startCall(this.streamSid!, caller, passedCallSid, teamId, campaignId);
+            // Run DB init and system prompt build in parallel to minimise call setup latency
+            const [, systemPrompt] = await Promise.all([
+              // Save call record to DB
+              this.callManager.startCall(this.streamSid!, caller, passedCallSid, teamId, campaignId),
+              // Build rich system prompt from DB (menu, campaign script, customer history)
+              // so Qwen knows about the business — Python pipeline has no DB access.
+              buildSystemPrompt({
+                teamId,
+                campaignId,
+                caller,
+                callType: (callType as 'inbound' | 'outbound') || 'inbound',
+              }),
+            ]);
 
-            // Initialize AI conversation context with call metadata
+            // Initialize AI conversation context with call metadata + system prompt
             await this.voiceProvider.initializeConversation({
               streamSid: this.streamSid!,
               callId: passedCallSid,
@@ -78,6 +96,7 @@ export class TwilioStreamService {
               campaignId,
               caller,
               callType: (callType as 'inbound' | 'outbound') || 'inbound',
+              systemPrompt,
             });
 
             this.isCallInitialized = true;
@@ -148,6 +167,20 @@ export class TwilioStreamService {
               await this.callManager.endCall(this.streamSid);
             }
             await this.voiceProvider.disconnect();
+
+            // Auto-save new caller as a Customer so future calls recognise them
+            if (this.callerPhone && this.callerPhone !== 'Inbound Call' && this.teamId) {
+              const exists = await prisma.customer.findFirst({
+                where: { phone: this.callerPhone, teamId: this.teamId },
+                select: { id: true },
+              });
+              if (!exists) {
+                prisma.customer.create({
+                  data: { phone: this.callerPhone, teamId: this.teamId },
+                }).then(() => logger.info(`[Customer] Auto-created record for ${this.callerPhone}`))
+                  .catch(err => logger.error('[Customer] Failed to auto-create customer', err));
+              }
+            }
             break;
 
           case 'test_input':

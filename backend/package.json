@@ -8,7 +8,9 @@
     "start": "node dist/server.js",
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
-    "prisma:seed": "prisma db seed"
+    "prisma:seed": "prisma db seed",
+    "test:features": "ts-node src/scripts/testAllFeatures.ts",
+    "test:pipeline": "python pipeline/test_pipeline.py"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.509.0",

@@ -31,7 +31,7 @@ Environment variables:
   LLM_MODEL                = qwen-qwq-32b (model name on the provider)
   CARTESIA_API_KEY         = <required>
   CARTESIA_VOICE_ID        = <required>
-  CARTESIA_MODEL           = sonic-2024-10-19  (default)
+  CARTESIA_MODEL           = sonic-3  (default)
 """
 
 import asyncio
@@ -39,11 +39,10 @@ import base64
 import json
 import logging
 import os
-import struct
+import re as _re
 import tempfile
 import wave
 from pathlib import Path
-from typing import Optional
 
 # Load .env — search from script dir upward: pipeline/.env → backend/.env → root .env
 def _load_env():
@@ -58,14 +57,16 @@ def _load_env():
                 _line = _line.strip()
                 if _line and not _line.startswith("#") and "=" in _line:
                     _k, _, _v = _line.partition("=")
-                    os.environ.setdefault(_k.strip(), _v.strip())
+                    _v = _v.strip()
+                    if len(_v) >= 2 and ((_v[0] == '"' and _v[-1] == '"') or (_v[0] == "'" and _v[-1] == "'")):
+                        _v = _v[1:-1]
+                    os.environ.setdefault(_k.strip(), _v)
             break  # stop at first found
 
 _load_env()
 
 import numpy as np
 import websockets
-import websockets.server
 
 logging.basicConfig(
     level=logging.INFO,
@@ -123,11 +124,12 @@ def mulaw_encode(pcm: np.ndarray) -> bytes:
 
 def resample_8k_to_16k(pcm8k: np.ndarray) -> np.ndarray:
     """Naive 2× upsample from 8kHz to 16kHz (linear interpolation)."""
-    out = np.empty(len(pcm8k) * 2, dtype=np.float32)
-    out[0::2] = pcm8k.astype(np.float32)
-    out[1::2] = pcm8k.astype(np.float32)
-    # Linear interpolate between samples
-    out[1:-1:2] = (out[0:-2:2] + out[2::2]) / 2.0
+    f = pcm8k.astype(np.float32)
+    out = np.empty(len(f) * 2, dtype=np.float32)
+    out[0::2] = f
+    # Interpolate between each pair of adjacent samples; last odd sample duplicates last input
+    out[1:-1:2] = (f[:-1] + f[1:]) / 2.0
+    out[-1] = f[-1]
     return out
 
 
@@ -154,11 +156,10 @@ def pcm_to_wav_bytes(pcm: np.ndarray, sample_rate: int) -> bytes:
 _silero_model = None
 _silero_utils = None
 _whisper_model = None
-_emotion_pipeline = None
 
 
 def load_models():
-    global _silero_model, _silero_utils, _whisper_model, _emotion_pipeline
+    global _silero_model, _silero_utils, _whisper_model
 
     log.info("Loading Silero-VAD v5...")
     import torch
@@ -174,19 +175,6 @@ def load_models():
     import whisper
     _whisper_model = whisper.load_model(WHISPER_MODEL_NAME)
     log.info("Whisper loaded.")
-
-    log.info("Loading emotion2vec+ ...")
-    try:
-        from modelscope.pipelines import pipeline as ms_pipeline
-        from modelscope.utils.constant import Tasks
-        _emotion_pipeline = ms_pipeline(
-            task=Tasks.emotion_recognition,
-            model="iic/emotion2vec_plus_large",
-        )
-        log.info("emotion2vec+ loaded.")
-    except Exception as e:
-        log.warning(f"emotion2vec+ could not be loaded ({e}). Emotion detection disabled.")
-        _emotion_pipeline = None
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +201,7 @@ async def transcribe_audio(wav_bytes: bytes) -> str:
                 return result.get("text", "").strip()
     else:
         # Fallback: local Whisper (slow on CPU)
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             f.write(wav_bytes)
             tmp_path = f.name
@@ -227,7 +215,7 @@ async def transcribe_audio(wav_bytes: bytes) -> str:
 
 
 # ---------------------------------------------------------------------------
-async def cartesia_tts(text: str) -> bytes:
+async def cartesia_tts(text: str, emotion: str = "neutral") -> bytes:
     """Call Cartesia Sonic 3 API and return raw PCM16 bytes at 16kHz."""
     import aiohttp
 
@@ -246,9 +234,13 @@ async def cartesia_tts(text: str) -> bytes:
             "encoding": "pcm_s16le",
             "sample_rate": 16000,
         },
-        "speed": "normal",
-        "generation_config": {"speed": 1, "volume": 1},
     }
+    # Inject Cartesia emotion controls based on detected user emotion
+    if emotion and emotion != "neutral":
+        controls = _emotion_to_cartesia(emotion)
+        if controls:
+            payload["voice"]["__experimental_controls"] = {"emotion": controls}
+            log.info(f"[Cartesia] Emotion controls: {controls}")
 
     async with aiohttp.ClientSession() as session:
         async with session.post(url, headers=headers, json=payload) as resp:
@@ -258,36 +250,94 @@ async def cartesia_tts(text: str) -> bytes:
             return await resp.read()
 
 
+def _emotion_to_cartesia(emotion: str) -> list[str]:
+    """Map detected user emotion → Cartesia voice emotion controls for the AI response."""
+    # When user is X, AI speaks with Y tone
+    mapping = {
+        "angry":      ["positivity:low", "sadness:low"],      # calm, de-escalating
+        "frustrated": ["positivity:medium"],                   # patient, warm
+        "sad":        ["positivity:low", "sadness:low"],       # gentle, empathetic
+        "fearful":    ["positivity:medium", "surprise:low"],   # reassuring
+        "disgusted":  ["positivity:low"],                      # neutral, professional
+        "happy":      ["positivity:high"],                     # match positive energy
+        "excited":    ["positivity:high", "surprise:low"],     # engaged, enthusiastic
+        "surprised":  ["curiosity:high"],                      # curious, engaged
+        "confused":   ["curiosity:high", "positivity:low"],    # helpful, clear
+        "neutral":    [],
+    }
+    return mapping.get(emotion.lower(), [])
+
+
 # ---------------------------------------------------------------------------
-# Qwen LLM (via OpenAI-compatible API — Ollama or vLLM)
+# Qwen LLM — returns (emotion, reply) in a single API call
 # ---------------------------------------------------------------------------
-async def qwen_chat(messages: list[dict], system_prompt: str) -> str:
-    """Call Qwen (or any OpenAI-compatible LLM) via /chat/completions."""
+async def qwen_chat(
+    messages: list[dict],
+    system_prompt: str,
+) -> tuple[str, str]:
+    """
+    Call Qwen via /chat/completions.
+    Returns (emotion, reply).
+    Emotion is detected from the user's last message in the same call — zero extra latency.
+    """
     import aiohttp
 
+    emotion_instruction = (
+        "Before your reply, detect the caller's emotion from their words. "
+        "Output exactly:\n"
+        "EMOTION: <one of: neutral happy excited sad frustrated angry fearful confused surprised>\n"
+        "RESPONSE: <your reply>\n\n"
+        "Rules:\n"
+        "- Adjust your tone to the caller's emotional state.\n"
+        "- If caller is angry/frustrated: stay calm, empathetic, solution-focused.\n"
+        "- If caller is sad: be warm and gentle.\n"
+        "- If caller is happy/excited: match their energy.\n"
+        "- If caller is confused: be clear and patient.\n"
+        "- Keep RESPONSE to 1-3 short sentences suitable for voice.\n"
+        "- No markdown, no bullet points in RESPONSE."
+    )
+
+    full_system = f"{system_prompt}\n\n{emotion_instruction}"
     url = f"{LLM_BASE_URL.rstrip('/')}/chat/completions"
     headers = {"Content-Type": "application/json"}
     if LLM_API_KEY:
         headers["Authorization"] = f"Bearer {LLM_API_KEY}"
-    full_messages = [{"role": "system", "content": system_prompt}] + messages
+
+    full_messages = [{"role": "system", "content": full_system}] + messages
     payload = {
         "model": LLM_MODEL,
         "messages": full_messages,
         "temperature": 0.7,
-        "max_tokens": 200,
+        "max_tokens": 250,
     }
 
     async with aiohttp.ClientSession() as session:
         async with session.post(url, headers=headers, json=payload) as resp:
             if resp.status != 200:
                 body = await resp.text()
-                raise RuntimeError(f"Qwen error {resp.status}: {body}")
+                raise RuntimeError(f"LLM error {resp.status}: {body}")
             data = await resp.json()
             content = data["choices"][0]["message"]["content"]
-            # Strip <think>...</think> reasoning blocks (Qwen3 thinking mode)
-            import re
-            content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-            return content
+
+    # Strip <think>...</think> reasoning blocks (Qwen3 thinking mode)
+    content = _re.sub(r"<think>.*?</think>", "", content, flags=_re.DOTALL).strip()
+
+    # Parse EMOTION and RESPONSE
+    emotion = "neutral"
+    reply = content
+
+    emotion_match = _re.search(r"EMOTION:\s*(\w+)", content, _re.IGNORECASE)
+    response_match = _re.search(r"RESPONSE:\s*(.+)", content, _re.IGNORECASE | _re.DOTALL)
+
+    if emotion_match:
+        emotion = emotion_match.group(1).lower().strip()
+    if response_match:
+        reply = response_match.group(1).strip()
+    elif emotion_match:
+        # fallback: everything after the EMOTION line
+        reply = content[emotion_match.end():].strip()
+
+    return emotion, reply
 
 
 # ---------------------------------------------------------------------------
@@ -310,6 +360,9 @@ class PipelineSession:
         self._in_speech = False
         self._silence_frames = 0
         self._silence_threshold_frames = int(self.SILENCE_THRESHOLD_MS / 20)  # 20ms per frame
+        self._current_emotion = "neutral"
+        # Prevents overlapping STT→LLM→TTS pipelines (avoids garbled audio + conversation race)
+        self._utterance_lock = asyncio.Lock()
 
     async def send(self, msg: dict):
         await self.ws.send(json.dumps(msg))
@@ -319,23 +372,67 @@ class PipelineSession:
         call_type = session.get("callType", "inbound")
         caller = session.get("caller", "caller")
 
-        if call_type == "inbound":
+        # Use the rich system prompt built by Node.js (contains store info, menu,
+        # campaign script, customer history). Fall back to a generic prompt if absent.
+        if session.get("systemPrompt"):
+            self.system_prompt = session["systemPrompt"]
+            log.info(f"[Session] Using DB-enriched system prompt ({len(self.system_prompt)} chars)")
+        elif call_type == "inbound":
             self.system_prompt = (
-                f"You are a helpful voice AI assistant for Oolix. "
+                f"You are a helpful voice AI assistant. "
                 f"The caller is {caller}. Be concise and natural. "
-                "Answer questions and assist the caller professionally."
+                "Answer questions and assist the caller professionally. "
+                "Keep replies to 1-3 short sentences."
             )
         else:
             self.system_prompt = (
-                f"You are an outbound sales AI assistant for Oolix. "
-                f"You are calling {caller}. Be polite, professional, and helpful."
+                f"You are an outbound sales AI assistant. "
+                f"You are calling {caller}. Be polite, professional, and helpful. "
+                "Keep replies to 1-3 short sentences."
             )
 
         log.info(f"[Session] Configured for call {session.get('callId')} ({call_type})")
         await self.send({"type": "ready"})
+        # Greet the caller immediately so they aren't met with silence
+        asyncio.create_task(self._send_greeting())
+
+    async def _send_greeting(self):
+        """Proactively greet the caller right after the session is configured."""
+        # Brief pause — ensures Twilio audio pipeline is ready to receive audio
+        await asyncio.sleep(0.6)
+        async with self._utterance_lock:
+            # One-shot trigger: not stored in conversation so it doesn't pollute history
+            trigger = [{"role": "user", "content": "[The call just connected. Please greet the caller warmly, introduce yourself, and ask how you can help. Be brief and natural — this is a live phone call. Do not output EMOTION: or RESPONSE: labels.]"}]
+            try:
+                _, reply = await qwen_chat(trigger, self.system_prompt)
+            except Exception as e:
+                log.error(f"[Greeting] LLM error: {e}")
+                return
+
+            log.info(f"[Greeting] {reply}")
+            # Store greeting in conversation history so follow-up turns have context
+            self.conversation.append({"role": "assistant", "content": reply})
+            await self.send({"type": "transcript", "role": "assistant", "text": reply})
+
+            if not CARTESIA_API_KEY or not CARTESIA_VOICE_ID:
+                return
+            try:
+                # Greet with a warm, neutral tone (no user emotion to mirror yet)
+                pcm_16k_bytes = await cartesia_tts(reply, emotion="neutral")
+                pcm_16k = np.frombuffer(pcm_16k_bytes, dtype=np.int16)
+                pcm_8k = resample_16k_to_8k(pcm_16k)
+                mulaw = mulaw_encode(pcm_8k)
+                for i in range(0, len(mulaw), self.CHUNK_BYTES):
+                    frame = mulaw[i:i + self.CHUNK_BYTES]
+                    payload = base64.b64encode(frame).decode()
+                    await self.send({"type": "audio", "payload": payload})
+            except Exception as e:
+                log.error(f"[Greeting] TTS error: {e}")
 
     async def handle_audio(self, base64_payload: str):
         """Process incoming mulaw 8kHz audio through VAD → STT pipeline."""
+        if _silero_model is None:
+            return  # models not loaded yet
         import torch
         mulaw_bytes = base64.b64decode(base64_payload)
         pcm16 = mulaw_decode(mulaw_bytes)
@@ -345,7 +442,7 @@ class PipelineSession:
         self._audio_pcm_buffer = np.concatenate([self._audio_pcm_buffer, pcm_float])
 
         chunk_size = 256  # 32ms at 8kHz
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         while len(self._audio_pcm_buffer) >= chunk_size:
             chunk = self._audio_pcm_buffer[:chunk_size]
@@ -370,15 +467,24 @@ class PipelineSession:
                     self._in_speech = False
                     self._speech_chunks = []
                     self._silence_frames = 0
-                    asyncio.ensure_future(self._process_utterance(chunks))
+                    asyncio.create_task(self._run_utterance(chunks))
+
+    async def _run_utterance(self, chunks: list):
+        """Lock guard: skip new utterance if pipeline is still processing the previous one."""
+        if self._utterance_lock.locked():
+            log.warning("[VAD] Dropped utterance — pipeline still busy")
+            return
+        async with self._utterance_lock:
+            await self._process_utterance(chunks)
 
     async def _process_utterance(self, speech_chunks: list):
         """Transcribe speech then run LLM → TTS."""
         if not speech_chunks:
             return
 
+        # speech_chunks contain float32 normalized to [-1, 1] — scale back to int16 range
         pcm_8k = np.concatenate(speech_chunks)
-        pcm_16k = resample_8k_to_16k(pcm_8k).astype(np.int16)
+        pcm_16k = (resample_8k_to_16k(pcm_8k) * 32768.0).clip(-32768, 32767).astype(np.int16)
         wav_bytes = pcm_to_wav_bytes(pcm_16k, 16000)
 
         try:
@@ -393,22 +499,7 @@ class PipelineSession:
         log.info(f"[STT] User: {transcript}")
         await self.send({"type": "transcript", "role": "user", "text": transcript})
 
-        # Emotion detection (non-blocking)
-        if _emotion_pipeline:
-            try:
-                loop = asyncio.get_event_loop()
-                emo_result = await loop.run_in_executor(
-                    None, lambda: _emotion_pipeline(wav_bytes, granularity="utterance")
-                )
-                if emo_result and len(emo_result) > 0:
-                    top = emo_result[0]
-                    emotion = top.get("labels", ["neutral"])[0]
-                    score = top.get("scores", [0.0])[0]
-                    await self.send({"type": "emotion", "emotion": emotion, "score": round(score, 3)})
-            except Exception as e:
-                log.warning(f"Emotion detection failed: {e}")
-
-        # LLM → TTS
+        # LLM (detects emotion + generates response in one call) → TTS
         await self._llm_and_tts(transcript)
 
     async def handle_text(self, text: str):
@@ -418,34 +509,41 @@ class PipelineSession:
         await self._llm_and_tts(text)
 
     async def _llm_and_tts(self, user_text: str):
-        """Send user text to Qwen, then pipe response through Cartesia TTS."""
+        """Detect emotion + generate reply (single LLM call) → Cartesia TTS."""
         self.conversation.append({"role": "user", "content": user_text})
 
         try:
-            reply = await qwen_chat(self.conversation, self.system_prompt)
+            emotion, reply = await qwen_chat(self.conversation, self.system_prompt)
         except Exception as e:
             log.error(f"LLM error: {e}")
             await self.send({"type": "error", "message": f"LLM error: {e}"})
             return
 
-        self.conversation.append({"role": "assistant", "content": reply})
+        # Store detected emotion on session for context continuity
+        self._current_emotion = emotion
+        log.info(f"[Emotion] Detected: {emotion}")
         log.info(f"[LLM] Assistant: {reply}")
+
+        # Send emotion + transcript to frontend dashboard
+        await self.send({"type": "emotion", "emotion": emotion, "score": 1.0})
         await self.send({"type": "transcript", "role": "assistant", "text": reply})
 
-        # TTS
+        # Store clean reply in conversation (without emotion prefix)
+        self.conversation.append({"role": "assistant", "content": reply})
+
+        # TTS — Cartesia speaks with emotion-appropriate tone
         if not CARTESIA_API_KEY or not CARTESIA_VOICE_ID:
             log.warning("Cartesia credentials missing — skipping TTS")
             return
 
         try:
-            pcm_16k_bytes = await cartesia_tts(reply)
+            pcm_16k_bytes = await cartesia_tts(reply, emotion=emotion)
             pcm_16k = np.frombuffer(pcm_16k_bytes, dtype=np.int16)
             pcm_8k = resample_16k_to_8k(pcm_16k)
             mulaw = mulaw_encode(pcm_8k)
 
-            # Send in 160-byte frames (20ms @ 8kHz)
-            for i in range(0, len(mulaw), 160):
-                frame = mulaw[i:i + 160]
+            for i in range(0, len(mulaw), self.CHUNK_BYTES):
+                frame = mulaw[i:i + self.CHUNK_BYTES]
                 payload = base64.b64encode(frame).decode()
                 await self.send({"type": "audio", "payload": payload})
         except Exception as e:
@@ -497,7 +595,7 @@ async def handle_connection(ws):
 # ---------------------------------------------------------------------------
 async def main():
     log.info("Loading models...")
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, load_models)
     log.info("Models loaded. Starting WebSocket server...")
 
