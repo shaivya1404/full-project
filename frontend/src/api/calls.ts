@@ -83,7 +83,7 @@ export const useCallStats = (dateRange?: DateRange) => {
           dropoutRate: summary.failedCalls && total > 0 ? Math.round((summary.failedCalls / total) * 100) : 0,
           connectionQuality: 100,
         },
-      } as CallStats;
+      } as unknown as CallStats;
     },
   });
 };

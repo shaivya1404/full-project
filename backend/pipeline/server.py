@@ -341,6 +341,60 @@ async def qwen_chat(
 
 
 # ---------------------------------------------------------------------------
+# Whisper hallucination detection
+# ---------------------------------------------------------------------------
+_HALLUCINATION_PATTERNS = _re.compile(
+    r"^(okay\.?\s*){3,}$"                    # "Okay. Okay. Okay..."
+    r"|^(thank you\.?\s*){3,}$"              # "Thank you. Thank you..."
+    r"|^(\.?\s*){3,}$"                        # dots/whitespace only
+    r"|^\s*$"                                 # empty
+    r"|https?://\S+"                          # URLs
+    r"|www\.\S+"                              # www. links
+    r"|\S+\.(com|org|net|io|co|in)\b",        # bare domain names
+    _re.IGNORECASE,
+)
+
+# Exact-match short hallucination phrases
+_HALLUCINATION_PHRASES = {
+    "you", "you.", "the", "i", "uh", "um", "hmm", "hm",
+    "thanks for watching", "thanks for watching!",
+    "subscribe", "like and subscribe",
+    "please subscribe", "please like and subscribe",
+}
+
+# Substring phrases Whisper commonly hallucinates — if any appear, drop the transcript
+_HALLUCINATION_SUBSTRINGS = [
+    "www.", "http://", "https://", ".com", ".org", ".net",
+    "follow us", "follow me", "subscribe to", "check out our",
+    "visit our website", "like and subscribe", "thanks for watching",
+    "смотрите", "subbed by", "subtitles by",  # foreign subtitle artifacts
+]
+
+def _is_hallucination(text: str) -> bool:
+    """Return True if the transcript looks like a Whisper noise hallucination."""
+    t = text.strip()
+    if not t:
+        return True
+    tl = t.lower()
+    # Exact match on known short hallucinations
+    if tl.rstrip(".!?,") in _HALLUCINATION_PHRASES:
+        return True
+    # Substring match — catches "Please follow us at www.gmail.com" etc.
+    if any(sub in tl for sub in _HALLUCINATION_SUBSTRINGS):
+        return True
+    # Regex pattern match
+    if _HALLUCINATION_PATTERNS.search(t):
+        return True
+    # Repetition heuristic: >60% same word → hallucination
+    words = tl.split()
+    if len(words) >= 5:
+        most_common_count = max(words.count(w) for w in set(words))
+        if most_common_count / len(words) > 0.6:
+            return True
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Per-connection session
 # ---------------------------------------------------------------------------
 class PipelineSession:
@@ -363,6 +417,8 @@ class PipelineSession:
         self._current_emotion = "neutral"
         # Prevents overlapping STT→LLM→TTS pipelines (avoids garbled audio + conversation race)
         self._utterance_lock = asyncio.Lock()
+        # Holds at most one pending utterance spoken while pipeline is busy
+        self._pending_utterance: asyncio.Queue = asyncio.Queue(maxsize=1)
 
     async def send(self, msg: dict):
         await self.ws.send(json.dumps(msg))
@@ -470,12 +526,25 @@ class PipelineSession:
                     asyncio.create_task(self._run_utterance(chunks))
 
     async def _run_utterance(self, chunks: list):
-        """Lock guard: skip new utterance if pipeline is still processing the previous one."""
+        """Lock guard: queue utterance if pipeline is busy, replacing any older pending one."""
         if self._utterance_lock.locked():
-            log.warning("[VAD] Dropped utterance — pipeline still busy")
+            # Evict stale pending utterance and replace with latest speech
+            try:
+                self._pending_utterance.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+            await self._pending_utterance.put(chunks)
+            log.info("[VAD] Pipeline busy — queued utterance for after current response")
             return
         async with self._utterance_lock:
             await self._process_utterance(chunks)
+            # Drain any utterance that arrived while we were processing
+            while not self._pending_utterance.empty():
+                try:
+                    queued = self._pending_utterance.get_nowait()
+                    await self._process_utterance(queued)
+                except asyncio.QueueEmpty:
+                    break
 
     async def _process_utterance(self, speech_chunks: list):
         """Transcribe speech then run LLM → TTS."""
@@ -494,6 +563,13 @@ class PipelineSession:
             return
 
         if not transcript:
+            return
+
+        # ── Whisper hallucination filter ────────────────────────────────────
+        # Whisper generates repetitive filler phrases on silence/background noise.
+        # Drop utterances that are clearly hallucinated before hitting the LLM.
+        if _is_hallucination(transcript):
+            log.warning(f"[STT] Hallucination dropped: {transcript[:80]}")
             return
 
         log.info(f"[STT] User: {transcript}")
