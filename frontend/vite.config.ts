@@ -6,5 +6,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     allowedHosts: true,
+    proxy: {
+      '/api': { target: 'http://localhost:4000', changeOrigin: true },
+      '/twilio': { target: 'http://localhost:4000', changeOrigin: true },
+      '/streams': { target: 'ws://localhost:4000', ws: true, changeOrigin: true },
+    },
   },
 })
