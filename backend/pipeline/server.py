@@ -182,10 +182,8 @@ def load_models():
 # ---------------------------------------------------------------------------
 # STT — Groq Whisper (fast, cloud) or local Whisper (slow, CPU)
 # ---------------------------------------------------------------------------
-async def transcribe_audio(wav_bytes: bytes) -> tuple[str, str]:
-    """Transcribe audio and detect language. Returns (text, language_code).
-    language_code: 'en', 'hi', etc. — matches ISO 639-1.
-    """
+async def transcribe_audio(wav_bytes: bytes) -> str:
+    """Transcribe audio using Groq Whisper API or local Whisper."""
     if STT_PROVIDER == "groq" and LLM_API_KEY:
         import aiohttp, io
         url = "https://api.groq.com/openai/v1/audio/transcriptions"
@@ -193,42 +191,33 @@ async def transcribe_audio(wav_bytes: bytes) -> tuple[str, str]:
         data = aiohttp.FormData()
         data.add_field("file", io.BytesIO(wav_bytes), filename="audio.wav", content_type="audio/wav")
         data.add_field("model", STT_MODEL)
-        # No language= param → Whisper auto-detects
-        data.add_field("response_format", "verbose_json")
+        data.add_field("language", "en")
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, data=data) as resp:
                 if resp.status != 200:
                     body = await resp.text()
                     raise RuntimeError(f"Groq STT error {resp.status}: {body}")
                 result = await resp.json()
-                text = result.get("text", "").strip()
-                lang = result.get("language", "en")
-                return text, lang
+                return result.get("text", "").strip()
     else:
-        # Local Whisper — auto-detects language
+        # Fallback: local Whisper (slow on CPU)
         loop = asyncio.get_running_loop()
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             f.write(wav_bytes)
             tmp_path = f.name
         try:
             result = await loop.run_in_executor(
-                None, lambda: _whisper_model.transcribe(tmp_path)
+                None, lambda: _whisper_model.transcribe(tmp_path, language="en")
             )
-            text = result["text"].strip()
-            lang = result.get("language", "en")
-            return text, lang
+            return result["text"].strip()
         finally:
             os.unlink(tmp_path)
 
 
 # ---------------------------------------------------------------------------
-async def cartesia_tts(text: str, emotion: str = "neutral", language: str = "en") -> bytes:
+async def cartesia_tts(text: str, emotion: str = "neutral") -> bytes:
     """Call Cartesia Sonic 3 API and return raw PCM16 bytes at 16kHz."""
     import aiohttp
-
-    # Cartesia language codes (ISO 639-1 subset it supports)
-    CARTESIA_SUPPORTED = {"en", "hi", "fr", "de", "es", "pt", "zh", "ja", "ko", "nl", "pl", "ru", "sv", "tr", "it"}
-    cartesia_lang = language if language in CARTESIA_SUPPORTED else "en"
 
     url = "https://api.cartesia.ai/tts/bytes"
     headers = {
@@ -240,7 +229,6 @@ async def cartesia_tts(text: str, emotion: str = "neutral", language: str = "en"
         "model_id": CARTESIA_MODEL,
         "transcript": text,
         "voice": {"mode": "id", "id": CARTESIA_VOICE_ID},
-        "language": cartesia_lang,
         "output_format": {
             "container": "raw",
             "encoding": "pcm_s16le",
@@ -286,7 +274,6 @@ def _emotion_to_cartesia(emotion: str) -> list[str]:
 async def qwen_chat(
     messages: list[dict],
     system_prompt: str,
-    language: str = "en",
 ) -> tuple[str, str]:
     """
     Call Qwen via /chat/completions.
@@ -294,26 +281,6 @@ async def qwen_chat(
     Emotion is detected from the user's last message in the same call — zero extra latency.
     """
     import aiohttp
-
-    # Language instruction — always respond in the caller's detected language
-    LANG_NAMES = {
-        "en": "English",
-        "hi": "Hindi",
-        "fr": "French",
-        "de": "German",
-        "es": "Spanish",
-        "pt": "Portuguese",
-        "zh": "Chinese",
-        "ja": "Japanese",
-        "ko": "Korean",
-    }
-    lang_name = LANG_NAMES.get(language, "English")
-    lang_instruction = (
-        f"IMPORTANT: The caller is speaking {lang_name}. "
-        f"You MUST reply in {lang_name} only. "
-        "If they speak a mix of Hindi and English (Hinglish), reply in Hindi. "
-        "Never switch languages unless the caller switches first."
-    )
 
     emotion_instruction = (
         "Before your reply, detect the caller's emotion from their words. "
@@ -330,7 +297,7 @@ async def qwen_chat(
         "- No markdown, no bullet points in RESPONSE."
     )
 
-    full_system = f"{system_prompt}\n\n{lang_instruction}\n\n{emotion_instruction}"
+    full_system = f"{system_prompt}\n\n{emotion_instruction}"
     url = f"{LLM_BASE_URL.rstrip('/')}/chat/completions"
     headers = {"Content-Type": "application/json"}
     if LLM_API_KEY:
@@ -448,9 +415,6 @@ class PipelineSession:
         self._silence_frames = 0
         self._silence_threshold_frames = int(self.SILENCE_THRESHOLD_MS / 20)  # 20ms per frame
         self._current_emotion = "neutral"
-        # Language detection — updated each utterance, prefers Hindi once detected
-        self._detected_language = "en"
-        self._hindi_count = 0   # how many utterances detected as Hindi/Hinglish
         # Prevents overlapping STT→LLM→TTS pipelines (avoids garbled audio + conversation race)
         self._utterance_lock = asyncio.Lock()
         # Holds at most one pending utterance spoken while pipeline is busy
@@ -593,7 +557,7 @@ class PipelineSession:
         wav_bytes = pcm_to_wav_bytes(pcm_16k, 16000)
 
         try:
-            transcript, detected_lang = await transcribe_audio(wav_bytes)
+            transcript = await transcribe_audio(wav_bytes)
         except Exception as e:
             log.error(f"STT error: {e}")
             return
@@ -602,23 +566,13 @@ class PipelineSession:
             return
 
         # ── Whisper hallucination filter ────────────────────────────────────
+        # Whisper generates repetitive filler phrases on silence/background noise.
+        # Drop utterances that are clearly hallucinated before hitting the LLM.
         if _is_hallucination(transcript):
             log.warning(f"[STT] Hallucination dropped: {transcript[:80]}")
             return
 
-        # ── Language tracking ────────────────────────────────────────────────
-        # Once Hindi is detected, prefer Hindi (covers Hinglish speakers too).
-        # English resets only if caller has spoken English 3+ utterances in a row.
-        if detected_lang == "hi":
-            self._hindi_count += 1
-            self._detected_language = "hi"
-        elif detected_lang == "en" and self._hindi_count > 0:
-            # Caller may still be Hinglish — stay in Hindi unless clear English switch
-            pass  # keep _detected_language as "hi"
-        else:
-            self._detected_language = detected_lang or "en"
-
-        log.info(f"[STT] User ({self._detected_language}): {transcript}")
+        log.info(f"[STT] User: {transcript}")
         await self.send({"type": "transcript", "role": "user", "text": transcript})
 
         # LLM (detects emotion + generates response in one call) → TTS
@@ -635,9 +589,7 @@ class PipelineSession:
         self.conversation.append({"role": "user", "content": user_text})
 
         try:
-            emotion, reply = await qwen_chat(
-                self.conversation, self.system_prompt, language=self._detected_language
-            )
+            emotion, reply = await qwen_chat(self.conversation, self.system_prompt)
         except Exception as e:
             log.error(f"LLM error: {e}")
             await self.send({"type": "error", "message": f"LLM error: {e}"})
@@ -661,7 +613,7 @@ class PipelineSession:
             return
 
         try:
-            pcm_16k_bytes = await cartesia_tts(reply, emotion=emotion, language=self._detected_language)
+            pcm_16k_bytes = await cartesia_tts(reply, emotion=emotion)
             pcm_16k = np.frombuffer(pcm_16k_bytes, dtype=np.int16)
             pcm_8k = resample_16k_to_8k(pcm_16k)
             mulaw = mulaw_encode(pcm_8k)
