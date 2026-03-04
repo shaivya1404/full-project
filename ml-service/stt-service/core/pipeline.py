@@ -12,14 +12,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-import numpy as np
 from loguru import logger
 from pydantic import BaseModel, Field
 
 from common.config import Settings
 
 from .asr_conformer_rnnt import transcribe as conformer_transcribe
-from .asr_whisper_fallback import transcribe as whisper_transcribe
 from .audio_preprocess import preprocess
 from .itn import apply_itn
 from .language_id import detect_language
@@ -27,6 +25,7 @@ from .language_model import refine_transcript
 from .punctuation import add_punctuation
 from .quality_scoring import score_quality
 from .truecasing import apply_truecase
+from .vad import detect_speech_segments, filter_audio_by_vad
 
 
 class SttResult(BaseModel):
@@ -85,7 +84,24 @@ class STTPipeline:
 
         self.logger.info("Starting STT pipeline (payload=%d bytes, hint=%s)", len(audio_bytes), language_hint)
 
-        # Step 1: Preprocess audio to numpy array
+        # Step 1a: Pre-filter with Silero VAD — strip silence/noise before ASR
+        # This prevents Whisper from hallucinating words on non-speech audio
+        speech_segments = detect_speech_segments(audio_bytes, threshold=0.5)
+        if not speech_segments:
+            self.logger.warning("No speech detected by Silero VAD — returning empty transcript")
+            return SttResult(
+                text="",
+                language=language_hint or "en",
+                confidence=0.0,
+                timestamps=[],
+                meta={"duration_seconds": 0, "quality_score": 0, "no_speech": True},
+                modelUsed=None,
+            )
+
+        audio_bytes = filter_audio_by_vad(audio_bytes, threshold=0.5, pad_ms=30)
+        self.logger.debug("Silero VAD pre-filter applied (%d bytes remaining)", len(audio_bytes))
+
+        # Step 1b: Preprocess audio to numpy array
         # This handles format conversion, resampling to 16kHz, and mono conversion
         audio_array, duration_seconds = preprocess(audio_bytes)
         self.logger.debug("Audio preprocessed: %.2f seconds", duration_seconds)
@@ -94,35 +110,20 @@ class STTPipeline:
         # Note: Whisper also detects language, but we do it here for logging
         language = language_hint
         if not language:
-            # Use first few seconds of audio for language detection
             language = detect_language(audio_array, language_hint)
             self.logger.debug("Detected language: %s", language)
 
-        # Step 3: Primary ASR transcription
+        # Step 3: ASR transcription
         text, confidence, timestamps, model_used = conformer_transcribe(audio_array, language)
-        fallback_used = False
 
-        # Step 4: Fallback to Whisper if confidence is low
-        # Note: Currently both use Whisper, so fallback is unlikely to differ
-        if confidence < 0.7:
-            self.logger.debug("Low confidence (%.2f), trying fallback", confidence)
-            fb_text, fb_confidence, fb_timestamps, fb_model = whisper_transcribe(audio_array, language)
-            if fb_confidence >= confidence:
-                text = fb_text
-                confidence = fb_confidence
-                timestamps = fb_timestamps
-                model_used = fb_model
-                fallback_used = True
-                self.logger.debug("Using fallback result (confidence=%.2f)", fb_confidence)
-
-        # Step 5: Post-processing
+        # Step 4: Post-processing
         # These are lightweight text transformations
         refined_text = refine_transcript(text, language)
         punctuated_text = add_punctuation(refined_text, language)
         truecased_text = apply_truecase(punctuated_text, language)
         normalized_text = apply_itn(truecased_text, language)
 
-        # Step 6: Quality scoring
+        # Step 5: Quality scoring
         quality_score = score_quality(normalized_text, confidence)
 
         # Build metadata
@@ -131,7 +132,6 @@ class STTPipeline:
             "quality_score": round(quality_score, 3),
             "language_hint": language_hint,
             "language_detected": language,
-            "fallback_used": fallback_used,
             "model_name": self.model_name,
             "model_version": self.model_version,
             "audio_samples": len(audio_array),

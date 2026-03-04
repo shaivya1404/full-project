@@ -106,7 +106,12 @@ def transcribe(
                 speech_pad_ms=400,
             ),
             beam_size=5,
-            best_of=5,
+            # Hallucination prevention
+            condition_on_previous_text=False,  # Breaks hallucination feedback loops
+            no_speech_threshold=0.6,           # Discard silent/no-speech segments
+            compression_ratio_threshold=2.4,   # Discard repetitive hallucinated text
+            log_prob_threshold=-1.0,           # Discard low-confidence segments
+            temperature=0.0,                   # Deterministic beam search (no sampling)
         )
 
         # Process segments and extract text, confidence, timestamps
@@ -116,6 +121,15 @@ def transcribe(
         segment_count = 0
 
         for segment in segments:
+            # Skip segments where Whisper itself detected no speech
+            if segment.no_speech_prob > 0.6:
+                logger.debug(
+                    "Skipping hallucinated segment (no_speech_prob=%.2f): %r",
+                    segment.no_speech_prob,
+                    segment.text.strip(),
+                )
+                continue
+
             full_text_parts.append(segment.text.strip())
             segment_count += 1
 
