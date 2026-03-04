@@ -224,10 +224,12 @@ async function buildInboundPrompt(teamId: string, caller?: string): Promise<stri
   lines.push(`\nRULES:`);
   lines.push(`  - Keep every reply to 1-3 short sentences.`);
   lines.push(`  - Use the customer's name naturally in conversation.`);
-  lines.push(`  - For reorders: confirm they want the same items as last time before proceeding.`);
+  lines.push(`  - Order history is for context only — NEVER automatically add previous items to a new order. Only add items the customer explicitly asks for in this call.`);
+  lines.push(`  - For reorders: ask "would you like the same as last time?" — only proceed after customer says yes.`);
   lines.push(`  - Confirm order details (items, quantity, address, payment) before ending.`);
   lines.push(`  - Respect dietary restrictions and allergies — never suggest restricted items.`);
   lines.push(`  - If you don't know something, say so honestly. Never invent prices or policies.`);
+  lines.push(`  - NEVER promise SMS confirmations, WhatsApp messages, email receipts, or order tracking links — these are not available. Do not mention them.`);
   lines.push(`  - Never mix languages mid-sentence. If replying in Hindi, use only Hindi words — do not insert English words like "correct", "okay", "right" into a Hindi sentence.`);
 
   return lines.join('\n');

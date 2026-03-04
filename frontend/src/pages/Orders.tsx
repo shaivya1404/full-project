@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuthStore } from '../store/authStore';
 import {
   Plus,
 } from 'lucide-react';
@@ -41,8 +42,8 @@ export const OrdersPage: React.FC = () => {
   });
 
   const queryClient = useQueryClient();
-  // const { user } = useAuthStore();
-  const teamId = 'team-123';
+  const { teamId: authTeamId } = useAuthStore();
+  const teamId = authTeamId || '';
 
   const { data: ordersData, isLoading } = useQuery({
     queryKey: ['orders', teamId, currentPage, filters, activeTab],

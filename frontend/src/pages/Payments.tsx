@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuthStore } from '../store/authStore';
 import {
   CreditCard,
   Download,
@@ -51,7 +52,8 @@ export const PaymentsPage: React.FC = () => {
   });
 
   const queryClient = useQueryClient();
-  const teamId = 'team-123'; // In a real app, this would come from context
+  const { teamId: authTeamId } = useAuthStore();
+  const teamId = authTeamId || '';
 
   const { data: paymentsData, isLoading } = useQuery({
     queryKey: ['payments', teamId, currentPage, filters],

@@ -28,8 +28,8 @@ import toast from 'react-hot-toast';
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 export const StoreSettingsPage = () => {
-  const { user } = useAuthStore();
-  const teamId = user?.id || '';
+  const { teamId: authTeamId } = useAuthStore();
+  const teamId = authTeamId || '';
 
   const { data: storeInfo, isLoading } = useStoreInfo(teamId);
   const { data: deliveryZones } = useDeliveryZones(teamId);
@@ -332,7 +332,7 @@ export const StoreSettingsPage = () => {
                   <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
                     <div className="flex items-center gap-2">
                       <MapPin className="h-4 w-4" />
-                      {JSON.parse(zone.postalCodes).length} postal codes
+                      {(() => { try { const p = JSON.parse(zone.postalCodes); return Array.isArray(p) ? p.length : zone.postalCodes.split(',').filter(Boolean).length; } catch { return zone.postalCodes.split(',').filter(Boolean).length; } })()} postal codes
                     </div>
                     <div>Delivery Fee: ₹{zone.deliveryFee}</div>
                     <div>Est. Time: {zone.estimatedTime} mins</div>

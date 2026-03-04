@@ -13,11 +13,13 @@ import type { Product } from '../types';
 import toast from 'react-hot-toast';
 import { Button } from '../components/Button';
 import { Plus, Upload, BookOpen, Package } from 'lucide-react';
+import { useAuthStore } from '../store/authStore';
 
-const TEAM_ID = 'team-1';
 const DEFAULT_LIMIT = 10;
 
 export const KnowledgeBasePage = () => {
+  const { teamId: authTeamId } = useAuthStore();
+  const TEAM_ID = authTeamId || '';
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');

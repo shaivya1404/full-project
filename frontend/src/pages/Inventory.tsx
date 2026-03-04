@@ -22,8 +22,8 @@ import toast from 'react-hot-toast';
 type StockStatus = 'in_stock' | 'low_stock' | 'out_of_stock' | '';
 
 export const InventoryPage = () => {
-  const { user } = useAuthStore();
-  const teamId = user?.id || '';
+  const { teamId: authTeamId } = useAuthStore();
+  const teamId = authTeamId || '';
 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
