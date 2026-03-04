@@ -81,8 +81,13 @@ HOST = os.getenv("PIPELINE_HOST", "0.0.0.0")
 PORT = int(os.getenv("PIPELINE_PORT", "8765"))
 WHISPER_MODEL_NAME = os.getenv("WHISPER_MODEL", "small")
 # STT provider: "local" = local Whisper on GPU, "groq" = Groq Whisper API
-STT_PROVIDER = os.getenv("STT_PROVIDER", "local")
+# Uses PIPELINE_STT_PROVIDER env var (avoids clash with Node.js STT_PROVIDER which expects 'custom'|'openai')
+STT_PROVIDER = os.getenv("PIPELINE_STT_PROVIDER", os.getenv("STT_PROVIDER", "local"))
 STT_MODEL = os.getenv("STT_MODEL", "whisper-large-v3-turbo")
+# Default language hint for STT — "hi" for Indian market prevents Groq from
+# mishearing Hindi as Spanish/Italian on the first utterance.
+# Set DEFAULT_STT_LANGUAGE=en in .env to disable for English-only deployments.
+DEFAULT_STT_LANGUAGE = os.getenv("DEFAULT_STT_LANGUAGE", "hi")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "qwen/qwen3-32b")
@@ -171,10 +176,13 @@ def load_models():
     )
     log.info("Silero-VAD loaded.")
 
-    log.info(f"Loading Whisper model: {WHISPER_MODEL_NAME} ...")
-    import whisper
-    _whisper_model = whisper.load_model(WHISPER_MODEL_NAME)
-    log.info("Whisper loaded.")
+    if STT_PROVIDER == "groq":
+        log.info(f"STT_PROVIDER=groq — skipping local Whisper load (using Groq {STT_MODEL})")
+    else:
+        log.info(f"STT_PROVIDER=local — Loading Whisper model: {WHISPER_MODEL_NAME} ...")
+        import whisper
+        _whisper_model = whisper.load_model(WHISPER_MODEL_NAME)
+        log.info("Whisper loaded.")
 
 
 # ---------------------------------------------------------------------------
@@ -182,8 +190,42 @@ def load_models():
 # ---------------------------------------------------------------------------
 # STT — Groq Whisper (fast, cloud) or local Whisper (slow, CPU)
 # ---------------------------------------------------------------------------
-async def transcribe_audio(wav_bytes: bytes) -> str:
-    """Transcribe audio using Groq Whisper API or local Whisper."""
+def _detect_language_from_text(text: str, whisper_lang: str) -> str:
+    """Determine language code.
+
+    Groq large-v3-turbo: accurate language field, trust it directly.
+    Local small: can hallucinate Devanagari from English noise, so require
+    both Whisper saying 'hi' AND actual Devanagari in the transcript.
+    Only allow 'en' and 'hi' — map all other detections to 'en' to prevent
+    random Spanish/French responses from background noise.
+    """
+    lang = whisper_lang or "en"
+
+    # Check Devanagari script regardless of provider — Groq often labels
+    # Hindi speech as 'en' even when it transcribes it in Devanagari correctly
+    has_devanagari = any('\u0900' <= ch <= '\u097F' for ch in text)
+
+    if STT_PROVIDER == "groq":
+        # Groq's language code is unreliable for Indian-accent Hindi —
+        # trust Devanagari script presence as the primary signal
+        return "hi" if (lang == "hi" or has_devanagari) else "en"
+    else:
+        # Local small — require both language field AND script confirmation
+        if lang == "hi":
+            return "hi" if has_devanagari else "en"
+        return "en"  # map all non-Hindi to English for local small
+
+
+async def transcribe_audio(wav_bytes: bytes, hint_language: str = "") -> tuple[str, str]:
+    """Transcribe audio and detect language. Returns (text, language_code).
+
+    hint_language: optional ISO-639-1 code (e.g. 'hi') — pass once language is
+    locked on the session to improve accuracy on subsequent utterances.
+    Leave empty for auto-detection on the first utterance.
+
+    STT_PROVIDER=groq  → Groq whisper-large-v3-turbo (fast, accurate, recommended)
+    STT_PROVIDER=local → Local Whisper model (set WHISPER_MODEL in .env)
+    """
     if STT_PROVIDER == "groq" and LLM_API_KEY:
         import aiohttp, io
         url = "https://api.groq.com/openai/v1/audio/transcriptions"
@@ -191,31 +233,42 @@ async def transcribe_audio(wav_bytes: bytes) -> str:
         data = aiohttp.FormData()
         data.add_field("file", io.BytesIO(wav_bytes), filename="audio.wav", content_type="audio/wav")
         data.add_field("model", STT_MODEL)
-        data.add_field("language", "en")
+        data.add_field("response_format", "verbose_json")
+        # Pass language hint when already known — significantly improves accuracy
+        if hint_language:
+            data.add_field("language", hint_language)
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, data=data) as resp:
                 if resp.status != 200:
                     body = await resp.text()
                     raise RuntimeError(f"Groq STT error {resp.status}: {body}")
                 result = await resp.json()
-                return result.get("text", "").strip()
+                text = result.get("text", "").strip()
+                whisper_lang = result.get("language", hint_language or "en")
+                lang = _detect_language_from_text(text, whisper_lang)
+                return text, lang
     else:
-        # Fallback: local Whisper (slow on CPU)
+        # Local Whisper (STT_PROVIDER=local or any other value)
+        # Switch back anytime: set STT_PROVIDER=local in .env
         loop = asyncio.get_running_loop()
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             f.write(wav_bytes)
             tmp_path = f.name
         try:
+            kwargs = {"language": hint_language} if hint_language else {}
             result = await loop.run_in_executor(
-                None, lambda: _whisper_model.transcribe(tmp_path, language="en")
+                None, lambda: _whisper_model.transcribe(tmp_path, **kwargs)
             )
-            return result["text"].strip()
+            text = result["text"].strip()
+            whisper_lang = result.get("language", hint_language or "en")
+            lang = _detect_language_from_text(text, whisper_lang)
+            return text, lang
         finally:
             os.unlink(tmp_path)
 
 
 # ---------------------------------------------------------------------------
-async def cartesia_tts(text: str, emotion: str = "neutral") -> bytes:
+async def cartesia_tts(text: str, emotion: str = "neutral", language: str = "en") -> bytes:
     """Call Cartesia Sonic 3 API and return raw PCM16 bytes at 16kHz."""
     import aiohttp
 
@@ -225,10 +278,14 @@ async def cartesia_tts(text: str, emotion: str = "neutral") -> bytes:
         "Cartesia-Version": "2025-04-16",
         "Content-Type": "application/json",
     }
+    CARTESIA_SUPPORTED_LANGS = {"en","hi","fr","de","es","pt","zh","ja","ko","nl","pl","ru","sv","tr","it"}
+    cartesia_lang = language if language in CARTESIA_SUPPORTED_LANGS else "en"
+
     payload = {
         "model_id": CARTESIA_MODEL,
         "transcript": text,
         "voice": {"mode": "id", "id": CARTESIA_VOICE_ID},
+        "language": cartesia_lang,
         "output_format": {
             "container": "raw",
             "encoding": "pcm_s16le",
@@ -242,7 +299,8 @@ async def cartesia_tts(text: str, emotion: str = "neutral") -> bytes:
             payload["voice"]["__experimental_controls"] = {"emotion": controls}
             log.info(f"[Cartesia] Emotion controls: {controls}")
 
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total=15)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.post(url, headers=headers, json=payload) as resp:
             if resp.status != 200:
                 body = await resp.text()
@@ -254,15 +312,17 @@ def _emotion_to_cartesia(emotion: str) -> list[str]:
     """Map detected user emotion → Cartesia voice emotion controls for the AI response."""
     # When user is X, AI speaks with Y tone
     mapping = {
+        # Cartesia only accepts: high | low (not medium)
         "angry":      ["positivity:low", "sadness:low"],      # calm, de-escalating
-        "frustrated": ["positivity:medium"],                   # patient, warm
+        "frustrated": ["positivity:high"],                     # patient, warm
         "sad":        ["positivity:low", "sadness:low"],       # gentle, empathetic
-        "fearful":    ["positivity:medium", "surprise:low"],   # reassuring
+        "fearful":    ["positivity:high"],                     # reassuring
         "disgusted":  ["positivity:low"],                      # neutral, professional
         "happy":      ["positivity:high"],                     # match positive energy
         "excited":    ["positivity:high", "surprise:low"],     # engaged, enthusiastic
         "surprised":  ["curiosity:high"],                      # curious, engaged
         "confused":   ["curiosity:high", "positivity:low"],    # helpful, clear
+        "curious":    ["curiosity:high"],                      # engage with interest
         "neutral":    [],
     }
     return mapping.get(emotion.lower(), [])
@@ -274,6 +334,7 @@ def _emotion_to_cartesia(emotion: str) -> list[str]:
 async def qwen_chat(
     messages: list[dict],
     system_prompt: str,
+    language: str = "en",
 ) -> tuple[str, str]:
     """
     Call Qwen via /chat/completions.
@@ -282,10 +343,19 @@ async def qwen_chat(
     """
     import aiohttp
 
+    _LANG_NAMES = {"en": "English", "hi": "Hindi", "fr": "French", "de": "German",
+                   "es": "Spanish", "pt": "Portuguese", "zh": "Chinese", "ja": "Japanese"}
+    lang_name = _LANG_NAMES.get(language, "English")
+    lang_instruction = (
+        f"CRITICAL: Respond ONLY in {lang_name}. "
+        "If the caller uses a mix of Hindi and English (Hinglish), always reply in Hindi. "
+        "Never switch to a different language."
+    )
+
     emotion_instruction = (
         "Before your reply, detect the caller's emotion from their words. "
         "Output exactly:\n"
-        "EMOTION: <one of: neutral happy excited sad frustrated angry fearful confused surprised>\n"
+        "EMOTION: <one of: neutral happy excited sad frustrated angry fearful confused surprised curious>\n"
         "RESPONSE: <your reply>\n\n"
         "Rules:\n"
         "- Adjust your tone to the caller's emotional state.\n"
@@ -297,7 +367,7 @@ async def qwen_chat(
         "- No markdown, no bullet points in RESPONSE."
     )
 
-    full_system = f"{system_prompt}\n\n{emotion_instruction}"
+    full_system = f"{system_prompt}\n\n{lang_instruction}\n\n{emotion_instruction}"
     url = f"{LLM_BASE_URL.rstrip('/')}/chat/completions"
     headers = {"Content-Type": "application/json"}
     if LLM_API_KEY:
@@ -329,8 +399,10 @@ async def qwen_chat(
     emotion_match = _re.search(r"EMOTION:\s*(\w+)", content, _re.IGNORECASE)
     response_match = _re.search(r"RESPONSE:\s*(.+)", content, _re.IGNORECASE | _re.DOTALL)
 
+    _VALID_EMOTIONS = {"neutral","happy","excited","sad","frustrated","angry","fearful","confused","surprised","curious"}
     if emotion_match:
-        emotion = emotion_match.group(1).lower().strip()
+        parsed = emotion_match.group(1).lower().strip()
+        emotion = parsed if parsed in _VALID_EMOTIONS else "neutral"
     if response_match:
         reply = response_match.group(1).strip()
     elif emotion_match:
@@ -415,13 +487,21 @@ class PipelineSession:
         self._silence_frames = 0
         self._silence_threshold_frames = int(self.SILENCE_THRESHOLD_MS / 20)  # 20ms per frame
         self._current_emotion = "neutral"
+        # Language: starts English, requires 2 consecutive Hindi detections to lock
+        # Prevents a single Whisper hallucination from flipping the whole session
+        self._session_language = "en"
+        self._hindi_streak = 0   # consecutive Hindi utterances
+        self._hindi_locked = False
         # Prevents overlapping STT→LLM→TTS pipelines (avoids garbled audio + conversation race)
         self._utterance_lock = asyncio.Lock()
         # Holds at most one pending utterance spoken while pipeline is busy
         self._pending_utterance: asyncio.Queue = asyncio.Queue(maxsize=1)
 
     async def send(self, msg: dict):
-        await self.ws.send(json.dumps(msg))
+        try:
+            await self.ws.send(json.dumps(msg))
+        except Exception:
+            pass  # WebSocket closed — ignore silently
 
     async def handle_config(self, session: dict):
         self.session_params = session
@@ -510,7 +590,7 @@ class PipelineSession:
                 None, lambda t=tensor: _silero_model(t, self.SAMPLE_RATE).item()
             )
 
-            if speech_prob > 0.5:
+            if speech_prob > 0.65:
                 self._in_speech = True
                 self._silence_frames = 0
                 self._speech_chunks.append(chunk)
@@ -556,8 +636,18 @@ class PipelineSession:
         pcm_16k = (resample_8k_to_16k(pcm_8k) * 32768.0).clip(-32768, 32767).astype(np.int16)
         wav_bytes = pcm_to_wav_bytes(pcm_16k, 16000)
 
+        # Pass language hint to Groq STT:
+        # - Once locked: use locked language for maximum accuracy
+        # - Before lock: use DEFAULT_STT_LANGUAGE ("hi" for Indian market) to prevent
+        #   Groq from mishearing Hindi as Spanish/Italian on unlocked utterances
+        if self._hindi_locked:
+            hint = self._session_language
+        elif STT_PROVIDER == "groq":
+            hint = DEFAULT_STT_LANGUAGE  # "hi" by default — forces Groq to output Devanagari for Hindi speakers
+        else:
+            hint = ""
         try:
-            transcript = await transcribe_audio(wav_bytes)
+            transcript, detected_lang = await transcribe_audio(wav_bytes, hint_language=hint)
         except Exception as e:
             log.error(f"STT error: {e}")
             return
@@ -572,7 +662,26 @@ class PipelineSession:
             log.warning(f"[STT] Hallucination dropped: {transcript[:80]}")
             return
 
-        log.info(f"[STT] User: {transcript}")
+        # ── Language tracking ────────────────────────────────────────────────
+        # Only trust language detection on utterances with 3+ words.
+        # Short/noisy phrases like "A ed" or "of King" are too ambiguous for
+        # Whisper small to classify correctly — ignore them for language purposes.
+        word_count = len(transcript.split())
+        if word_count >= 3:
+            if detected_lang == "hi":
+                self._hindi_streak += 1
+                if self._hindi_streak >= 2:
+                    self._hindi_locked = True
+            else:
+                self._hindi_streak = 0  # reset streak on non-Hindi utterance
+
+        if self._hindi_locked:
+            self._session_language = "hi"
+        elif word_count >= 3:
+            self._session_language = detected_lang
+        # else: keep existing language — don't update on short phrases
+
+        log.info(f"[STT] User ({self._session_language}): {transcript}")
         await self.send({"type": "transcript", "role": "user", "text": transcript})
 
         # LLM (detects emotion + generates response in one call) → TTS
@@ -589,7 +698,9 @@ class PipelineSession:
         self.conversation.append({"role": "user", "content": user_text})
 
         try:
-            emotion, reply = await qwen_chat(self.conversation, self.system_prompt)
+            emotion, reply = await qwen_chat(
+                self.conversation, self.system_prompt, language=self._session_language
+            )
         except Exception as e:
             log.error(f"LLM error: {e}")
             await self.send({"type": "error", "message": f"LLM error: {e}"})
@@ -613,7 +724,7 @@ class PipelineSession:
             return
 
         try:
-            pcm_16k_bytes = await cartesia_tts(reply, emotion=emotion)
+            pcm_16k_bytes = await cartesia_tts(reply, emotion=emotion, language=self._session_language)
             pcm_16k = np.frombuffer(pcm_16k_bytes, dtype=np.int16)
             pcm_8k = resample_16k_to_8k(pcm_16k)
             mulaw = mulaw_encode(pcm_8k)

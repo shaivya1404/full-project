@@ -27,17 +27,21 @@ export async function buildSystemPrompt(params: PromptParams): Promise<string> {
       ? buildOutboundPrompt(campaignId, caller)
       : buildInboundPrompt(teamId, caller);
 
-  // 3-second hard timeout — DB hang must never stall a live call
-  const timeout = new Promise<string>((resolve) =>
-    setTimeout(() => {
+  // 8-second hard timeout — Neon DB cold-start can take 4-6s
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<string>((resolve) => {
+    timer = setTimeout(() => {
       logger.warn('[SystemPrompt] DB timeout — using fallback prompt');
       resolve(buildFallbackPrompt(callType, caller));
-    }, 3000),
-  );
+    }, 8000);
+  });
 
   try {
-    return await Promise.race([build, timeout]);
+    const result = await Promise.race([build, timeout]);
+    clearTimeout(timer!);
+    return result;
   } catch (err) {
+    clearTimeout(timer!);
     logger.error('[SystemPrompt] Failed to build prompt, using fallback', err);
     return buildFallbackPrompt(callType, caller);
   }
@@ -106,13 +110,14 @@ async function buildInboundPrompt(teamId: string, caller?: string): Promise<stri
   const storeName = storeInfo?.storeName || 'our store';
 
   lines.push(
-    `You are a voice AI assistant for ${storeName}. ` +
-    `Speak naturally and concisely — this is a live phone call. No markdown, no bullet points in your replies.`,
+    `You are Aarav, a friendly voice AI assistant for ${storeName}. ` +
+    `Speak naturally and concisely — this is a live phone call. No markdown, no bullet points in your replies. ` +
+    `When asked your name, say your name is Aarav. You work for ${storeName} and help customers with orders, menu queries, and delivery.`,
   );
 
   // ── Customer profile ────────────────────────────────────────────────────
   if (customer) {
-    const name = customer.name || 'this customer';
+    const name = customer.name || 'the caller';
     const loyalty = customer.customerLoyalty;
     const prefs = customer.customerPreference;
 
@@ -223,6 +228,7 @@ async function buildInboundPrompt(teamId: string, caller?: string): Promise<stri
   lines.push(`  - Confirm order details (items, quantity, address, payment) before ending.`);
   lines.push(`  - Respect dietary restrictions and allergies — never suggest restricted items.`);
   lines.push(`  - If you don't know something, say so honestly. Never invent prices or policies.`);
+  lines.push(`  - Never mix languages mid-sentence. If replying in Hindi, use only Hindi words — do not insert English words like "correct", "okay", "right" into a Hindi sentence.`);
 
   return lines.join('\n');
 }
