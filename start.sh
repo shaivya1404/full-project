@@ -43,6 +43,34 @@ python3 -c "import websockets, numpy, aiohttp, silero_vad" 2>/dev/null || {
   pip install -q websockets aiohttp numpy torch torchaudio silero-vad groq
   echo "      Python deps installed."
 }
+
+# STT service deps
+python3 -c "import fastapi, uvicorn, soundfile, loguru" 2>/dev/null || {
+  echo "      Installing STT service packages..."
+  pip install -q fastapi uvicorn soundfile loguru pydantic python-multipart
+}
+
+# Apply NeMo numpy 2.x compatibility patch (fixes TypeError in segment.py)
+NEMO_SEGMENT="/opt/AI4Bharat-NeMo/nemo/collections/asr/parts/preprocessing/segment.py"
+if [ -f "$NEMO_SEGMENT" ]; then
+  if grep -q "samples.dtype in samples.dtype.kind" "$NEMO_SEGMENT" 2>/dev/null; then
+    echo "      Patching NeMo segment.py for numpy 2.x compatibility..."
+    sed -i 's/if samples\.dtype in samples\.dtype\.kind in ("i","u"):/if samples.dtype.kind in ("i","u"):/' "$NEMO_SEGMENT"
+    sed -i 's/elif samples\.dtype in samples\.dtype\.kind == "f":/elif samples.dtype.kind == "f":/' "$NEMO_SEGMENT"
+    echo "      NeMo patch applied."
+  fi
+fi
+
+# Ensure hi.nemo symlink exists (local model takes priority over HF download)
+NEMO_LOCAL_DIR="/models/stt/indicconformer"
+NEMO_CACHE_FILE=$(find /root/.cache/torch/NeMo -name "indicconformer_stt_hi*.nemo" 2>/dev/null | head -1)
+if [ -n "$NEMO_CACHE_FILE" ] && [ ! -f "$NEMO_LOCAL_DIR/hi.nemo" ]; then
+  echo "      Symlinking hi.nemo from NeMo cache..."
+  mkdir -p "$NEMO_LOCAL_DIR"
+  ln -sf "$NEMO_CACHE_FILE" "$NEMO_LOCAL_DIR/hi.nemo"
+  echo "      hi.nemo symlinked."
+fi
+
 echo "      Python deps OK."
 
 # ── 2. Node.js dependencies + build ──────────────────────────
@@ -176,9 +204,16 @@ fi
 # ── Kill any leftover processes ───────────────────────────────
 pkill -f "dist/server.js" 2>/dev/null || true
 pkill -f "pipeline/server.py" 2>/dev/null || true
+pkill -f "uvicorn app:app" 2>/dev/null || true
+pkill -f "stt-service" 2>/dev/null || true
 pkill -f "vite.*5173" 2>/dev/null || true
 pkill -f "cloudflared" 2>/dev/null || true
-sleep 1
+# Kill anything holding ports we need
+for PORT in 4000 5173 8010 8765; do
+  PID=$(ss -tlnp 2>/dev/null | grep ":$PORT " | grep -oP 'pid=\K[0-9]+' | head -1)
+  [ -n "$PID" ] && kill "$PID" 2>/dev/null || true
+done
+sleep 2
 
 # ── 5. Start all services ─────────────────────────────────────
 
@@ -206,9 +241,27 @@ for i in $(seq 1 15); do
 done
 echo "      OK — http://localhost:5173  (PID $FRONTEND_PID)"
 
+# STT Service (AI4Bharat IndicConformer) on port 8010
+echo "      Starting STT service on port 8010..."
+set -a; source "$ENV_FILE"; set +a
+cd "$ROOT/ml-service/stt-service"
+HF_TOKEN="$HF_TOKEN" HUGGING_FACE_HUB_TOKEN="$HUGGING_FACE_HUB_TOKEN" \
+  python3 -m uvicorn app:app --host 0.0.0.0 --port 8010 > /tmp/stt-service.log 2>&1 &
+STT_PID=$!
+# Wait for STT HTTP endpoint (NeMo warmup takes ~20s)
+echo "      Waiting for NeMo model to warm up (may take ~20s)..."
+for i in $(seq 1 40); do
+  STATUS=$(curl -sf http://localhost:8010/ml/stt/health 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
+  [ "$STATUS" = "ok" ] && break
+  [ "$i" -eq 40 ] && { echo "      WARNING — STT service slow to start. Check /tmp/stt-service.log."; break; }
+  sleep 2
+done
+echo "      OK — http://localhost:8010  (PID $STT_PID)"
+
 # Pipeline
 echo "      Starting voice pipeline on port 8765..."
 set -a; source "$ENV_FILE"; set +a
+cd "$ROOT/backend"
 python3 "$ROOT/backend/pipeline/server.py" > /tmp/pipeline.log 2>&1 &
 PIPELINE_PID=$!
 for i in $(seq 1 20); do
@@ -292,6 +345,7 @@ echo ""
 echo "  Logs:"
 echo "    Backend  → /tmp/backend.log"
 echo "    Frontend → /tmp/frontend.log"
+echo "    STT      → /tmp/stt-service.log"
 echo "    Pipeline → /tmp/pipeline.log"
 echo "    Tunnel   → /tmp/cloudflared.log"
 echo "══════════════════════════════════════════════════════════"

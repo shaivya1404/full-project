@@ -1,7 +1,7 @@
 """Audio preprocessing for the STT pipeline.
 
-Converts raw audio bytes to numpy arrays suitable for Faster-Whisper inference.
-Handles multiple audio formats and resamples to 16kHz mono as required by Whisper.
+Converts raw audio bytes to numpy arrays suitable for IndicConformer inference.
+Handles multiple audio formats and resamples to 16 kHz mono.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import numpy as np
 import soundfile as sf
 from loguru import logger
 
-# Whisper models expect 16kHz mono audio
+# IndicConformer expects 16 kHz mono audio
 TARGET_SAMPLE_RATE = 16000
 
 
@@ -91,7 +91,7 @@ def bytes_to_numpy(audio_bytes: bytes) -> np.ndarray:
         audio_bytes: Raw audio data
 
     Returns:
-        Numpy float32 array suitable for Whisper
+        Numpy float32 array suitable for IndicConformer
     """
     audio_array, _ = preprocess(audio_bytes)
     return audio_array

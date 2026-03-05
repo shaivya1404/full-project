@@ -1,7 +1,8 @@
-"""FastAPI application for the modular STT service."""
+"""FastAPI application for the IndicConformer STT service."""
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Literal
@@ -14,7 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.append(str(BASE_DIR))
 
-from common import (  # noqa: E402  # pylint: disable=wrong-import-position
+from common import (  # noqa: E402
     ModelInfo,
     configure_logging,
     get_active_models,
@@ -22,10 +23,9 @@ from common import (  # noqa: E402  # pylint: disable=wrong-import-position
     set_model_status,
     settings,
 )
-import os
 
 from core import STTPipeline
-from core.lora_pipeline import LoRAPipeline
+from core.finetuned_pipeline import IndicConformerFineTunedPipeline
 
 
 class TimestampSegment(BaseModel):
@@ -50,64 +50,90 @@ class StatusResponse(BaseModel):
     models: List[Dict[str, Any]] = Field(default_factory=list)
 
 
-MODEL_NAME = "whisper_large-v3"
+MODEL_NAME = "indicconformer"
 MODEL_VERSION = "v1"
 pipeline: STTPipeline | None = None
 
-# Fine-tuned Whisper Small + LoRA (your trained model)
-# Set LORA_MODEL_PATH env var to the directory containing adapter weights
-LORA_MODEL_PATH = os.getenv("LORA_MODEL_PATH", "/models/stt/whisper-stt-finetuned")
-lora_pipeline: LoRAPipeline | None = None
+# Fine-tuned IndicConformer checkpoint (.nemo file)
+# Set FINETUNED_MODEL_PATH env var to the .nemo checkpoint path
+FINETUNED_MODEL_PATH = os.getenv(
+    "FINETUNED_MODEL_PATH", "/models/stt/indicconformer-finetuned.nemo"
+)
+finetuned_pipeline: IndicConformerFineTunedPipeline | None = None
 
-app = FastAPI(title="STT Service", version="0.4.0")
+app = FastAPI(title="STT Service — IndicConformer", version="1.0.0")
 
 
 def _model_path() -> str:
     return f"{settings.model_base_path}/stt/{MODEL_NAME}/{MODEL_VERSION}"
 
 
-def _register_default_model(status: Literal["loading", "ready", "error"] = "ready") -> ModelInfo:
+def _register_default_model(
+    status: Literal["loading", "ready", "error"] = "ready",
+) -> ModelInfo:
     model_info = ModelInfo(
         name=MODEL_NAME,
         type="stt",
         version=MODEL_VERSION,
         status=status,
         path=_model_path(),
-        config={"device": settings.device},
+        config={"device": settings.device, "provider": "AI4Bharat"},
     )
     return register_model(model_info)
 
 
 async def _initialize_pipeline() -> None:
     global pipeline
-    pipeline = STTPipeline(settings=settings, model_name=MODEL_NAME, model_version=MODEL_VERSION)
+    pipeline = STTPipeline(
+        settings=settings, model_name=MODEL_NAME, model_version=MODEL_VERSION
+    )
+    # Pre-warm NeMo model so first real call doesn't pay the load penalty
+    try:
+        import asyncio, numpy as np
+        dummy = np.zeros(16000, dtype=np.float32)
+        loop = asyncio.get_event_loop()
+        from core.asr_indic_conformer import transcribe as _warmup
+        await loop.run_in_executor(None, _warmup, dummy, "hi")
+        logger.info("NeMo model pre-warmed successfully")
+    except Exception as e:
+        logger.warning("NeMo warmup failed ({}), will load on first request", e)
 
 
 @app.on_event("startup")
 async def startup_event() -> None:
-    global lora_pipeline
+    global finetuned_pipeline
     configure_logging(settings.log_level)
     _register_default_model(status="loading")
     await _initialize_pipeline()
     set_model_status("stt", MODEL_NAME, MODEL_VERSION, "ready", path=_model_path())
-    # Load fine-tuned LoRA model alongside the main pipeline
-    lora_pipeline = LoRAPipeline(model_path=LORA_MODEL_PATH, device=settings.device)
-    if lora_pipeline.is_ready:
-        logger.info("Whisper Small + LoRA loaded from {}", LORA_MODEL_PATH)
+    # Load fine-tuned checkpoint if available
+    finetuned_pipeline = IndicConformerFineTunedPipeline(
+        model_path=FINETUNED_MODEL_PATH, device=settings.device
+    )
+    if finetuned_pipeline.is_ready:
+        logger.info("Fine-tuned IndicConformer loaded from {}", FINETUNED_MODEL_PATH)
     else:
-        logger.warning("LoRA model not loaded — /ml/stt/transcribe/lora will return 503")
-    logger.info("STT service started in %s mode", settings.environment)
+        logger.warning(
+            "Fine-tuned model not loaded — /ml/stt/transcribe/finetuned will return 503. "
+            "Set FINETUNED_MODEL_PATH to your .nemo checkpoint."
+        )
+    logger.info("STT service (IndicConformer) started in {} mode", settings.environment)
 
 
 @app.get("/ml/stt/health", response_model=StatusResponse)
 async def health_check() -> StatusResponse:
     models = [model.model_dump() for model in get_active_models("stt")]
-    return StatusResponse(status="ok", detail="stt-service healthy", models=models)
+    return StatusResponse(status="ok", detail="stt-service healthy (IndicConformer)", models=models)
 
 
 @app.get("/ml/stt/models")
 async def list_models() -> Dict[str, Any]:
-    return {"models": [model.model_dump() for model in get_active_models("stt")]}
+    from core.asr_indic_conformer import get_model_info
+
+    return {
+        "models": [model.model_dump() for model in get_active_models("stt")],
+        "indicconformer": get_model_info(),
+    }
 
 
 @app.post("/ml/stt/initialize", response_model=StatusResponse)
@@ -134,6 +160,11 @@ async def transcribe_audio(
     file: UploadFile = File(...),
     language_hint: str | None = Form(default=None),
 ) -> SttTranscribeResponse:
+    """Transcribe using AI4Bharat IndicConformer.
+
+    language_hint: ISO 639-1 code (hi, en, ta, te, bn, mr, gu, kn, ml, pa, or, ur).
+    If omitted, MMS LID auto-detects the language from audio.
+    """
     if pipeline is None:
         raise HTTPException(status_code=503, detail="STT pipeline not initialized")
     payload = await file.read()
@@ -151,37 +182,38 @@ async def transcribe_audio(
     )
 
 
-@app.post("/ml/stt/transcribe/lora", response_model=SttTranscribeResponse)
-async def transcribe_lora(
+@app.post("/ml/stt/transcribe/finetuned", response_model=SttTranscribeResponse)
+async def transcribe_finetuned(
     file: UploadFile = File(...),
     language_hint: str | None = Form(default=None),
 ) -> SttTranscribeResponse:
-    """Transcribe using YOUR fine-tuned Whisper Small + LoRA model.
+    """Transcribe using your fine-tuned IndicConformer .nemo checkpoint.
 
-    Use this endpoint for Indian accent calls (better than base Whisper for
-    Hindi-English code-switching and Indian English accents).
+    Set FINETUNED_MODEL_PATH env var to the path of your .nemo file.
+    Fine-tune using NeMo's speech_to_text_rnnt_bpe.py with
+    +init_from_pretrained_model=ai4bharat/indicconformer_stt_hi_hybrid_rnnt_large.
     """
-    if lora_pipeline is None or not lora_pipeline.is_ready:
+    if finetuned_pipeline is None or not finetuned_pipeline.is_ready:
         raise HTTPException(
             status_code=503,
             detail=(
-                "LoRA model not loaded. "
-                f"Set LORA_MODEL_PATH to your whisper-stt-finetuned directory. "
-                f"Current path: {LORA_MODEL_PATH}"
+                "Fine-tuned IndicConformer not loaded. "
+                f"Set FINETUNED_MODEL_PATH to a valid .nemo checkpoint. "
+                f"Current path: {FINETUNED_MODEL_PATH}"
             ),
         )
     payload = await file.read()
     if not payload:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
 
-    text, confidence, timestamps = lora_pipeline.transcribe(payload, language_hint)
+    text, confidence, _ = finetuned_pipeline.transcribe(payload, language_hint)
     return SttTranscribeResponse(
         text=text,
-        language=language_hint or "en",
+        language=language_hint or "hi",
         confidence=confidence,
         timestamps=[],
-        meta={"model": "whisper-small-lora", "lora_path": LORA_MODEL_PATH},
-        modelUsed="whisper-small-lora",
+        meta={"model": "indicconformer-finetuned", "checkpoint": FINETUNED_MODEL_PATH},
+        modelUsed="indicconformer-finetuned",
     )
 
 

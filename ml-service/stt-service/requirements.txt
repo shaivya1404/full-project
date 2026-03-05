@@ -5,24 +5,42 @@ pydantic-settings==2.1.0
 loguru==0.7.2
 python-multipart==0.0.9
 
-# ML Dependencies for Faster-Whisper STT
-faster-whisper>=1.0.0
-numpy>=1.24.0
+# ── AI4Bharat NeMo fork (required for IndicConformer) ───────────────────────
+# Install from source BEFORE the rest of the deps:
+#   git clone https://github.com/AI4Bharat/NeMo.git /opt/AI4Bharat-NeMo
+#   cd /opt/AI4Bharat-NeMo && git checkout nemo-v2 && pip install -e ".[asr]"
+#
+# NumPy 2.0 patch (apply after install):
+#   sed -i 's/np.sctypes\[.int.\]/samples.dtype.kind in ("i","u")/g' \
+#       /opt/AI4Bharat-NeMo/nemo/collections/asr/parts/preprocessing/segment.py
+#   sed -i 's/np.sctypes\[.float.\]/samples.dtype.kind == "f"/g' \
+#       /opt/AI4Bharat-NeMo/nemo/collections/asr/parts/preprocessing/segment.py
+
+# PyTorch (installed by NeMo, listed here for reference)
+# torch>=2.6.0+cu124
+# torchaudio>=2.6.0+cu124
+
+# Audio I/O
+numpy>=1.24.0,<2.5.0
 soundfile>=0.12.0
 librosa>=0.10.0
-torch>=2.0.0
 
-# Indic Language Support
+# Language identification (audio-based — facebook/mms-lid-126)
+transformers>=4.36.0,<4.42.0
+huggingface_hub>=0.22.0,<0.24.0
+
+# Indic NLP post-processing
 indic-nlp-library>=0.81
 
-# Noise Reduction
+# Noise reduction
 deepfilternet>=0.5.0
 
-# Punctuation Restoration
+# Punctuation restoration
 deepmultilingualpunctuation>=1.0.0
 
-# Training Dependencies (LoRA)
-peft>=0.5.0
-accelerate>=0.24.0
-transformers>=4.36.0
+# WER evaluation
 jiwer>=3.0.0
+
+# NeMo dependency
+Cython
+youtokentome>=1.0.6

@@ -80,13 +80,15 @@ log = logging.getLogger("pipeline")
 HOST = os.getenv("PIPELINE_HOST", "0.0.0.0")
 PORT = int(os.getenv("PIPELINE_PORT", "8765"))
 WHISPER_MODEL_NAME = os.getenv("WHISPER_MODEL", "small")
-# STT provider: "local" = local Whisper on GPU, "groq" = Groq Whisper API
-# Uses PIPELINE_STT_PROVIDER env var (avoids clash with Node.js STT_PROVIDER which expects 'custom'|'openai')
-STT_PROVIDER = os.getenv("PIPELINE_STT_PROVIDER", os.getenv("STT_PROVIDER", "local"))
+# STT provider:
+#   "indic" = AI4Bharat IndicConformer-600M local service (recommended)
+#   "groq"  = Groq Whisper API (cloud)
+#   "local" = local Whisper model
+STT_PROVIDER = os.getenv("PIPELINE_STT_PROVIDER", os.getenv("STT_PROVIDER", "indic"))
 STT_MODEL = os.getenv("STT_MODEL", "whisper-large-v3-turbo")
-# Default language hint for STT — "hi" for Indian market prevents Groq from
-# mishearing Hindi as Spanish/Italian on the first utterance.
-# Set DEFAULT_STT_LANGUAGE=en in .env to disable for English-only deployments.
+INDIC_STT_URL = os.getenv("INDIC_STT_URL", "http://localhost:8001")
+# Default language hint — used by Groq/local Whisper only.
+# IndicConformer auto-detects language so this is ignored for STT_PROVIDER=indic.
 DEFAULT_STT_LANGUAGE = os.getenv("DEFAULT_STT_LANGUAGE", "hi")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
@@ -176,7 +178,9 @@ def load_models():
     )
     log.info("Silero-VAD loaded.")
 
-    if STT_PROVIDER == "groq":
+    if STT_PROVIDER == "indic":
+        log.info(f"STT_PROVIDER=indic — using AI4Bharat IndicConformer at {INDIC_STT_URL}")
+    elif STT_PROVIDER == "groq":
         log.info(f"STT_PROVIDER=groq — skipping local Whisper load (using Groq {STT_MODEL})")
     else:
         log.info(f"STT_PROVIDER=local — Loading Whisper model: {WHISPER_MODEL_NAME} ...")
@@ -219,14 +223,32 @@ def _detect_language_from_text(text: str, whisper_lang: str) -> str:
 async def transcribe_audio(wav_bytes: bytes, hint_language: str = "") -> tuple[str, str]:
     """Transcribe audio and detect language. Returns (text, language_code).
 
-    hint_language: optional ISO-639-1 code (e.g. 'hi') — pass once language is
-    locked on the session to improve accuracy on subsequent utterances.
-    Leave empty for auto-detection on the first utterance.
+    hint_language: optional ISO-639-1 code (e.g. 'hi') — used by Groq/local.
+                   IndicConformer auto-detects language so hint is advisory only.
 
-    STT_PROVIDER=groq  → Groq whisper-large-v3-turbo (fast, accurate, recommended)
-    STT_PROVIDER=local → Local Whisper model (set WHISPER_MODEL in .env)
+    STT_PROVIDER=indic → AI4Bharat IndicConformer-600M local service (recommended)
+    STT_PROVIDER=groq  → Groq whisper-large-v3-turbo (cloud)
+    STT_PROVIDER=local → Local Whisper model
     """
-    if STT_PROVIDER == "groq" and LLM_API_KEY:
+    if STT_PROVIDER == "indic":
+        import aiohttp, io
+        url = f"{INDIC_STT_URL.rstrip('/')}/ml/stt/transcribe"
+        data = aiohttp.FormData()
+        data.add_field("file", io.BytesIO(wav_bytes), filename="audio.wav", content_type="audio/wav")
+        data.add_field("language_hint", hint_language or DEFAULT_STT_LANGUAGE)
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, data=data, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                if resp.status != 200:
+                    body = await resp.text()
+                    raise RuntimeError(f"IndicConformer STT error {resp.status}: {body}")
+                result = await resp.json()
+        text = result.get("text", "").strip()
+        # IndicConformer returns accurate language directly — no heuristic needed
+        lang = result.get("language") or hint_language or DEFAULT_STT_LANGUAGE
+        log.info(f"[IndicConformer] lang={lang} conf={result.get('confidence', '?'):.2f} model={result.get('modelUsed', '?')}")
+        return text, lang
+
+    elif STT_PROVIDER == "groq" and LLM_API_KEY:
         import aiohttp, io
         url = "https://api.groq.com/openai/v1/audio/transcriptions"
         headers = {"Authorization": f"Bearer {LLM_API_KEY}"}
@@ -378,7 +400,7 @@ async def qwen_chat(
         "model": LLM_MODEL,
         "messages": full_messages,
         "temperature": 0.7,
-        "max_tokens": 250,
+        "max_tokens": 512,
     }
 
     async with aiohttp.ClientSession() as session:
@@ -536,8 +558,8 @@ class PipelineSession:
         """Proactively greet the caller right after the session is configured."""
         # Brief pause — ensures Twilio audio pipeline is ready to receive audio
         await asyncio.sleep(0.6)
+        # Get LLM reply under lock so conversation history is updated atomically
         async with self._utterance_lock:
-            # One-shot trigger: not stored in conversation so it doesn't pollute history
             trigger = [{"role": "user", "content": "[The call just connected. Please greet the caller warmly, introduce yourself, and ask how you can help. Be brief and natural — this is a live phone call. Do not output EMOTION: or RESPONSE: labels.]"}]
             try:
                 _, reply = await qwen_chat(trigger, self.system_prompt)
@@ -546,24 +568,47 @@ class PipelineSession:
                 return
 
             log.info(f"[Greeting] {reply}")
-            # Store greeting in conversation history so follow-up turns have context
             self.conversation.append({"role": "assistant", "content": reply})
             await self.send({"type": "transcript", "role": "assistant", "text": reply})
 
-            if not CARTESIA_API_KEY or not CARTESIA_VOICE_ID:
-                return
-            try:
-                # Greet with a warm, neutral tone (no user emotion to mirror yet)
-                pcm_16k_bytes = await cartesia_tts(reply, emotion="neutral")
-                pcm_16k = np.frombuffer(pcm_16k_bytes, dtype=np.int16)
-                pcm_8k = resample_16k_to_8k(pcm_16k)
-                mulaw = mulaw_encode(pcm_8k)
-                for i in range(0, len(mulaw), self.CHUNK_BYTES):
-                    frame = mulaw[i:i + self.CHUNK_BYTES]
-                    payload = base64.b64encode(frame).decode()
-                    await self.send({"type": "audio", "payload": payload})
-            except Exception as e:
-                log.error(f"[Greeting] TTS error: {e}")
+        # TTS + streaming happens OUTSIDE the lock so user speech can be queued immediately
+        if not CARTESIA_API_KEY or not CARTESIA_VOICE_ID:
+            return
+        try:
+            import aiohttp as _aiohttp
+            pcm_buf = bytearray()
+            headers = {"X-API-Key": CARTESIA_API_KEY, "Cartesia-Version": "2025-04-16", "Content-Type": "application/json"}
+            tts_payload = {
+                "model_id": CARTESIA_MODEL,
+                "transcript": reply,
+                "voice": {"mode": "id", "id": CARTESIA_VOICE_ID},
+                "language": "hi",
+                "output_format": {"container": "raw", "encoding": "pcm_s16le", "sample_rate": 16000},
+            }
+            async with _aiohttp.ClientSession(timeout=_aiohttp.ClientTimeout(total=15)) as sess:
+                async with sess.post("https://api.cartesia.ai/tts/bytes", headers=headers, json=tts_payload) as resp:
+                    if resp.status != 200:
+                        raise RuntimeError(f"Cartesia error {resp.status}: {await resp.text()}")
+                    async for raw_chunk in resp.content.iter_chunked(4096):
+                        pcm_buf.extend(raw_chunk)
+                        usable = (len(pcm_buf) // 2) * 2
+                        if usable >= 3200:
+                            chunk_pcm = np.frombuffer(bytes(pcm_buf[:usable]), dtype=np.int16)
+                            pcm_buf = pcm_buf[usable:]
+                            pcm_8k = resample_16k_to_8k(chunk_pcm)
+                            mulaw = mulaw_encode(pcm_8k)
+                            for i in range(0, len(mulaw), self.CHUNK_BYTES):
+                                frame = mulaw[i:i + self.CHUNK_BYTES]
+                                await self.send({"type": "audio", "payload": base64.b64encode(frame).decode()})
+                    if len(pcm_buf) >= 2:
+                        chunk_pcm = np.frombuffer(bytes(pcm_buf[:(len(pcm_buf)//2)*2]), dtype=np.int16)
+                        pcm_8k = resample_16k_to_8k(chunk_pcm)
+                        mulaw = mulaw_encode(pcm_8k)
+                        for i in range(0, len(mulaw), self.CHUNK_BYTES):
+                            frame = mulaw[i:i + self.CHUNK_BYTES]
+                            await self.send({"type": "audio", "payload": base64.b64encode(frame).decode()})
+        except Exception as e:
+            log.error(f"[Greeting] TTS error: {e}")
 
     async def handle_audio(self, base64_payload: str):
         """Process incoming mulaw 8kHz audio through VAD → STT pipeline."""
@@ -647,7 +692,11 @@ class PipelineSession:
         else:
             hint = ""
         try:
+            import time
+            t0 = time.monotonic()
             transcript, detected_lang = await transcribe_audio(wav_bytes, hint_language=hint)
+            stt_ms = int((time.monotonic() - t0) * 1000)
+            log.info(f"[Latency] VAD→STT={stt_ms}ms ({len(wav_bytes)//2} samples)")
         except Exception as e:
             log.error(f"STT error: {e}")
             return
@@ -724,15 +773,56 @@ class PipelineSession:
             return
 
         try:
-            pcm_16k_bytes = await cartesia_tts(reply, emotion=emotion, language=self._session_language)
-            pcm_16k = np.frombuffer(pcm_16k_bytes, dtype=np.int16)
-            pcm_8k = resample_16k_to_8k(pcm_16k)
-            mulaw = mulaw_encode(pcm_8k)
+            import time, aiohttp as _aiohttp
+            t0 = time.monotonic()
+            first_chunk_logged = False
+            pcm_buf = bytearray()
 
-            for i in range(0, len(mulaw), self.CHUNK_BYTES):
-                frame = mulaw[i:i + self.CHUNK_BYTES]
-                payload = base64.b64encode(frame).decode()
-                await self.send({"type": "audio", "payload": payload})
+            CARTESIA_SUPPORTED_LANGS = {"en","hi","fr","de","es","pt","zh","ja","ko","nl","pl","ru","sv","tr","it"}
+            cartesia_lang = self._session_language if self._session_language in CARTESIA_SUPPORTED_LANGS else "en"
+            tts_payload = {
+                "model_id": CARTESIA_MODEL,
+                "transcript": reply,
+                "voice": {"mode": "id", "id": CARTESIA_VOICE_ID},
+                "language": cartesia_lang,
+                "output_format": {"container": "raw", "encoding": "pcm_s16le", "sample_rate": 16000},
+            }
+            if emotion and emotion != "neutral":
+                controls = _emotion_to_cartesia(emotion)
+                if controls:
+                    tts_payload["voice"]["__experimental_controls"] = {"emotion": controls}
+
+            headers = {"X-API-Key": CARTESIA_API_KEY, "Cartesia-Version": "2025-04-16", "Content-Type": "application/json"}
+            async with _aiohttp.ClientSession(timeout=_aiohttp.ClientTimeout(total=15)) as sess:
+                async with sess.post("https://api.cartesia.ai/tts/bytes", headers=headers, json=tts_payload) as resp:
+                    if resp.status != 200:
+                        body = await resp.text()
+                        raise RuntimeError(f"Cartesia error {resp.status}: {body}")
+                    # Stream: process PCM chunks as they arrive, send to caller immediately
+                    async for raw_chunk in resp.content.iter_chunked(4096):
+                        pcm_buf.extend(raw_chunk)
+                        if not first_chunk_logged:
+                            first_chunk_logged = True
+                            log.info(f"[TTS] Cartesia first-chunk={int((time.monotonic()-t0)*1000)}ms")
+                        # Process complete PCM16 samples (2 bytes each)
+                        usable = (len(pcm_buf) // 2) * 2
+                        if usable >= 3200:  # send in ~100ms chunks (1600 samples @ 16kHz)
+                            chunk_pcm = np.frombuffer(bytes(pcm_buf[:usable]), dtype=np.int16)
+                            pcm_buf = pcm_buf[usable:]
+                            pcm_8k = resample_16k_to_8k(chunk_pcm)
+                            mulaw = mulaw_encode(pcm_8k)
+                            for i in range(0, len(mulaw), self.CHUNK_BYTES):
+                                frame = mulaw[i:i + self.CHUNK_BYTES]
+                                await self.send({"type": "audio", "payload": base64.b64encode(frame).decode()})
+                    # Flush remainder
+                    if len(pcm_buf) >= 2:
+                        chunk_pcm = np.frombuffer(bytes(pcm_buf[:(len(pcm_buf)//2)*2]), dtype=np.int16)
+                        pcm_8k = resample_16k_to_8k(chunk_pcm)
+                        mulaw = mulaw_encode(pcm_8k)
+                        for i in range(0, len(mulaw), self.CHUNK_BYTES):
+                            frame = mulaw[i:i + self.CHUNK_BYTES]
+                            await self.send({"type": "audio", "payload": base64.b64encode(frame).decode()})
+            log.info(f"[TTS] Total={int((time.monotonic()-t0)*1000)}ms")
         except Exception as e:
             log.error(f"TTS error: {e}")
             await self.send({"type": "error", "message": f"TTS error: {e}"})

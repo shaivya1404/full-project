@@ -1,12 +1,11 @@
-"""Speech-to-text pipeline implementation with Faster-Whisper.
+"""Speech-to-text pipeline implementation with AI4Bharat IndicConformer.
 
 This pipeline orchestrates the full STT flow:
 1. Audio preprocessing (format conversion, resampling)
-2. Optional denoising and echo cancellation
-3. Voice activity detection
-4. Language identification
-5. ASR transcription (Faster-Whisper large-v3)
-6. Post-processing (punctuation, truecasing, ITN)
+2. Voice activity detection (Silero VAD)
+3. Language identification (MMS LID)
+4. ASR transcription (IndicConformer Conformer-RNNT)
+5. Post-processing (punctuation, truecasing, ITN)
 """
 from __future__ import annotations
 
@@ -40,19 +39,19 @@ class SttResult(BaseModel):
 
 
 class STTPipeline:
-    """Orchestrates the STT pipeline with Faster-Whisper backend.
+    """Orchestrates the STT pipeline with IndicConformer backend.
 
     The pipeline handles:
-    - Audio format conversion and resampling to 16kHz mono
-    - Language detection (auto or with hint)
-    - Primary transcription with fallback mechanism
+    - Audio format conversion and resampling to 16 kHz mono
+    - Language detection via MMS LID (auto or with hint)
+    - Transcription via AI4Bharat IndicConformer (language-specific models)
     - Text post-processing (punctuation, casing, normalization)
     """
 
     def __init__(
         self,
         settings: Settings,
-        model_name: str = "whisper_large-v3",
+        model_name: str = "indicconformer",
         model_version: str = "v1",
     ) -> None:
         """Initialize the STT pipeline.
@@ -85,7 +84,7 @@ class STTPipeline:
         self.logger.info("Starting STT pipeline (payload=%d bytes, hint=%s)", len(audio_bytes), language_hint)
 
         # Step 1a: Pre-filter with Silero VAD — strip silence/noise before ASR
-        # This prevents Whisper from hallucinating words on non-speech audio
+        # Pre-filtering silence prevents the ASR model from producing spurious output
         speech_segments = detect_speech_segments(audio_bytes, threshold=0.5)
         if not speech_segments:
             self.logger.warning("No speech detected by Silero VAD — returning empty transcript")
@@ -106,8 +105,7 @@ class STTPipeline:
         audio_array, duration_seconds = preprocess(audio_bytes)
         self.logger.debug("Audio preprocessed: %.2f seconds", duration_seconds)
 
-        # Step 2: Detect language if not provided
-        # Note: Whisper also detects language, but we do it here for logging
+        # Step 2: Detect language — mandatory for IndicConformer (language-specific models)
         language = language_hint
         if not language:
             language = detect_language(audio_array, language_hint)
