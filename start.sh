@@ -36,42 +36,80 @@ fi
 
 echo "      System deps OK."
 
-# ── 1. Python pipeline dependencies ──────────────────────────
-echo "[1/6] Checking Python deps..."
-python3 -c "import websockets, numpy, aiohttp, silero_vad" 2>/dev/null || {
-  echo "      Installing Python packages..."
-  pip install -q websockets aiohttp numpy torch torchaudio silero-vad groq
-  echo "      Python deps installed."
+# ── 1. Python + AI/ML dependencies ───────────────────────────
+echo "[1/6] Checking Python + ML deps..."
+
+# Core pipeline deps
+python3 -c "import websockets, numpy, aiohttp" 2>/dev/null || {
+  echo "      Installing core pipeline packages..."
+  pip install -q websockets aiohttp numpy torch torchaudio
 }
 
 # STT service deps
 python3 -c "import fastapi, uvicorn, soundfile, loguru" 2>/dev/null || {
   echo "      Installing STT service packages..."
-  pip install -q fastapi uvicorn soundfile loguru pydantic python-multipart
+  pip install -q "fastapi[all]" uvicorn soundfile loguru pydantic python-multipart
 }
 
-# Apply NeMo numpy 2.x compatibility patch (fixes TypeError in segment.py)
-NEMO_SEGMENT="/opt/AI4Bharat-NeMo/nemo/collections/asr/parts/preprocessing/segment.py"
-if [ -f "$NEMO_SEGMENT" ]; then
-  if grep -q "samples.dtype in samples.dtype.kind" "$NEMO_SEGMENT" 2>/dev/null; then
-    echo "      Patching NeMo segment.py for numpy 2.x compatibility..."
-    sed -i 's/if samples\.dtype in samples\.dtype\.kind in ("i","u"):/if samples.dtype.kind in ("i","u"):/' "$NEMO_SEGMENT"
-    sed -i 's/elif samples\.dtype in samples\.dtype\.kind == "f":/elif samples.dtype.kind == "f":/' "$NEMO_SEGMENT"
-    echo "      NeMo patch applied."
+# Silero VAD
+python3 -c "import silero_vad" 2>/dev/null || pip install -q silero-vad
+
+# Transformers + HuggingFace (for MMS LID language detection)
+python3 -c "import transformers" 2>/dev/null || pip install -q transformers
+
+# AI4Bharat NeMo — install from persistent workspace copy (no internet needed)
+NEMO_SRC="$ROOT/vendor/AI4Bharat-NeMo"
+python3 -c "import nemo" 2>/dev/null || {
+  echo "      Installing AI4Bharat NeMo from $NEMO_SRC ..."
+  if [ -d "$NEMO_SRC" ]; then
+    pip install -q -e "$NEMO_SRC" 2>&1 | tail -3
+    echo "      NeMo installed from workspace."
+  else
+    echo "      WARNING — NeMo source not found at $NEMO_SRC"
+    echo "      Cloning AI4Bharat NeMo (one-time, ~2 min)..."
+    git clone -q --depth 1 --branch nemo-v2 https://github.com/AI4Bharat/NeMo.git "$NEMO_SRC"
+    pip install -q -e "$NEMO_SRC" 2>&1 | tail -3
+    echo "      NeMo installed from GitHub."
   fi
+}
+
+# Apply NeMo numpy 2.x patch (safe to re-apply — idempotent)
+NEMO_SEGMENT=$(python3 -c "import nemo.collections.asr.parts.preprocessing.segment as m; print(m.__file__)" 2>/dev/null)
+if [ -n "$NEMO_SEGMENT" ] && grep -q "samples.dtype in samples.dtype.kind" "$NEMO_SEGMENT" 2>/dev/null; then
+  echo "      Patching NeMo segment.py for numpy 2.x compatibility..."
+  sed -i 's/if samples\.dtype in samples\.dtype\.kind in ("i","u"):/if samples.dtype.kind in ("i","u"):/' "$NEMO_SEGMENT"
+  sed -i 's/elif samples\.dtype in samples\.dtype\.kind == "f":/elif samples.dtype.kind == "f":/' "$NEMO_SEGMENT"
+  echo "      NeMo patch applied."
 fi
 
-# Ensure hi.nemo symlink exists (local model takes priority over HF download)
-NEMO_LOCAL_DIR="/models/stt/indicconformer"
-NEMO_CACHE_FILE=$(find /root/.cache/torch/NeMo -name "indicconformer_stt_hi*.nemo" 2>/dev/null | head -1)
-if [ -n "$NEMO_CACHE_FILE" ] && [ ! -f "$NEMO_LOCAL_DIR/hi.nemo" ]; then
-  echo "      Symlinking hi.nemo from NeMo cache..."
-  mkdir -p "$NEMO_LOCAL_DIR"
-  ln -sf "$NEMO_CACHE_FILE" "$NEMO_LOCAL_DIR/hi.nemo"
-  echo "      hi.nemo symlinked."
+# Models — stored in persistent /workspace (never need re-download)
+MODELS_DIR="$ROOT/models/stt/indicconformer"
+if [ ! -f "$MODELS_DIR/hi.nemo" ]; then
+  echo "      hi.nemo not found in workspace — downloading from HuggingFace..."
+  mkdir -p "$MODELS_DIR"
+  set -a; source "$ENV_FILE"; set +a
+  python3 -c "
+import os
+from huggingface_hub import hf_hub_download
+token = os.getenv('HF_TOKEN') or os.getenv('HUGGING_FACE_HUB_TOKEN')
+path = hf_hub_download(
+    repo_id='ai4bharat/indicconformer_stt_hi_hybrid_ctc_rnnt_large',
+    filename='indicconformer_stt_hi_hybrid_rnnt_large.nemo',
+    token=token,
+    local_dir='$MODELS_DIR',
+)
+import shutil, pathlib
+dest = pathlib.Path('$MODELS_DIR/hi.nemo')
+if not dest.exists():
+    shutil.copy(path, dest)
+print('Downloaded to', dest)
+"
+  echo "      hi.nemo ready."
+else
+  echo "      hi.nemo found in workspace — skipping download."
 fi
 
-echo "      Python deps OK."
+echo "      Python + ML deps OK."
 
 # ── 2. Node.js dependencies + build ──────────────────────────
 echo "[2/6] Setting up backend..."
