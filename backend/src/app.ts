@@ -44,6 +44,7 @@ import twilioRoutes from './routes/twilio';
 import queueRoutes from './routes/queue';
 import teamPortalRoutes from './routes/teamPortal';
 import fraudRoutes from './routes/fraud';
+import testRoutes from './routes/test';
 
 const app = express();
 
@@ -115,6 +116,7 @@ app.use('/api/recordings', recordingsRoutes);
 app.use('/api/queue', queueRoutes);
 app.use('/api/team-portal', teamPortalRoutes);
 app.use('/api/fraud', fraudRoutes);
+app.use('/api/test', testRoutes);
 
 // Twilio webhooks (no /api prefix — Twilio calls these directly)
 app.use('/twilio', twilioRoutes);

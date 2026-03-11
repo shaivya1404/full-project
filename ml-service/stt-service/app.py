@@ -82,21 +82,38 @@ def _register_default_model(
     return register_model(model_info)
 
 
+def _warmup_sync() -> str:
+    """Run warmup in a thread — catches StopIteration so it can't corrupt asyncio futures."""
+    try:
+        import numpy as np
+        from core.asr_indic_conformer import transcribe as _do_warmup
+        dummy = np.zeros(16000, dtype=np.float32)
+        _do_warmup(dummy, "hi")
+        return "ok"
+    except StopIteration:
+        return "stopiter"
+    except Exception as e:
+        return f"err:{e}"
+
+
 async def _initialize_pipeline() -> None:
     global pipeline
     pipeline = STTPipeline(
         settings=settings, model_name=MODEL_NAME, model_version=MODEL_VERSION
     )
-    # Pre-warm NeMo model so first real call doesn't pay the load penalty
+    # Pre-warm the IndicConformer model so first real call doesn't pay the load penalty
     try:
-        import asyncio, numpy as np
-        dummy = np.zeros(16000, dtype=np.float32)
         loop = asyncio.get_event_loop()
-        from core.asr_indic_conformer import transcribe as _warmup
-        await loop.run_in_executor(None, _warmup, dummy, "hi")
-        logger.info("NeMo model pre-warmed successfully")
+        result = await asyncio.wait_for(
+            loop.run_in_executor(None, _warmup_sync),
+            timeout=120.0,
+        )
+        if result == "ok":
+            logger.info("IndicConformer pre-warmed successfully")
+        else:
+            logger.warning("IndicConformer warmup returned: {} — will load on first request", result)
     except Exception as e:
-        logger.warning("NeMo warmup failed ({}), will load on first request", e)
+        logger.warning("IndicConformer warmup failed ({}), will load on first request", e)
 
 
 @app.on_event("startup")

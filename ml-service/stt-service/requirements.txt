@@ -5,29 +5,27 @@ pydantic-settings==2.1.0
 loguru==0.7.2
 python-multipart==0.0.9
 
-# ── AI4Bharat NeMo fork (required for IndicConformer) ───────────────────────
-# Install from source BEFORE the rest of the deps:
-#   git clone https://github.com/AI4Bharat/NeMo.git /opt/AI4Bharat-NeMo
-#   cd /opt/AI4Bharat-NeMo && git checkout nemo-v2 && pip install -e ".[asr]"
-#
-# NumPy 2.0 patch (apply after install):
-#   sed -i 's/np.sctypes\[.int.\]/samples.dtype.kind in ("i","u")/g' \
-#       /opt/AI4Bharat-NeMo/nemo/collections/asr/parts/preprocessing/segment.py
-#   sed -i 's/np.sctypes\[.float.\]/samples.dtype.kind == "f"/g' \
-#       /opt/AI4Bharat-NeMo/nemo/collections/asr/parts/preprocessing/segment.py
+# ── AI4Bharat IndicConformer (transformers, no NeMo required) ────────────────
+# Loaded via HuggingFace transformers with trust_remote_code=True
+# Model: ai4bharat/indic-conformer-600m-multilingual
 
-# PyTorch (installed by NeMo, listed here for reference)
-# torch>=2.6.0+cu124
-# torchaudio>=2.6.0+cu124
+# PyTorch — install separately for your CUDA version, e.g.:
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu124
+# torch>=2.1.0
+# torchaudio>=2.1.0
+
+# HuggingFace
+transformers>=4.36.0
+huggingface_hub>=0.22.0
+accelerate>=0.26.0
 
 # Audio I/O
 numpy>=1.24.0,<2.5.0
 soundfile>=0.12.0
 librosa>=0.10.0
 
-# Language identification (audio-based — facebook/mms-lid-126)
-transformers>=4.36.0,<4.42.0
-huggingface_hub>=0.22.0,<0.24.0
+# Language identification (facebook/mms-lid-126)
+# (already covered by transformers above)
 
 # Indic NLP post-processing
 indic-nlp-library>=0.81
@@ -41,6 +39,10 @@ deepmultilingualpunctuation>=1.0.0
 # WER evaluation
 jiwer>=3.0.0
 
-# NeMo dependency
-Cython
-youtokentome>=1.0.6
+# ── Optional: NeMo fine-tuned checkpoint support ─────────────────────────────
+# Only needed if you have a custom .nemo checkpoint (FINETUNED_MODEL_PATH).
+# Install from AI4Bharat NeMo fork:
+#   git clone https://github.com/AI4Bharat/NeMo.git /opt/AI4Bharat-NeMo
+#   cd /opt/AI4Bharat-NeMo && git checkout nemo-v2 && pip install -e ".[asr]"
+# The service runs fine without it — /ml/stt/transcribe/finetuned returns 503.
+onnxruntime
