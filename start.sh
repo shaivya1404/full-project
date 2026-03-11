@@ -3,19 +3,54 @@
 #  Oolix Voice AI — Full Auto-Setup + Start All Services
 #  Run: bash /workspace/full-project/start.sh
 #
-#  Safe to run on a brand-new RunPod pod — installs everything,
-#  runs migrations, seeds demo data, and starts all services.
+#  Safe to run on a fresh RunPod pod OR on restart — installs
+#  everything, runs migrations, seeds demo data, starts all
+#  services, and auto-updates Twilio webhooks.
 # ─────────────────────────────────────────────────────────────
-set -e
+set -uo pipefail
 ROOT="/workspace/full-project"
 ENV_FILE="$ROOT/.env"
 
+# Colours
+GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
+ok()   { echo -e "      ${GREEN}✓${NC} $*"; }
+warn() { echo -e "      ${YELLOW}⚠${NC}  $*"; }
+err()  { echo -e "      ${RED}✗${NC}  $*"; }
+
 echo ""
-echo "  Oolix Voice AI — Setup & Start"
+echo "  ══════════════════════════════════════════"
+echo "    Oolix Voice AI — Setup & Start"
+echo "  ══════════════════════════════════════════"
 echo ""
 
-# ── 0. System dependencies ───────────────────────────────────
-echo "[0/6] Checking system dependencies..."
+# Load .env early so all steps can use API keys
+if [ -f "$ENV_FILE" ]; then
+  set -a; source "$ENV_FILE"; set +a
+else
+  err ".env not found at $ENV_FILE — aborting."
+  exit 1
+fi
+
+# ── 0. Kill everything cleanly first ─────────────────────────
+echo "[0/6] Stopping any running services..."
+pkill -f "dist/server.js"      2>/dev/null || true
+pkill -f "pipeline/server.py"  2>/dev/null || true
+pkill -f "uvicorn app:app"     2>/dev/null || true
+pkill -f "vite.*5173"          2>/dev/null || true
+pkill -f "cloudflared"         2>/dev/null || true
+# Force-kill anything still holding our ports
+for PORT in 4000 5173 8010 8765; do
+  PID=$(ss -tlnp 2>/dev/null | grep ":$PORT " | grep -oP 'pid=\K[0-9]+' | head -1)
+  if [ -n "$PID" ]; then
+    kill -9 "$PID" 2>/dev/null || true
+    warn "Force-killed PID $PID on port $PORT"
+  fi
+done
+sleep 3
+ok "Ports 4000 5173 8010 8765 cleared."
+
+# ── 1. System dependencies ───────────────────────────────────
+echo "[1/6] Checking system dependencies..."
 
 if ! command -v cloudflared &>/dev/null; then
   echo "      Installing cloudflared..."
@@ -25,69 +60,59 @@ fi
 
 if ! command -v ffmpeg &>/dev/null; then
   echo "      Installing ffmpeg..."
-  apt-get install -y ffmpeg -qq
+  apt-get install -y ffmpeg -qq 2>/dev/null
 fi
 
 if ! command -v node &>/dev/null; then
   echo "      Installing Node.js 20..."
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-  apt-get install -y nodejs -qq
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>/dev/null
+  apt-get install -y nodejs -qq 2>/dev/null
 fi
 
-echo "      System deps OK."
+ok "System deps OK (cloudflared, ffmpeg, node $(node -v 2>/dev/null || echo '?'))"
 
-# ── 1. Python + AI/ML dependencies ───────────────────────────
-echo "[1/6] Checking Python + ML deps..."
+# ── 2. Python + AI/ML dependencies ───────────────────────────
+echo "[2/6] Checking Python + ML deps..."
 
-# Core pipeline deps
+# Core pipeline packages
 python3 -c "import websockets, numpy, aiohttp" 2>/dev/null || {
   echo "      Installing core pipeline packages..."
   pip install -q websockets aiohttp numpy torch torchaudio
 }
 
-# STT service deps
-python3 -c "import fastapi, uvicorn, soundfile, loguru" 2>/dev/null || {
-  echo "      Installing STT service packages..."
-  pip install -q "fastapi[all]" uvicorn soundfile loguru pydantic python-multipart
-}
+# STT service — install from requirements.txt (covers onnxruntime, soundfile, etc.)
+echo "      Installing STT requirements..."
+pip install -q -r "$ROOT/ml-service/stt-service/requirements.txt" 2>/dev/null \
+  || warn "Some STT requirements failed — continuing anyway."
 
-# Silero VAD
-python3 -c "import silero_vad" 2>/dev/null || pip install -q silero-vad
-
-# Transformers + HuggingFace (for MMS LID language detection)
-python3 -c "import transformers" 2>/dev/null || pip install -q transformers
-
-# AI4Bharat NeMo — install from persistent workspace copy (no internet needed)
+# AI4Bharat NeMo
 NEMO_SRC="$ROOT/vendor/AI4Bharat-NeMo"
 python3 -c "import nemo" 2>/dev/null || {
-  echo "      Installing AI4Bharat NeMo from $NEMO_SRC ..."
+  echo "      Installing AI4Bharat NeMo..."
   if [ -d "$NEMO_SRC" ]; then
     pip install -q -e "$NEMO_SRC" 2>&1 | tail -3
-    echo "      NeMo installed from workspace."
+    ok "NeMo installed from workspace."
   else
-    echo "      WARNING — NeMo source not found at $NEMO_SRC"
-    echo "      Cloning AI4Bharat NeMo (one-time, ~2 min)..."
+    warn "NeMo source not found at $NEMO_SRC — cloning (one-time ~2 min)..."
     git clone -q --depth 1 --branch nemo-v2 https://github.com/AI4Bharat/NeMo.git "$NEMO_SRC"
     pip install -q -e "$NEMO_SRC" 2>&1 | tail -3
-    echo "      NeMo installed from GitHub."
+    ok "NeMo installed from GitHub."
   fi
 }
 
-# Apply NeMo numpy 2.x patch (safe to re-apply — idempotent)
-NEMO_SEGMENT=$(python3 -c "import nemo.collections.asr.parts.preprocessing.segment as m; print(m.__file__)" 2>/dev/null)
+# Apply NeMo numpy 2.x patch (idempotent)
+NEMO_SEGMENT=$(python3 -c "import nemo.collections.asr.parts.preprocessing.segment as m; print(m.__file__)" 2>/dev/null) || true
 if [ -n "$NEMO_SEGMENT" ] && grep -q "samples.dtype in samples.dtype.kind" "$NEMO_SEGMENT" 2>/dev/null; then
-  echo "      Patching NeMo segment.py for numpy 2.x compatibility..."
   sed -i 's/if samples\.dtype in samples\.dtype\.kind in ("i","u"):/if samples.dtype.kind in ("i","u"):/' "$NEMO_SEGMENT"
   sed -i 's/elif samples\.dtype in samples\.dtype\.kind == "f":/elif samples.dtype.kind == "f":/' "$NEMO_SEGMENT"
-  echo "      NeMo patch applied."
+  ok "NeMo numpy 2.x patch applied."
 fi
 
-# Models — stored in persistent /workspace (never need re-download)
+# Models — stored in persistent /workspace
 MODELS_DIR="$ROOT/models/stt/indicconformer"
 if [ ! -f "$MODELS_DIR/hi.nemo" ]; then
-  echo "      hi.nemo not found in workspace — downloading from HuggingFace..."
+  echo "      Downloading hi.nemo from HuggingFace..."
   mkdir -p "$MODELS_DIR"
-  set -a; source "$ENV_FILE"; set +a
   python3 -c "
 import os
 from huggingface_hub import hf_hub_download
@@ -103,59 +128,51 @@ dest = pathlib.Path('$MODELS_DIR/hi.nemo')
 if not dest.exists():
     shutil.copy(path, dest)
 print('Downloaded to', dest)
-"
-  echo "      hi.nemo ready."
+" && ok "hi.nemo ready." || warn "hi.nemo download failed — STT may use fallback."
 else
-  echo "      hi.nemo found in workspace — skipping download."
+  ok "hi.nemo already in workspace."
 fi
 
-echo "      Python + ML deps OK."
+ok "Python + ML deps OK."
 
-# ── 2. Node.js dependencies + build ──────────────────────────
-echo "[2/6] Setting up backend..."
+# ── 3. Node.js — backend build ────────────────────────────────
+echo "[3/6] Setting up backend..."
+cd "$ROOT/backend"
 
-# Install backend node_modules if missing
-if [ ! -d "$ROOT/backend/node_modules" ]; then
-  echo "      npm install (backend)..."
-  cd "$ROOT/backend" && npm install --silent
-fi
+[ ! -d node_modules ] && { echo "      npm install (backend)..."; npm install --silent; }
 
-# Regenerate Prisma client (always safe — fast if already up to date)
 echo "      Generating Prisma client..."
-cd "$ROOT/backend" && npx prisma generate --silent 2>/dev/null || npx prisma generate
+npx prisma generate --silent 2>/dev/null || npx prisma generate
 
-# Run DB migrations (deploy = non-interactive, safe for production)
 echo "      Running DB migrations..."
-cd "$ROOT/backend" && node --env-file="$ENV_FILE" -e "
+node --env-file="$ENV_FILE" -e "
 const { execSync } = require('child_process');
-execSync('npx prisma migrate deploy', { stdio: 'inherit', env: process.env });
-" 2>/dev/null || npx prisma db push --accept-data-loss 2>/dev/null || echo "      Migrations already up to date."
+try { execSync('npx prisma migrate deploy', { stdio: 'inherit', env: process.env }); }
+catch(e) { console.log('migrate deploy failed, trying db push...'); }
+" 2>/dev/null || \
+npx prisma db push --accept-data-loss 2>/dev/null || \
+warn "Migrations already up to date."
 
-# Build backend if dist is missing or source is newer
-if [ ! -f "$ROOT/backend/dist/server.js" ] || \
-   [ "$ROOT/backend/src/server.ts" -nt "$ROOT/backend/dist/server.js" ]; then
-  echo "      Building backend TypeScript..."
-  cd "$ROOT/backend" && npx tsc --noEmitOnError false 2>/dev/null
-  echo "      Build complete."
-fi
+echo "      Building backend TypeScript..."
+npx tsc --noEmitOnError false 2>/dev/null && ok "Build complete." || warn "Build had TS errors (non-fatal)."
 
-echo "      Backend OK."
+ok "Backend ready."
 
-# ── 3. Frontend dependencies ──────────────────────────────────
-echo "[3/6] Setting up frontend..."
-if [ ! -d "$ROOT/frontend/node_modules" ]; then
-  echo "      npm install (frontend)..."
-  cd "$ROOT/frontend" && npm install --silent
-fi
-echo "      Frontend OK."
+# ── 4. Frontend ───────────────────────────────────────────────
+echo "[4/6] Setting up frontend..."
+cd "$ROOT/frontend"
+[ ! -d node_modules ] && { echo "      npm install (frontend)..."; npm install --silent; }
+ok "Frontend ready."
 
-# ── 4. Seed demo data (only runs if data is missing) ──────────
-echo "[4/6] Checking demo data..."
+# ── 5. Seed demo data ─────────────────────────────────────────
+echo "[5/6] Checking demo data..."
 cd "$ROOT/backend"
 STORE_EXISTS=$(node --env-file="$ENV_FILE" -e "
 const { PrismaClient } = require('@prisma/client');
 const p = new PrismaClient();
-p.storeInfo.count().then(n => { console.log(n); p.\$disconnect(); }).catch(() => { console.log(0); p.\$disconnect(); });
+p.storeInfo.count()
+  .then(n => { console.log(n); p.\$disconnect(); })
+  .catch(() => { console.log(0); p.\$disconnect(); });
 " 2>/dev/null)
 
 if [ "$STORE_EXISTS" = "0" ] || [ -z "$STORE_EXISTS" ]; then
@@ -180,7 +197,6 @@ async function seed() {
       avgPrepTime: 30,
     }
   });
-
   const existingZones = await prisma.deliveryZone.count({ where: { storeId: store.id } });
   if (existingZones === 0) {
     const zones = [
@@ -191,7 +207,6 @@ async function seed() {
     ];
     for (const z of zones) await prisma.deliveryZone.create({ data: { storeId: store.id, ...z, isActive: true } });
   }
-
   const products = [
     { name: 'Margherita Pizza', category: 'Pizza', price: 299, description: 'Classic tomato sauce, mozzarella, fresh basil', sku: 'PIZ-001', stockQuantity: 50 },
     { name: 'Paneer Tikka Pizza', category: 'Pizza', price: 399, description: 'Spicy paneer tikka, capsicum, onion, special sauce', sku: 'PIZ-002', stockQuantity: 40 },
@@ -213,7 +228,6 @@ async function seed() {
     const ex = await prisma.product.findFirst({ where: { teamId: TEAM_ID, sku: p.sku } });
     if (!ex) await prisma.product.create({ data: { teamId: TEAM_ID, reorderLevel: 10, isAvailable: true, ...p } });
   }
-
   const faqs = [
     { q: 'What are your delivery hours?', a: 'We deliver from 10 AM to 11 PM every day including weekends.' },
     { q: 'What is the minimum order for delivery?', a: 'Minimum order is ₹199 for Sector 14. Higher minimums apply for farther zones.' },
@@ -230,126 +244,133 @@ async function seed() {
     const ex = await prisma.productFAQ.findFirst({ where: { teamId: TEAM_ID, question: f.q } });
     if (!ex) await prisma.productFAQ.create({ data: { teamId: TEAM_ID, question: f.q, answer: f.a, helpfulCount: 0 } });
   }
-
   console.log('Demo data seeded.');
 }
 seed().catch(console.error).finally(() => prisma.\$disconnect());
-" 2>/dev/null && echo "      Demo data ready." || echo "      Demo data seed skipped (DB may not be reachable yet)."
+" 2>/dev/null && ok "Demo data seeded." || warn "Demo data seed skipped (DB may not be reachable yet)."
 else
-  echo "      Demo data already present, skipping."
+  ok "Demo data already present."
 fi
 
-# ── Kill any leftover processes ───────────────────────────────
-pkill -f "dist/server.js" 2>/dev/null || true
-pkill -f "pipeline/server.py" 2>/dev/null || true
-pkill -f "uvicorn app:app" 2>/dev/null || true
-pkill -f "stt-service" 2>/dev/null || true
-pkill -f "vite.*5173" 2>/dev/null || true
-pkill -f "cloudflared" 2>/dev/null || true
-# Kill anything holding ports we need
-for PORT in 4000 5173 8010 8765; do
-  PID=$(ss -tlnp 2>/dev/null | grep ":$PORT " | grep -oP 'pid=\K[0-9]+' | head -1)
-  [ -n "$PID" ] && kill "$PID" 2>/dev/null || true
-done
-sleep 2
+# ── 6. Start all services ─────────────────────────────────────
+echo "[6/6] Starting services..."
 
-# ── 5. Start all services ─────────────────────────────────────
-
-# Backend
-echo "[5/6] Starting backend on port 4000..."
+# ── Backend (port 4000) ───────────────────────────────────────
+echo "      Starting backend on port 4000..."
 cd "$ROOT/backend"
 node --env-file="$ENV_FILE" dist/server.js > /tmp/backend.log 2>&1 &
 BACKEND_PID=$!
-for i in $(seq 1 15); do
+for i in $(seq 1 20); do
   curl -sf http://localhost:4000/health > /dev/null 2>&1 && break
-  [ "$i" -eq 15 ] && { echo "      ERROR — backend failed. Check /tmp/backend.log:"; tail -10 /tmp/backend.log; exit 1; }
+  if [ "$i" -eq 20 ]; then
+    err "Backend failed to start. Last log:"
+    tail -15 /tmp/backend.log
+    exit 1
+  fi
   sleep 2
 done
-echo "      OK — http://localhost:4000  (PID $BACKEND_PID)"
+ok "Backend running  → http://localhost:4000  (PID $BACKEND_PID)"
 
-# Frontend
+# ── Frontend (port 5173) ──────────────────────────────────────
 echo "      Starting frontend on port 5173..."
 cd "$ROOT/frontend"
 npm run dev -- --host 0.0.0.0 --port 5173 --strictPort > /tmp/frontend.log 2>&1 &
 FRONTEND_PID=$!
 for i in $(seq 1 15); do
   curl -sf http://localhost:5173/ > /dev/null 2>&1 && break
-  [ "$i" -eq 15 ] && echo "      WARNING — frontend slow to start. Check /tmp/frontend.log."
+  [ "$i" -eq 15 ] && warn "Frontend slow to start — check /tmp/frontend.log."
   sleep 2
 done
-echo "      OK — http://localhost:5173  (PID $FRONTEND_PID)"
+ok "Frontend running → http://localhost:5173  (PID $FRONTEND_PID)"
 
-# STT Service (AI4Bharat IndicConformer) on port 8010
+# ── STT Service (port 8010) ───────────────────────────────────
 echo "      Starting STT service on port 8010..."
-set -a; source "$ENV_FILE"; set +a
+echo "      (IndicConformer model warmup takes ~60s on first run)"
 cd "$ROOT/ml-service/stt-service"
-HF_TOKEN="$HF_TOKEN" HUGGING_FACE_HUB_TOKEN="$HUGGING_FACE_HUB_TOKEN" \
+HF_TOKEN="${HF_TOKEN:-}" \
+HUGGING_FACE_HUB_TOKEN="${HUGGING_FACE_HUB_TOKEN:-$HF_TOKEN}" \
+INDIC_MODEL_DIR="${INDIC_MODEL_DIR:-$ROOT/models/stt/indicconformer}" \
   python3 -m uvicorn app:app --host 0.0.0.0 --port 8010 > /tmp/stt-service.log 2>&1 &
 STT_PID=$!
-# Wait for STT HTTP endpoint (NeMo warmup takes ~20s)
-echo "      Waiting for NeMo model to warm up (may take ~20s)..."
-for i in $(seq 1 40); do
-  STATUS=$(curl -sf http://localhost:8010/ml/stt/health 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
-  [ "$STATUS" = "ok" ] && break
-  [ "$i" -eq 40 ] && { echo "      WARNING — STT service slow to start. Check /tmp/stt-service.log."; break; }
+# Wait up to 3 minutes for model warmup
+for i in $(seq 1 90); do
+  STATUS=$(curl -sf http://localhost:8010/ml/stt/health 2>/dev/null \
+    | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
+  if [ "$STATUS" = "ok" ]; then
+    ok "STT service ready → http://localhost:8010  (PID $STT_PID)"
+    break
+  fi
+  if [ "$i" -eq 90 ]; then
+    warn "STT service taking very long — continuing anyway. Check /tmp/stt-service.log."
+    warn "Calls will still work — STT loads on first request."
+  fi
   sleep 2
 done
-echo "      OK — http://localhost:8010  (PID $STT_PID)"
 
-# Pipeline
+# ── Voice Pipeline (port 8765) ────────────────────────────────
 echo "      Starting voice pipeline on port 8765..."
-set -a; source "$ENV_FILE"; set +a
 cd "$ROOT/backend"
 python3 "$ROOT/backend/pipeline/server.py" > /tmp/pipeline.log 2>&1 &
 PIPELINE_PID=$!
 for i in $(seq 1 20); do
   ss -tlnp 2>/dev/null | grep -q ':8765' && break
-  [ "$i" -eq 20 ] && echo "      WARNING — pipeline slow to start. Check /tmp/pipeline.log."
+  [ "$i" -eq 20 ] && warn "Pipeline slow to start — check /tmp/pipeline.log."
   sleep 2
 done
-echo "      OK — ws://localhost:8765  (PID $PIPELINE_PID)"
+ok "Pipeline running  → ws://localhost:8765   (PID $PIPELINE_PID)"
 
-# ── 6. Cloudflare Tunnel + Twilio webhooks ────────────────────
-echo "[6/6] Starting Cloudflare Tunnel..."
-cloudflared tunnel --url http://localhost:5173 --no-autoupdate --protocol http2 \
+# ── Cloudflare Tunnel → Backend ───────────────────────────────
+# IMPORTANT: tunnel points to port 4000 (backend) so Twilio webhooks work
+echo "      Starting Cloudflare Tunnel → backend:4000..."
+cloudflared tunnel --url http://localhost:4000 --no-autoupdate --protocol http2 \
   > /tmp/cloudflared.log 2>&1 &
 TUNNEL_PID=$!
 
 TUNNEL_URL=""
-for i in $(seq 1 20); do
+for i in $(seq 1 25); do
   TUNNEL_URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' /tmp/cloudflared.log | head -1)
   [ -n "$TUNNEL_URL" ] && break
   sleep 2
 done
 
 if [ -n "$TUNNEL_URL" ]; then
-  echo "      OK — $TUNNEL_URL  (PID $TUNNEL_PID)"
+  ok "Tunnel active     → $TUNNEL_URL  (PID $TUNNEL_PID)"
 
   # Update .env with new tunnel URL
-  sed -i "s|^BASE_URL=.*|BASE_URL=$TUNNEL_URL|" "$ENV_FILE"
+  sed -i "s|^BASE_URL=.*|BASE_URL=$TUNNEL_URL|"                   "$ENV_FILE"
   sed -i "s|^PUBLIC_SERVER_URL=.*|PUBLIC_SERVER_URL=$TUNNEL_URL|" "$ENV_FILE"
-  sed -i "s|^FRONTEND_URL=.*|FRONTEND_URL=$TUNNEL_URL|" "$ENV_FILE"
+  sed -i "s|^FRONTEND_URL=.*|FRONTEND_URL=$TUNNEL_URL|"           "$ENV_FILE"
   sed -i "s|^ALLOWED_ORIGINS=.*|ALLOWED_ORIGINS=$TUNNEL_URL,http://localhost:5173,http://localhost:4000|" "$ENV_FILE"
   sed -i "s|^VITE_API_BASE_URL=.*|VITE_API_BASE_URL=$TUNNEL_URL/api|" "$ENV_FILE"
   printf "VITE_API_BASE_URL=/api\n" > "$ROOT/frontend/.env"
 
-  # Restart backend with updated CORS
-  kill "$BACKEND_PID" 2>/dev/null; sleep 2
+  # Restart backend so it picks up new CORS origins
+  kill "$BACKEND_PID" 2>/dev/null
+  sleep 2
+  set -a; source "$ENV_FILE"; set +a
   cd "$ROOT/backend"
   node --env-file="$ENV_FILE" dist/server.js > /tmp/backend.log 2>&1 &
   BACKEND_PID=$!
-  for i in $(seq 1 10); do
+  for i in $(seq 1 15); do
     curl -sf http://localhost:4000/health > /dev/null 2>&1 && break
     sleep 2
   done
-  echo "      Backend restarted with updated CORS origins."
+  ok "Backend restarted with updated CORS."
 
-  # Update Twilio webhooks
+  # Auto-update Twilio webhooks
+  TWILIO_ACCOUNT_SID="${TWILIO_ACCOUNT_SID:-}"
+  TWILIO_AUTH_TOKEN="${TWILIO_AUTH_TOKEN:-}"
+  TWILIO_PHONE_NUMBER="${TWILIO_PHONE_NUMBER:-}"
   if [ -n "$TWILIO_ACCOUNT_SID" ] && [ -n "$TWILIO_AUTH_TOKEN" ] && [ -n "$TWILIO_PHONE_NUMBER" ]; then
     echo "      Updating Twilio webhooks..."
     PN_SID=$(curl -sf -u "$TWILIO_ACCOUNT_SID:$TWILIO_AUTH_TOKEN" \
-      "https://api.twilio.com/2010-04-01/Accounts/$TWILIO_ACCOUNT_SID/IncomingPhoneNumbers.json?PhoneNumber=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$TWILIO_PHONE_NUMBER'))")" \
-      | python3 -c "import sys,json; print(json.load(sys.stdin)['incoming_phone_numbers'][0]['sid'])" 2>/dev/null)
+      "https://api.twilio.com/2010-04-01/Accounts/$TWILIO_ACCOUNT_SID/IncomingPhoneNumbers.json" \
+      | python3 -c "
+import sys,json
+pns = json.load(sys.stdin).get('incoming_phone_numbers',[])
+match = [p for p in pns if p['phone_number'] == '$TWILIO_PHONE_NUMBER']
+print((match or pns)[0]['sid'] if pns else '')
+" 2>/dev/null)
     if [ -n "$PN_SID" ]; then
       curl -sf -X POST -u "$TWILIO_ACCOUNT_SID:$TWILIO_AUTH_TOKEN" \
         "https://api.twilio.com/2010-04-01/Accounts/$TWILIO_ACCOUNT_SID/IncomingPhoneNumbers/$PN_SID.json" \
@@ -357,34 +378,41 @@ if [ -n "$TUNNEL_URL" ]; then
         --data-urlencode "VoiceMethod=POST" \
         --data-urlencode "StatusCallback=$TUNNEL_URL/twilio/call-status" \
         --data-urlencode "StatusCallbackMethod=POST" > /dev/null
-      echo "      Twilio webhooks updated for $TWILIO_PHONE_NUMBER"
+      ok "Twilio webhooks updated for $TWILIO_PHONE_NUMBER"
     else
-      echo "      WARNING — could not find Twilio phone number SID"
+      warn "Could not find Twilio phone number SID — update webhooks manually."
     fi
+  else
+    warn "Twilio credentials not set — skipping webhook update."
   fi
 else
-  echo "      WARNING — tunnel URL not found. Check /tmp/cloudflared.log"
-  TUNNEL_URL="http://localhost:5173"
+  warn "Cloudflare tunnel URL not found. Check /tmp/cloudflared.log"
+  warn "Twilio webhooks NOT updated — calls won't work externally."
+  TUNNEL_URL="http://localhost:4000"
 fi
 
-# ── Done ──────────────────────────────────────────────────────
+# ── Final status ──────────────────────────────────────────────
 echo ""
-echo "══════════════════════════════════════════════════════════"
+echo "  ══════════════════════════════════════════════════════════"
 echo "  All services running!"
 echo ""
-echo "  App URL  : $TUNNEL_URL"
+printf "  %-12s %s\n" "Backend:"  "http://localhost:4000"
+printf "  %-12s %s\n" "Frontend:" "http://localhost:5173"
+printf "  %-12s %s\n" "STT:"      "http://localhost:8010"
+printf "  %-12s %s\n" "Pipeline:" "ws://localhost:8765"
+printf "  %-12s %s\n" "Tunnel:"   "$TUNNEL_URL"
+echo ""
 echo "  Login    : demo@example.com / demo123"
 echo ""
-echo "  Twilio webhook URLs (auto-updated):"
-echo "    Inbound  : $TUNNEL_URL/twilio/incoming-call"
-echo "    Status   : $TUNNEL_URL/twilio/call-status"
-echo "    Recording: $TUNNEL_URL/twilio/recording-complete"
+echo "  Twilio webhooks (auto-configured):"
+printf "  %-12s %s\n" "Inbound:"  "$TUNNEL_URL/twilio/incoming-call"
+printf "  %-12s %s\n" "Status:"   "$TUNNEL_URL/twilio/call-status"
 echo ""
 echo "  Logs:"
-echo "    Backend  → /tmp/backend.log"
-echo "    Frontend → /tmp/frontend.log"
-echo "    STT      → /tmp/stt-service.log"
-echo "    Pipeline → /tmp/pipeline.log"
-echo "    Tunnel   → /tmp/cloudflared.log"
-echo "══════════════════════════════════════════════════════════"
+printf "  %-12s %s\n" "Backend:"  "/tmp/backend.log"
+printf "  %-12s %s\n" "Frontend:" "/tmp/frontend.log"
+printf "  %-12s %s\n" "STT:"      "/tmp/stt-service.log"
+printf "  %-12s %s\n" "Pipeline:" "/tmp/pipeline.log"
+printf "  %-12s %s\n" "Tunnel:"   "/tmp/cloudflared.log"
+echo "  ══════════════════════════════════════════════════════════"
 echo ""
